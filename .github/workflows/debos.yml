@@ -47,6 +47,9 @@ jobs:
           sudo apt -y install incus
           sudo incus admin init --auto
 
+          echo "ANDY TEST"
+          /bin/false
+
       # create a fresh container build environment to decouple the build
       # operating system from the github runner one; install debos
       - name: Setup build environment
