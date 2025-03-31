@@ -118,8 +118,8 @@ jobs:
           dir="${FILESERVER_DIR}/${id}"
           mkdir -vp "${dir}"
           # copy output files
-          cp -v disk-4096.img "${dir}"
-          cp -v disk-512.img "${dir}"
+          cp -v disk-4096.img.gz "${dir}"
+          cp -v disk-512.img.gz "${dir}"
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${id}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"

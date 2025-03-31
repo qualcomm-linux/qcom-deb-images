@@ -95,3 +95,7 @@ actions:
       # enable unit
       systemctl enable debos-grow-rootfs
 
+  - action: run
+    postprocess: true
+    command: gzip -f "${ARTIFACTDIR}/{{ $image }}"
+
