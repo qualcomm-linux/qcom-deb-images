@@ -98,7 +98,10 @@ jobs:
               # qemu backend also requires to set scratchsize, otherwise
               # the whole build is done from memory and the out of memory
               # killer gets triggered
-              debos -b qemu --scratchsize 4GiB qualcomm-linux-debian-image.yaml
+              debos -b qemu --scratchsize 4GiB -t sectorsize:4096 \
+                  qualcomm-linux-debian-image.yaml
+              debos -b qemu --scratchsize 4GiB -t sectorsize:512 \
+                  qualcomm-linux-debian-image.yaml
           EOF
           ) | sudo incus exec "${INCUS_NAME}" -- sh
 
@@ -115,7 +118,8 @@ jobs:
           dir="${FILESERVER_DIR}/${id}"
           mkdir -vp "${dir}"
           # copy output files
-          cp -v disk.img "${dir}"
+          cp -v disk-4096.img "${dir}"
+          cp -v disk-512.img "${dir}"
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${id}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"

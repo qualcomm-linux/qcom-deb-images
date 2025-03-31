@@ -1,8 +1,10 @@
 {{- $dtb := or .dtb "firmware" }}
-{{- $image := or .image "disk.img" }}
 {{- $imagesize := or .imagesize "4GiB" }}
+{{- $sectorsize := or .sectorsize 512 }}
+{{- $image := or .image (printf "disk-%s.img" $sectorsize) }}
 
 architecture: arm64
+sectorsize: {{ $sectorsize }}
 
 actions:
   - action: unpack
