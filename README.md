@@ -13,7 +13,7 @@ main: Primary development branch. Contributors should develop submissions based 
 ## Requirements
 
 [debos](https://github.com/go-debos/debos) is required to build the debos recipes. Recent debos packages should be available in Debian and Ubuntu repositories; there are 
-[debos installation instructions](https://github.com/go-debos/debos?tab=readme-ov-file#installation-from-source-under-debian) on the project's page, notably for Docker images and to build debos from source.
+[debos installation instructions](https://github.com/go-debos/debos?tab=readme-ov-file#installation-from-source-under-debian) on the project's page, notably for Docker images and to build debos from source. Make sure to use at least version 1.1.5 which supports setting the sector size.
 
 [qdl](https://github.com/linux-msm/qdl) is typically used for flashing. While recent versions are available in Debian and Ubuntu, make sure you have at least version 2.1 as it contains important fixes.
 
@@ -21,7 +21,11 @@ main: Primary development branch. Contributors should develop submissions based 
 
 To build a disk image, run debos as follows:
 ```bash
-debos debos-recipes/qualcomm-linux-debian.yaml
+# build a root filesystem tarball
+debos debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
+# build a disk image from the root filesystem
+debos debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 ### Build backends
@@ -30,21 +34,24 @@ By default, debos will try to pick a fast build backend; it will try to use its 
 
 To build large images, the debos resource defaults might not be sufficient. Consider raising the default debos memory and scratchsize settings. This should provide a good set of minimum defaults:
 ```bash
-debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/qualcomm-linux-debian.yaml
+debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 ### Build options
 
-A few options are provided in the debos recipe:
-- image: set the output disk image filename; default: `disk.img`
-- imagesize: set the output disk image size; default: `4GiB`
-- dtb: override the firmware provided device tree with one from the linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
-- xfcedesktop: install a Xfce desktop environment; default: console only environment
+A few options are provided in the debos recipes; for the root filesystem recipe:
 - experimentalkernel: update the linux kernel to the version from experimental; default: don't update the kernel
+- xfcedesktop: install a Xfce desktop environment; default: console only environment
+
+For the image recipe:
+- dtb: override the firmware provided device tree with one from the linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
+- image: set the output disk image filename; default: `disk-4096.img`
+- imagesize: set the output disk image size; default: `4GiB`
 
 These can be passed as follows:
 ```bash
-debos -t dtb:qcom/qcs6490-rb3gen2.dtb -t xfcedesktop:true -t experimentalkernel:true debos-recipes/qualcomm-linux-debian.yaml
+debos -t xfcedesktop:true -t experimentalkernel:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos -t dtb:qcom/qcs6490-rb3gen2.dtb debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 ## Flashing Instructions
@@ -60,10 +67,6 @@ Depending on the target board and target boot media, it's also necessary to use 
 
 The RB3 Gen2 board boots from UFS by default. To flash a disk image to the UFS storage of the RB3 Gen2 board:
 1. provision some known good early boot assets by flashing the Yocto edition of [Qualcomm Linux](https://www.qualcomm.com/developer/software/qualcomm-linux)
-1. unless you've got a recent debos that supports creating images with a 4096B sector size, convert the debos disk image from 512B to 4096B sector sizes; this sample script can be used as a workaround until [debos gains support for setting the sector size](https://github.com/go-debos/debos/issues/537) but it's a britle approach which requires root, the workaround script is also full of hardcoded expectations and might need local tweaks:
-    ```bash
-    sudo scripts/workaround-convert-sector-size disk.img disk-4096.img 4096
-    ```
 1. create a `rawprogram-ufs.xml` file instructing QDL to flash to the first UFS LUN (LUN0):
     ```xml
     <?xml version="1.0" ?>
