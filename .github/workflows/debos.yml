@@ -62,23 +62,22 @@ jobs:
       # operating system from the github runner one; install debos
       - name: Setup build environment
         run: |
-           set -x
-           # privileged container as debos will use mounts
-           sudo incus init "${INCUS_IMAGE}" "${INCUS_NAME}" \
-               -c security.privileged=true -c security.nesting=true
-           sudo incus start "${INCUS_NAME}"
-           # wait for network to be up (prior to running apt)
-           sudo incus exec "${INCUS_NAME}" \
+          set -x
+          # privileged container as debos will use mounts
+          sudo incus init "${INCUS_IMAGE}" "${INCUS_NAME}" \
+              -c security.privileged=true -c security.nesting=true
+          sudo incus start "${INCUS_NAME}"
+          # wait for network to be up (prior to running apt)
+          sudo incus exec "${INCUS_NAME}" \
               /usr/lib/systemd/systemd-networkd-wait-online
-           (
-               # these commands are run inside the container
-               cat <<EOF
-               apt update
-               apt -y upgrade
-               apt -y full-upgrade
-               apt -y install debos
-           EOF
-           ) | sudo incus exec "${INCUS_NAME}" -- sh
+
+          # commands are piped to be run inside the container
+          sudo incus exec "${INCUS_NAME}" -- sh -e -x <<EOF
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+          apt -y install debos
+          EOF
 
       - name: Build debos recipe
         run: |
@@ -86,24 +85,23 @@ jobs:
           # mount current directory under /build
           sudo incus config device add "${INCUS_NAME}" build-dir \
               disk "source=${PWD}" path=/build shift=true
-          (
-              # these commands are run inside the container
-              cat <<EOF
-              cd /build
-              # start by building the root filesystem
-              debos qualcomm-linux-debian-rootfs.yaml
-              # debos tries KVM and UML as backends, and falls back to building
-              # directly on the host, but that requires loop devices; use
-              # qemu backend explicitly even if it's slower
-              # qemu backend also requires to set scratchsize, otherwise
-              # the whole build is done from memory and the out of memory
-              # killer gets triggered
-              debos -b qemu --scratchsize 4GiB -t sectorsize:4096 \
-                  qualcomm-linux-debian-image.yaml
-              debos -b qemu --scratchsize 4GiB -t sectorsize:512 \
-                  qualcomm-linux-debian-image.yaml
+
+          # commands are piped to be run inside the container
+          sudo incus exec "${INCUS_NAME}" -- sh -e -x <<EOF
+          cd /build
+          # start by building the root filesystem
+          debos qualcomm-linux-debian-rootfs.yaml
+          # debos tries KVM and UML as backends, and falls back to
+          # building directly on the host, but that requires loop
+          # devices; use qemu backend explicitly even if it's slower
+          # qemu backend also requires to set scratchsize, otherwise the
+          # whole build is done from memory and the out of memory killer
+          # gets triggered
+          debos -b qemu --scratchsize 4GiB -t sectorsize:4096 \
+              qualcomm-linux-debian-image.yaml
+          debos -b qemu --scratchsize 4GiB -t sectorsize:512 \
+              qualcomm-linux-debian-image.yaml
           EOF
-          ) | sudo incus exec "${INCUS_NAME}" -- sh
 
       - name: Upload artifacts to fileserver
         run: |
