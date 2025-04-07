@@ -42,7 +42,6 @@ jobs:
       image: debian:trixie
       volumes:
         - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/efs/qli/metaqcom/gh-runners/quic-yocto/builds
-        - ./:/build
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,15 +52,14 @@ jobs:
       - name: Update OS packages
         run: |
           set -ex
-          sudo apt update
-          sudo apt -y upgrade
-          sudo apt -y full-upgrade
-          sudo apt -y install debos
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+          apt -y install debos
 
       - name: Build debos recipe
         run: |
           set -ex
-          cd /build
           # debos tries KVM and UML as backends, and falls back to building
           # directly on the host, but that requires loop devices; use
           # qemu backend explicitly even if it's slower
