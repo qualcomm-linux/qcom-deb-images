@@ -39,7 +39,7 @@ jobs:
       - codebuild-QualcommLinux-Qcom-Deb-${{ github.run_id }}-${{ github.run_attempt }}
       - buildspec-override:true # This tells our self-hosted runner to upload artifacts
     container:
-      image: debian:trixie
+      image: public.ecr.aws/docker/library/debian:trixie
       volumes:
         - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/efs/qli/metaqcom/gh-runners/quic-yocto/builds
     steps:
