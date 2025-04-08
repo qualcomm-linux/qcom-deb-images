@@ -55,7 +55,10 @@ jobs:
           apt -y full-upgrade
           apt -y install debos
 
-      - name: Build debos recipe
+      # create a fresh container build environment to decouple the build
+      # operating system from the github runner one; install debos
+      - name: Setup build environment
+
         run: |
           set -ex
           # debos tries KVM and UML as backends, and falls back to building
