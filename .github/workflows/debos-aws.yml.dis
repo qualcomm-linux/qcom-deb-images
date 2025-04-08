@@ -1,0 +1,126 @@
+name: Build debos recipe
+
+on:
+  # run on pull requests to the main branch
+  pull_request:
+    branches: [main]
+  # run on pushes to the main branch
+  push:
+    branches: [main]
+  # run daily at 8:30am
+  schedule:
+    - cron: '30 8 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# only need permission to read repository; implicitely set all other
+# permissions to none
+permissions:
+  contents: read
+
+env:
+  # github runs are only unique per repository and may also be re-run; create a
+  # build id for the current run
+  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  FILESERVER_URL: https://quic-yocto-fileserver-1029608027416.us-central1.run.app
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debos:
+    runs-on: [self-hosted, arm64, debbuilder]
+    container:
+      image: debian:trixie
+      volumes:
+        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
+        - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
+      options: --privileged
+    steps:
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Copy Linux deb and U-Boot for RB1 from fileserver space for downloads
+        run: |
+          set -ux
+          mkdir -v debos-recipes/local-debs
+          dir="/fileserver-downloads/qcom-deb-images"
+          # copy linux-image but not the -dbg e.g.
+          # linux-image-6.15.0-..._6.15.0...-1_arm64.deb but not
+          # linux-image-6.15.0-...-dbg_6.15.0...-1_arm64.deb
+          find "${dir}/linux-deb-latest/" \
+              -name linux-image\*.deb \
+              -not -name linux-image\*-dbg_\*.deb \
+              -exec cp -av '{}' debos-recipes/local-debs/ \;
+          # copy U-Boot RB1 binary
+          cp -av "${dir}/u-boot-rb1-latest/rb1-boot.img" .
+
+      # mtools is needed for the flash recipe
+      - name: Install debos and dependencies of the recipes
+        run: apt -y install debos mtools
+
+      - name: Build rootfs with debos
+        run: |
+          set -ux
+          debos -t xfcedesktop:true -t localdebs:local-debs/ \
+              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
+      - name: Build UFS and SD card images with debos
+        run: |
+          set -ux
+          # debos tries KVM and UML as backends, and falls back to
+          # building directly on the host, but that requires loop
+          # devices; use qemu backend explicitly even if it's slower;
+          # qemu backend also requires to set scratchsize, otherwise the
+          # whole build is done from memory and the out of memory killer
+          # gets triggered
+          debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+              debos-recipes/qualcomm-linux-debian-image.yaml
+          debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+              debos-recipes/qualcomm-linux-debian-image.yaml
+
+      - name: Build flashable files with debos
+        run: |
+          set -ux
+          debos -t u_boot_rb1:rb1-boot.img \
+                 debos-recipes/qualcomm-linux-debian-flash.yaml
+
+      - name: Upload artifacts to fileserver space for builds
+        run: |
+          set -ux
+          # curl will be used to talk to fileserver; should be installed by
+          # default
+          apt -y install curl
+          # create a directory for the current run
+          dir="/fileserver-builds/${BUILD_ID}"
+          mkdir -vp "${dir}"
+          # copy output files
+          cp -av rootfs.tar.gz "${dir}"
+          cp -av dtbs.tar.gz "${dir}"
+          cp -av disk-ufs.img.gz "${dir}"
+          cp -av disk-sdcard.img.gz "${dir}"
+          # TODO: separate flash_* directories between UFS and eMMC
+          tar -cvf "${dir}"/flash-ufs.tar.gz \
+              disk-ufs.img1 \
+              disk-ufs.img2 \
+              flash_rb3*
+          tar -cvf "${dir}"/flash-emmc.tar.gz \
+              disk-sdcard.img1 \
+              disk-sdcard.img2 \
+              flash_rb1*
+          # instruct fileserver to publish this directory
+          url="${FILESERVER_URL}/${BUILD_ID}/"
+          curl -X POST -H 'Accept: text/event-stream' "${url}"
+
