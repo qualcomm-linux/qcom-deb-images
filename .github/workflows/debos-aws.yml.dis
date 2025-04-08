@@ -1,4 +1,4 @@
-name: Build debos recipe
+name: Build debos recipe in AWS
 
 on:
   # run on pull requests to the main branch
@@ -31,12 +31,14 @@ concurrency:
 
 jobs:
   build-debos:
-    runs-on: [self-hosted, arm64, debbuilder]
+    runs-on:
+      - codebuild-QualcommLinux-Arm64-${{ github.run_id }}-${{ github.run_attempt }}
+      - instance-size:arm1.medium
     container:
-      image: debian:trixie
+      image: public.ecr.aws/docker/library/debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
-        - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/fileserver-builds
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
     steps:
       # make sure we have latest packages first, to get latest fixes and to
@@ -122,5 +124,5 @@ jobs:
               flash_rb1*
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${BUILD_ID}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
-
+          # curl -X POST -H 'Accept: text/event-stream' "${url}"
+          echo "TODO - get github action for artifact publishing in place"
