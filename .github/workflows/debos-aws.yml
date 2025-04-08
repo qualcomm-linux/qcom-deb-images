@@ -12,8 +12,7 @@ on:
     - cron: '30 8 * * *'
   # allow manual runs
   workflow_dispatch:
-
-# only need permission to read repository; implicitely set all other
+  # only need permission to read repository; implicitely set all other
 # permissions to none
 permissions:
   contents: read
