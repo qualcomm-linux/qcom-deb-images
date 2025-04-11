@@ -95,4 +95,31 @@ jobs:
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${id}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"
+      - name: Prepare LAVA test job
+        run: |
+          id="${GITHUB_REPOSITORY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          url="${FILESERVER_URL}/${id}/"
+          BUILD_FILE_NAME=flash.tar.gz
+          BUILD_DOWNLOAD_URL="${url}${BUILD_FILE_NAME}"
+
+          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" "ci/lava/rb3gen2-vision-kit-boot.yaml"
+          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "ci/lava/rb3gen2-vision-kit-boot.yaml"
+          cat "ci/lava/rb3gen2-vision-kit-boot.yaml"
+
+      - name: Submit LAVA job
+        timeout-minutes: 30
+        uses: foundriesio/lava-action@v6
+        with:
+          lava_token: ${{ secrets.LAVATOKEN }}
+          lava_url: 'lava.infra.foundries.io'
+          job_definition: ${{ matrix.target }}
+          wait_for_job: true
+          fail_action_on_failure: false
+          save_result_as_artifact: true
+          save_job_details: true
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: "${{ github.workspace }}/artifacts/**/*.xml"
 
