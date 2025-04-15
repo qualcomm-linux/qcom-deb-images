@@ -101,10 +101,14 @@ jobs:
           url="${FILESERVER_URL}/${id}/"
           BUILD_FILE_NAME=flash.tar.gz
           BUILD_DOWNLOAD_URL="${url}${BUILD_FILE_NAME}"
+          LAVA_JOB_FILE="../ci/lava/rb3gen2-vision-kit-boot.yaml"
 
-          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" "../ci/lava/rb3gen2-vision-kit-boot.yaml"
-          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "../ci/lava/rb3gen2-vision-kit-boot.yaml"
-          cat "../ci/lava/rb3gen2-vision-kit-boot.yaml"
+          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" ${LAVA_JOB_FILE}
+          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" ${LAVA_JOB_FILE}
+          sed -i "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" ${LAVA_JOB_FILE}
+          sed -i "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" ${LAVA_JOB_FILE}
+          cat ${LAVA_JOB_FILE}
+          echo "LAVA_JOB_FILE=${LAVA_JOB_FILE}" >> "$GITHUB_ENV"
 
       - name: Submit LAVA job
         timeout-minutes: 30
@@ -112,7 +116,7 @@ jobs:
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ matrix.target }}
+          job_definition: ${LAVA_JOB_FILE}
           wait_for_job: true
           fail_action_on_failure: false
           save_result_as_artifact: true
