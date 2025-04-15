@@ -33,10 +33,15 @@ actions:
 - boot:
     auto_login:
       login_prompt: 'login:'
-      username: root
+      username: debian
+      password_prompt: 'Password:'
+      password: debian
+      login_commands:
+      - sudo su
     method: minimal
     prompts:
     - root@debian
+    - debian@debian
     timeout:
       minutes: 3
 - test:

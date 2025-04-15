@@ -102,9 +102,9 @@ jobs:
           BUILD_FILE_NAME=flash.tar.gz
           BUILD_DOWNLOAD_URL="${url}${BUILD_FILE_NAME}"
 
-          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" "ci/lava/rb3gen2-vision-kit-boot.yaml"
-          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "ci/lava/rb3gen2-vision-kit-boot.yaml"
-          cat "ci/lava/rb3gen2-vision-kit-boot.yaml"
+          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" "../ci/lava/rb3gen2-vision-kit-boot.yaml"
+          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "../ci/lava/rb3gen2-vision-kit-boot.yaml"
+          cat "../ci/lava/rb3gen2-vision-kit-boot.yaml"
 
       - name: Submit LAVA job
         timeout-minutes: 30
