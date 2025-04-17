@@ -1,0 +1,125 @@
+architecture: arm64
+
+actions:
+  - action: download
+    description: Download qcom-ptool
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/refs/heads/main.tar.gz
+    name: qcom-ptool
+    filename: qcom-ptool.tar.gz
+    unpack: true
+
+  - action: download
+    description: Download QCM6490 boot binaries
+    url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00058.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
+    name: qcm6490_boot-binaries
+    filename: qcm6490_boot-binaries.zip
+
+  - action: download
+    description: Download RB3 Gen2 Vision Kit CDT
+    url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
+    name: rb3gen2-vision-kit_cdt
+    filename: rb3gen2-vision-kit_cdt.zip
+
+  - action: run
+    description: Generate flash directories for UFS boards
+    chroot: false
+    command: |
+      set -eux
+      # work dir that will be thrown away
+      mkdir -v build
+
+      # path to unpacked qcom-ptool tarball
+      QCOM_PTOOL="${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-main"
+
+      ## platform: QCM6490
+      # unpack boot binaries
+      unzip -j "${ROOTDIR}/../qcm6490_boot-binaries.zip" \
+          -d build/qcm6490_boot-binaries
+      # generate partition files
+      mkdir -v build/qcm6490_partitions
+      (
+          cd build/qcm6490_partitions
+          conf="${QCOM_PTOOL}/platforms/qcm6490/partitions.conf"
+          "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
+              -o ptool-partitions.xml
+          # partitions.conf sets --type=emmc, nand or ufs
+          if grep -F '^--disk --type=ufs ' "${conf}"; then
+              touch flash-ufs
+          fi
+          "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
+      )
+
+      ### board: RB3Gen2 Vision Kit
+      flash_dir="${ARTIFACTDIR}/flash_rb3gen2-vision-kit"
+      rm -rf "${flash_dir}"
+      mkdir -v "${flash_dir}"
+      # copy platform partition files
+      cp --preserve=mode,timestamps -v build/qcm6490_partitions/* \
+          "${flash_dir}"
+      # copy platform boot binaries; these shouldn't ship partition files, but
+      # make sure not to accidentally clobber any such file
+      find build/qcm6490_boot-binaries \
+          -not -name 'gpt_*' \
+          -not -name 'patch*.xml' \
+          -not -name 'rawprogram*.xml' \
+          -not -name 'wipe*.xml' \
+          -not -name 'zeros_*' \
+          \( \
+              -name Qualcomm-Technologies-Inc.-Proprietary \
+              -or -name 'prog_*' \
+              -or -name '*.bin' \
+              -or -name '*.elf' \
+              -or -name '*.fv' \
+              -or -name '*.mbn' \
+          \) \
+          -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
+      # unpack board CDT
+      unzip -j "${ROOTDIR}/../rb3gen2-vision-kit_cdt.zip" \
+          -d build/rb3gen2-vision-kit_cdt
+      # copy just the CDT data; no partition or flashing files
+      cp --preserve=mode,timestamps -v build/rb3gen2-vision-kit_cdt/cdt_vision_kit.bin \
+          "${flash_dir}"
+
+      # update flashing files for CDT
+      sed -i '/label="cdt"/s/filename=""/filename="cdt_vision_kit.bin"/' \
+          "${flash_dir}"/rawprogram*.xml
+
+      # generate a dtb.bin FAT partition with just a single dtb for the current
+      # board; long-term this should really be a set of dtbs and overlays as to
+      # share dtb.bin across boards
+      dtb_bin="${flash_dir}/dtb.bin"
+      rm -f "${dtb_bin}"
+      # dtb.bin is only used in UFS based boards at the moment and UFS uses a
+      # 4k sector size, so pass -S 4096
+      # in qcom-ptool/platforms/*/partitions.conf, dtb_a and _b partitions
+      # are provisioned with 64MiB; create a 4MiB FAT that will comfortably fit
+      # in these and hold the target device tree, which is 4096 KiB sized
+      # blocks for mkfs.vfat's last argument
+      mkfs.vfat -S 4096 -C "${dtb_bin}" 4096
+      # RB3 Gen2 Vision Kit will probably have a more specific DTB (see
+      # <20241204100003.300123-6-quic_vikramsa@quicinc.com> on lore.kernel.org)
+      # but for now use the core kit one
+      dtb="qcom/qcs6490-rb3gen2.dtb"
+      # extract board device tree from the root filesystem provided tarball
+      tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "${dtb}"
+      # copy into the FAT as combined-dtb.dtb
+      mcopy -vmp -i "${dtb_bin}" "build/${dtb}" ::/combined-dtb.dtb
+
+      # (NB: flashing files already expect "dtb.bin" as a filename)
+
+      # update flashing files for ESP image;
+      # qcom-ptool/platforms/*/partitions.conf uses filename=efi.bin for the
+      # ESP partition on EFI capable platforms
+      sed -i '/label="efi"/s#filename="[^"]*"#filename="../disk-ufs.img1"#' \
+          "${flash_dir}"/rawprogram*.xml
+
+      # update flashing files for rootfs image;
+      # qcom-ptool/platforms/*/partitions.conf uses filename=rootfs.img for the
+      # rootfs partition
+      sed -i \
+          '/label="rootfs"/s#filename="[^"]*"#filename="../disk-ufs.img2"#' \
+          "${flash_dir}"/rawprogram*.xml
+
+      # cleanup
+      rm -rf build
+
