@@ -1,6 +1,9 @@
 name: Build debos recipe in AWS
 
 on:
+  # allow manual runs
+  workflow_dispatch:
+
   # run on pull requests to the main branch
   pull_request:
     branches: [main]
@@ -8,10 +11,9 @@ on:
   push:
     branches: [main]
   # run daily at 8:30am
-  schedule:
-    - cron: '30 8 * * *'
-  # allow manual runs
-  workflow_dispatch:
+  #schedule:
+  #  - cron: '30 8 * * *'
+
   # only need permission to read repository; implicitely set all other
 # permissions to none
 permissions:
@@ -24,8 +26,8 @@ defaults:
 
 env:
   BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
-  FILESERVER_DIR: /efs/qli/metaqcom/gh-runners/quic-yocto/builds
-  FILESERVER_URL: "https://artifactory-qdc-global.qualcomm.com/artifactory/pdlm-qcomlinux-generic-lv-fed/QualcommLinuxPrd/qualcomm-linux/meta-qcom/${BUILD_ID}"
+  FILESERVER_DIR: /efs/${{ github.repository }}
+  FILESERVER_URL: "https://artifactory-qdc-global.qualcomm.com/artifactory/pdlm-qcomlinux-generic-lv-fed/QualcommLinuxPrd"
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -35,12 +37,13 @@ concurrency:
 jobs:
   build-debos-aws:
     runs-on:
-      - codebuild-QualcommLinux-Qcom-Deb-${{ github.run_id }}-${{ github.run_attempt }}
+      - codebuild-QualcommLinux-Arm64-${{ github.run_id }}-${{ github.run_attempt }}
       - buildspec-override:true # This tells our self-hosted runner to upload artifacts
     container:
       image: public.ecr.aws/docker/library/debian:trixie
       volumes:
-        - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/efs/qli/metaqcom/gh-runners/quic-yocto/builds
+      #  - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/efs/qli/metaqcom/gh-runners/quic-yocto/builds
+        - /efs/${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,4 +81,4 @@ jobs:
           mkdir -vp "${dir}"
           # Files placed under ${dir} will be published internally
           cp -v disk.img "${dir}"
-
+          
