@@ -1,0 +1,84 @@
+name: Build debos recipe in AWS
+
+on:
+  # allow manual runs
+  workflow_dispatch:
+
+  # run on pull requests to the main branch
+  pull_request:
+    branches: [main]
+  # run on pushes to the main branch
+  push:
+    branches: [main]
+  # run daily at 8:30am
+  #schedule:
+  #  - cron: '30 8 * * *'
+
+  # only need permission to read repository; implicitely set all other
+# permissions to none
+permissions:
+  contents: read
+
+defaults:
+  # run all commands from the debos-recipes directory
+  run:
+    working-directory: debos-recipes
+
+env:
+  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  FILESERVER_DIR: /efs/${{ github.repository }}
+  FILESERVER_URL: "https://artifactory-qdc-global.qualcomm.com/artifactory/pdlm-qcomlinux-generic-lv-fed/QualcommLinuxPrd"
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debos-aws:
+    runs-on:
+      - codebuild-QualcommLinux-Arm64-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true # This tells our self-hosted runner to upload artifacts
+    container:
+      image: public.ecr.aws/docker/library/debian:trixie
+      volumes:
+      #  - /efs/qli/metaqcom/gh-runners/quic-yocto/builds:/efs/qli/metaqcom/gh-runners/quic-yocto/builds
+        - /efs/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ex
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+          apt -y install debos
+
+      - name: Build debos recipe
+        run: |
+          set -ex
+          # debos tries KVM and UML as backends, and falls back to building
+          # directly on the host, but that requires loop devices; use
+          # qemu backend explicitly even if it's slower
+          # qemu backend also requires to set scratchsize, otherwise
+          # the whole build is done from memory and the out of memory
+          # killer gets triggered
+          debos -b qemu --scratchsize 4GiB qualcomm-linux-debian.yaml
+
+      - name: Stage image for publishing
+        run: |
+          set -ex
+          # github runs are only unique per repository and may also be re-run;
+          # create an unique id with repository, run id, and run attempt
+          id="${GITHUB_REPOSITORY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # create a directory for the current run
+          dir="${FILESERVER_DIR}/${id}"
+          mkdir -vp "${dir}"
+          # Files placed under ${dir} will be published internally
+          cp -v disk.img "${dir}"
+          

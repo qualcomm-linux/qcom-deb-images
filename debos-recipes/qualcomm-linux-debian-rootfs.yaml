@@ -1,6 +1,3 @@
-{{- $image := or .image "disk.img" }}
-{{- $imagesize := or .imagesize "4GiB" }}
-{{- $dtb := or .dtb "firmware" }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $experimentalkernel := or .experimentalkernel "false" }}
 
@@ -8,6 +5,7 @@ architecture: arm64
 
 actions:
   - action: debootstrap
+    description: Bootstrap initial filesystem
     # NB: not currently configurable
     suite: trixie
     components:
@@ -21,8 +19,10 @@ actions:
     description: Modernize APT sources
     chroot: true
     command: |
-      apt modernize-sources -y
-      rm /etc/apt/sources.list.bak
+      set -eux
+      apt -y modernize-sources
+      rm -v /etc/apt/sources.list.bak
+
   - action: apt
     description: Install foundational packages
     recommends: true
@@ -50,14 +50,16 @@ actions:
     description: Set hostname to "debian"
     chroot: true
     command: |
+      set -eux
       echo debian >/etc/hostname
       # /etc/hosts is created by netbase
       sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
+
   - action: run
     description: Add a "debian" user, add it to sudoers and various groups
     chroot: true
     command: |
-      set -eu
+      set -eux
       # pre-emptively create a sudo group if sudo isn't installed
       getent group sudo >/dev/null 2>&1 || groupadd --system sudo
       # some of these groups are only needed for desktop scenarios
@@ -67,7 +69,8 @@ actions:
       chage --lastday 0 debian
       echo debian:debian | chpasswd
       # add to sudoers
-      mkdir --mode 755 --parents /etc/sudoers.d
+      mkdir -v --mode 755 --parents /etc/sudoers.d
+      # subshell to override umask
       (
         umask 226
         echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
@@ -147,22 +150,12 @@ actions:
     description: Set default locale
     chroot: true
     command: |
-      set -eu
+      set -eux
       if which locale-gen >/dev/null 2>&1; then
           echo en_US.UTF-8 UTF-8 >>/etc/locale.gen
           locale-gen en_US.UTF-8 UTF-8
           update-locale LANG=en_US.UTF-8
       fi
-
-{{- if ne $dtb "firmware" }}
-  - action: run
-    description: Use OS device tree override (board specific)
-    chroot: true
-    command: |
-      set -eu
-      mkdir -p /etc/kernel
-      echo {{ $dtb }} >/etc/kernel/devicetree
-{{- end }}
 
   - action: apt
     description: Install kernel and firmware packages
@@ -180,7 +173,7 @@ actions:
     description: Install Linux kernel from experimental
     chroot: true
     command: |
-      set -eu
+      set -eux
       # add experimental APT sources
       cat >/etc/apt/sources.list.d/debian-experimental.sources <<EOF
       Types: deb
@@ -191,82 +184,31 @@ actions:
       EOF
       # update and install kernel from experimental
       apt update
-      apt install -y -t experimental linux-image-arm64
+      apt -y install -t experimental linux-image-arm64
       # disable experimental from APT sources
       sed -i "1s/^/Enabled: no\n/" \
           /etc/apt/sources.list.d/debian-experimental.sources
 {{- end }}
 
-  # parttype values are from:
-  # https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
-  - action: image-partition
-    description: Create an image file
-    imagename: {{ $image }}
-    imagesize: {{ $imagesize }}
-    partitiontype: gpt
-    partitions:
-      - name: esp
-        partlabel: ESP
-        flags: [ boot, esp ]
-        # EFI System Partition
-        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-        fs: vfat
-        start: 4MiB
-        # size of 512MiB
-        end: 516MiB
-        fsck: true
-      - name: root
-        # Root Partition (64-bit ARM/AArch64)
-        parttype: b921b045-1df0-41c3-af44-4c6f280d3fae
-        fs: ext4
-        # 4MiB after ESP
-        start: 520MiB
-        end: 100%
-        fsck: true
-    mountpoints:
-      - mountpoint: /boot/efi/
-        partition: esp
-      - mountpoint: /
-        partition: root
-
-  # XXX these kernel options might be specific to a kernel version or board
-  - action: filesystem-deploy
-    setup-fstab: true
-    append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
-
-  - action: apt
-    recommends: true
-    description: Make system bootable with systemd-boot
-    packages:
-      - systemd-boot
-      # TODO investigate why systemd-boot Recommends: shim-signed which
-      # Depends on grub packages
-      - shim-signed-
-
   - action: run
-    description: Create task to grow root filesystem on first boot
-    chroot: true
+    description: Create DTBs tarball
+    chroot: false
     command: |
-      set -eu
-      # for growpart
-      apt -y install cloud-guest-utils
-      # extract the dev of the root filesystem from fstab; change UUID=id into
-      # /dev/disk/by-uuid/id
-      ROOTFS_DEV=$(
-          awk '$2 == "/" {gsub("UUID=", "/dev/disk/by-uuid/"); print $1}' \
-              /etc/fstab
-          )
-      # generate systemd unit to grow the second partition with above UUID
-      cat >/etc/systemd/system/debos-grow-rootfs.service <<EOF
-      [Unit]
-      Description=Grow root partition and filesystem (debos)
-      [Service]
-      Type=oneshot
-      ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` 2'
-      ExecStart=resize2fs $ROOTFS_DEV
-      [Install]
-      WantedBy=default.target
-      EOF
-      # enable unit
-      systemctl enable debos-grow-rootfs
+      set -eux
+      # find the highest kernel version installed; kernels are backwards
+      # compatible with older dtbs, so it would make sense to take dtbs from
+      # the oldest available kernel as to allow all kernels to boot, but if
+      # this image has pulled a more recent kernel, it's probably to gain
+      # support for new hardware which would happen through new or updated dtbs
+      # only in that new kernel, so use the latest dtbs
+      latest_kernel="$(
+          ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      tar -C "${latest_kernel}" -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          qcom/qcs6490-rb3gen2.dtb \
+          qcom/qrb2210-rb1.dtb
+
+  - action: pack
+    description: Create root filesystem tarball
+    file: rootfs.tar.gz
+    compression: gz
 
