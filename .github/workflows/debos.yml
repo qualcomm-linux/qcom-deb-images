@@ -56,8 +56,7 @@ jobs:
           # recipe
           apt -y install debos mtools
 
-      - name: Build debos recipe
-        run: |
+    run: |
           set -x
           # start by building the root filesystem
           debos qualcomm-linux-debian-rootfs.yaml
@@ -74,7 +73,7 @@ jobs:
           # build flashable files
           debos qualcomm-linux-debian-flash.yaml
 
-      - name: Upload artifacts to fileserver
+  - name: Stage image for publishing
         run: |
           set -x
           # curl will be used to talk to fileserver; should be installed by
