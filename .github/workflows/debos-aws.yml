@@ -1,0 +1,100 @@
+name: Build debos recipe in AWS
+
+on:
+  # run on pull requests to the main branch
+  pull_request:
+    branches: [main]
+  # run on pushes to the main branch
+  push:
+    branches: [main]
+  # run daily at 8:30am
+  schedule:
+    - cron: '30 8 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# only need permission to read repository; implicitely set all other
+# permissions to none
+permissions:
+  contents: read
+
+defaults:
+  # run all commands from the debos-recipes directory
+  run:
+    working-directory: debos-recipes
+
+#env:
+#  FILESERVER_URL: https://quic-yocto-fileserver-1029608027416.us-central1.run.app
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debos:
+    runs-on: 
+      - codebuild-QualcommLinux-Arm64-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true #This tells our self-hosted runner to upload artifactscontainer:
+    container:
+      image: public.ecr.aws/docker/library/debian:trixie
+      volumes:
+        - /efs/qualcomm-linux/qcom-deb-images:/fileserver-builds
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -x
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+          # debos is needed to build recipes, mtools is needed for the flash
+          # recipe
+          apt -y install debos mtools
+
+      - name: Build debos recipe
+        run: |
+          set -x
+          # start by building the root filesystem
+          debos qualcomm-linux-debian-rootfs.yaml
+          # debos tries KVM and UML as backends, and falls back to
+          # building directly on the host, but that requires loop
+          # devices; use qemu backend explicitly even if it's slower
+          # qemu backend also requires to set scratchsize, otherwise the
+          # whole build is done from memory and the out of memory killer
+          # gets triggered
+          debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+              qualcomm-linux-debian-image.yaml
+          debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+              qualcomm-linux-debian-image.yaml
+          # build flashable files
+          debos qualcomm-linux-debian-flash.yaml
+
+      - name: Upload artifacts to fileserver
+        run: |
+          set -x
+          # curl will be used to talk to fileserver; should be installed by
+          # default
+          apt -y install curl
+          # github runs are only unique per repository and may also be re-run;
+          # create an unique id with repository, run id, and run attempt
+          id="${GITHUB_REPOSITORY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # create a directory for the current run
+          dir="/fileserver-builds/${id}"
+          mkdir -vp "${dir}"
+          # copy output files
+          cp -av rootfs.tar.gz "${dir}"
+          cp -av dtbs.tar.gz "${dir}"
+          cp -av disk-ufs.img.gz "${dir}"
+          cp -av disk-sdcard.img.gz "${dir}"
+          tar -cvf "${dir}"/flash.tar.gz disk-ufs.img1 disk-ufs.img2 flash_*
+          # instruct fileserver to publish this directory
+          url="${FILESERVER_URL}/${id}/"
+          curl -X POST -H 'Accept: text/event-stream' "${url}"
+
