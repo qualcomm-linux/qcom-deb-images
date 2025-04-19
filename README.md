@@ -111,55 +111,47 @@ The RB1 board boots from eMMC by default and uses an Android style boot architec
 
 #### Build disk-sdcard.img with debos
 As above, build a SD card image as it's using a 512 sector size, like eMMC on the RB1:
-    ```bash
-    debos \
-        --fakemachine-backend qemu \
-        --memory 1GiB \
-        --scratchsize 4GiB \
-        -t xfcedesktop:true \
-        debos-recipes/qualcomm-linux-debian-rootfs.yaml
-    debos \
-        --fakemachine-backend qemu \
-        --memory 1GiB \
-        --scratchsize 4GiB \
-        -t dtb:qcom/qrb2210-rb1.dtb \
-        -t imagetype:sdcard \
-        debos-recipes/qualcomm-linux-debian-image.yaml
-    ```
+```bash
+debos \
+    --fakemachine-backend qemu \
+    --memory 1GiB \
+    --scratchsize 4GiB \
+    -t xfcedesktop:true \
+    debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos \
+    --fakemachine-backend qemu \
+    --memory 1GiB \
+    --scratchsize 4GiB \
+    -t dtb:qcom/qrb2210-rb1.dtb \
+    -t imagetype:sdcard \
+    debos-recipes/qualcomm-linux-debian-image.yaml
+```
 
 #### Build U-Boot with RB1 support
 
 U-Boot will be chainloaded from the first Android boot partition.
 
-1. install build-dependencies to build U-Boot and to generate Android boot images
-    ```bash
-    sudo apt install git build-essential crossbuild-essential-arm64 flex bison libssl-dev gnutls-dev mkbootimg
-    ```
+A convenience shell script is provided to checkout the relevant U-Boot branch and to build U-Boot for RB1 and wrap it in an Android boot image.
 
-1. get the qcom-mainline branch from Sumit Garg's U-Boot repository ([upstream submission](https://patchwork.ozlabs.org/project/uboot/list/?series=451544))
-    ```bash
-    git clone -b qcom-mainline https://github.com/b49020/u-boot/
-    ```
+```bash
+sudo apt install git build-essential crossbuild-essential-arm64 flex bison \
+    libssl-dev gnutls-dev mkbootimg
 
-1. build U-Boot and pack it into an Android boot image with the RB1 DTB
-    ```bash
-    make qcom_defconfig
-    make -j`nproc` DEVICE_TREE=qcom/qrb2210-rb1
-    gzip u-boot-nodtb.bin
-    cat u-boot-nodtb.bin.gz dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb >u-boot-nodtb.bin.gz-dtb
-    mkbootimg --base 0x80000000 --pagesize 4096 --kernel u-boot-nodtb.bin.gz-dtb  --cmdline "root=/dev/notreal" --ramdisk u-boot.bin --output rb1-boot.img
-    ```
+scripts/build-u-boot-rb1.sh
+```
 
 #### Build an upstream Linux kernel to workaround boot issues
 
 Linux 6.14 or later will just work, but 6.13 kernels need `CONFIG_CLK_QCM2290_GPUCC=m` ([upstream submission](https://lore.kernel.org/linux-arm-msm/20250214-rb1-enable-gpucc-v1-1-346b5b579fca@linaro.org/))
 
-1. install build-dependencies, get latest kernel (or a stable one)
+In any case, make sure to set `CONFIG_EFI_ZBOOT=y` as [systemd-boot won't implement support for compressed images (zImage)](https://github.com/systemd/systemd/issues/23788).
+
+1. A convenience shell script is provided to checkout the latest kernel and build a deb package from it with the above config.
     ```bash
-    sudo apt install git flex bison bc libelf-dev libssl-dev
-    git clone --depth=1  https://github.com/torvalds/linux
-    make defconfig
-    make deb-pkg -j$(nproc)
+    sudo apt install git crossbuild-essential-arm64 make flex bison bc \
+        libelf-dev libssl-dev dpkg-dev debhelper-compat kmod python3 rsync \
+        coreutils
+    scripts/build-linux-deb.sh
     ```
 
 1. on an arm64 capable machine, chroot into the disk image's root filesystem, mount the ESP and install the kernel
