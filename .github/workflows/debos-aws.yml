@@ -96,5 +96,6 @@ jobs:
           tar -cvf "${dir}"/flash.tar.gz disk-ufs.img1 disk-ufs.img2 flash_*
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${id}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
+          echo "Image Location : $url"
+          # curl -X POST -H 'Accept: text/event-stream' "${url}"
 
