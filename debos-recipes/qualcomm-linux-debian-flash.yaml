@@ -56,6 +56,12 @@ actions:
       # copy platform partition files
       cp --preserve=mode,timestamps -v build/qcm6490_partitions/* \
           "${flash_dir}"
+      # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
+      # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
+      # ptool should have a flag not to generate these; note that there are
+      # wipe_rawprogram*.xml files still
+      rm -v "${flash_dir}"/rawprogram*_BLANK_GPT.xml
+      rm -v "${flash_dir}"/rawprogram*_WIPE_PARTITIONS.xml
       # copy platform boot binaries; these shouldn't ship partition files, but
       # make sure not to accidentally clobber any such file
       find build/qcm6490_boot-binaries \
