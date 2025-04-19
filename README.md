@@ -144,12 +144,14 @@ scripts/build-u-boot-rb1.sh
 
 Linux 6.14 or later will just work, but 6.13 kernels need `CONFIG_CLK_QCM2290_GPUCC=m` ([upstream submission](https://lore.kernel.org/linux-arm-msm/20250214-rb1-enable-gpucc-v1-1-346b5b579fca@linaro.org/))
 
-1. install build-dependencies, get latest kernel (or a stable one)
+In any case, make sure to set `CONFIG_EFI_ZBOOT=y` as [systemd-boot won't implement support for compressed images (zImage)](https://github.com/systemd/systemd/issues/23788).
+
+1. A convenience shell script is provided to checkout the latest kernel and build a deb package from it with the above config.
     ```bash
-    sudo apt install git flex bison bc libelf-dev libssl-dev
-    git clone --depth=1  https://github.com/torvalds/linux
-    make defconfig
-    make deb-pkg -j$(nproc)
+    sudo apt install git crossbuild-essential-arm64 make flex bison bc \
+        libelf-dev libssl-dev dpkg-dev debhelper-compat kmod python3 rsync \
+        coreutils
+    scripts/build-linux-deb.sh
     ```
 
 1. on an arm64 capable machine, chroot into the disk image's root filesystem, mount the ESP and install the kernel
