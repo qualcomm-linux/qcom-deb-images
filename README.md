@@ -136,7 +136,7 @@ U-Boot will be chainloaded from the first Android boot partition.
     sudo apt install git build-essential crossbuild-essential-arm64 flex bison libssl-dev gnutls-dev mkbootimg
     ```
 
-1. get the qcom-mainline branch from Sumit Garg's U-Boot repository ([upstream submission](https://patchwork.ozlabs.org/project/uboot/list/?series=451544))
+1. get the qcom-mainline branch from Sumit Garg's U-Boot repository ([upstream submission](https://lore.kernel.org/u-boot/20250410080027.208674-1-sumit.garg@kernel.org/))
     ```bash
     git clone -b qcom-mainline https://github.com/b49020/u-boot/
     ```
