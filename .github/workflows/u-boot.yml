@@ -1,0 +1,96 @@
+name: Build U-Boot for RB1
+
+on:
+  # run on pull requests to the main branch
+  pull_request:
+    branches: [main]
+  # run on pushes to the main branch
+  push:
+    branches: [main]
+  # run weekly on Monday at 8:30am
+  schedule:
+    - cron: '30 8 * * 1'
+  # allow manual runs
+  workflow_dispatch:
+
+# only need permission to read repository; implicitely set all other
+# permissions to none
+permissions:
+  contents: read
+
+env:
+  # where results will be posted/hosted
+  FILESERVER_URL: https://quic-yocto-fileserver-1029608027416.us-central1.run.app
+  # github runs are only unique per repository and may also be re-run; create a
+  # build id for the current run
+  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-u-boot-rb1:
+    # for cross-builds
+    runs-on: [self-hosted, x86]
+    # alternative for native builds, but overkill to do both
+    #runs-on: [self-hosted, arm64, debbuilder]
+    container:
+      image: debian:trixie
+      volumes:
+        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # make sure we have latest packages first, to get latest fixes, to avoid
+      # an automated update while we're building, and to prevent version skews
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - name: Build U-Boot Android boot image for RB1
+        run: |
+            set -ux
+            # install build-dependencies
+            apt -y install git crossbuild-essential-arm64 make bison flex bc \
+                libssl-dev gnutls-dev xxd coreutils gzip mkbootimg
+            scripts/build-u-boot-rb1.sh
+
+      - name: Upload results to fileserver
+        run: |
+          set -ux
+          # curl will be used to talk to fileserver; should be installed by
+          # default
+          apt -y install curl
+          # create directory for results on fileserver
+          dir="/fileserver-builds/${BUILD_ID}"
+          mkdir -vp "${dir}"
+          # copy output files
+          cp -av \
+              u-boot/u-boot-nodtb.bin.gz \
+              u-boot/dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb \
+              u-boot/u-boot-nodtb.bin.gz-dtb \
+              u-boot/u-boot.bin \
+              u-boot/rb1-boot.img \
+              "${dir}"
+          # instruct fileserver to publish this directory
+          url="${FILESERVER_URL}/${BUILD_ID}/"
+          curl -X POST -H 'Accept: text/event-stream' "${url}"
+          # save directory and URL of these results
+          echo "${dir}" >u-boot-rb1.dir
+          echo "${url}" >u-boot-rb1.url
+
+      - name: Save links to build results as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-rb1-links
+          path: |
+           u-boot-rb1.dir
+           u-boot-rb1.url
+
