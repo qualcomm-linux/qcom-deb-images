@@ -131,24 +131,14 @@ debos \
 
 U-Boot will be chainloaded from the first Android boot partition.
 
-1. install build-dependencies to build U-Boot and to generate Android boot images
-    ```bash
-    sudo apt install git build-essential crossbuild-essential-arm64 flex bison libssl-dev gnutls-dev mkbootimg
-    ```
+A convenience shell script is provided to checkout the relevant U-Boot branch and to build U-Boot for RB1 and wrap it in an Android boot image.
 
-1. get the qcom-mainline branch from Sumit Garg's U-Boot repository ([upstream submission](https://lore.kernel.org/u-boot/20250410080027.208674-1-sumit.garg@kernel.org/))
-    ```bash
-    git clone -b qcom-mainline https://github.com/b49020/u-boot/
-    ```
+```bash
+sudo apt install git build-essential crossbuild-essential-arm64 flex bison \
+    libssl-dev gnutls-dev mkbootimg
 
-1. build U-Boot and pack it into an Android boot image with the RB1 DTB
-    ```bash
-    make qcom_defconfig
-    make -j`nproc` DEVICE_TREE=qcom/qrb2210-rb1
-    gzip u-boot-nodtb.bin
-    cat u-boot-nodtb.bin.gz dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb >u-boot-nodtb.bin.gz-dtb
-    mkbootimg --base 0x80000000 --pagesize 4096 --kernel u-boot-nodtb.bin.gz-dtb  --cmdline "root=/dev/notreal" --ramdisk u-boot.bin --output rb1-boot.img
-    ```
+scripts/build-u-boot-rb1.sh
+```
 
 #### Build an upstream Linux kernel to workaround boot issues
 
