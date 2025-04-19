@@ -111,21 +111,21 @@ The RB1 board boots from eMMC by default and uses an Android style boot architec
 
 #### Build disk-sdcard.img with debos
 As above, build a SD card image as it's using a 512 sector size, like eMMC on the RB1:
-    ```bash
-    debos \
-        --fakemachine-backend qemu \
-        --memory 1GiB \
-        --scratchsize 4GiB \
-        -t xfcedesktop:true \
-        debos-recipes/qualcomm-linux-debian-rootfs.yaml
-    debos \
-        --fakemachine-backend qemu \
-        --memory 1GiB \
-        --scratchsize 4GiB \
-        -t dtb:qcom/qrb2210-rb1.dtb \
-        -t imagetype:sdcard \
-        debos-recipes/qualcomm-linux-debian-image.yaml
-    ```
+```bash
+debos \
+    --fakemachine-backend qemu \
+    --memory 1GiB \
+    --scratchsize 4GiB \
+    -t xfcedesktop:true \
+    debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos \
+    --fakemachine-backend qemu \
+    --memory 1GiB \
+    --scratchsize 4GiB \
+    -t dtb:qcom/qrb2210-rb1.dtb \
+    -t imagetype:sdcard \
+    debos-recipes/qualcomm-linux-debian-image.yaml
+```
 
 #### Build U-Boot with RB1 support
 
