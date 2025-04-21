@@ -61,7 +61,7 @@ jobs:
                           per_page: 1,
                       });
 
-            console.log("Response:", JSON.stringify(response, null, 2));
+            console.log("Response2:", JSON.stringify(response, null, 2));
 
             let u_boot_rb1 = response.data.artifacts[0];
             let linux_deb =
