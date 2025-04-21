@@ -1,3 +1,8 @@
+{{- $build_rb1 := "false" -}}
+{{- if .u_boot_rb1 -}}
+{{- $build_rb1 := "true" }}
+{{- end -}}
+
 architecture: arm64
 
 actions:
@@ -7,6 +12,15 @@ actions:
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
     unpack: true
+
+{{- if eq $build_rb1 "true" }}
+  # TODO: consider switching to https://releases.linaro.org/96boards/rb1/qualcomm/firmware/RB1_firmware_20231124-v4.zip instead
+  - action: download
+    description: Download RB1 rescue image
+    url: https://releases.linaro.org/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip
+    name: qrb2210-rb1_rescue-image.zip
+    filename: qrb2210-rb1_rescue-image.zip
+{{- end -}}
 
   - action: download
     description: Download QCM6490 boot binaries
@@ -21,7 +35,7 @@ actions:
     filename: rb3gen2-vision-kit_cdt.zip
 
   - action: run
-    description: Generate flash directories for UFS boards
+    description: Generate flash directories for eMMC and UFS boards
     chroot: false
     command: |
       set -eux
@@ -30,6 +44,54 @@ actions:
 
       # path to unpacked qcom-ptool tarball
       QCOM_PTOOL="${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-main"
+
+{{- if eq $build_rb1 "true" }}
+      ### board: qrb2210-rb1
+      # unpack rescue image
+      unzip -j "${ROOTDIR}/../qrb2210-rb1_rescue-image.zip" \
+          -d build/qrb2210-rb1_rescue-image
+      # generate partition files
+      mkdir -v build/qrb2210-rb1_partitions
+      (
+          cd build/qrb2210-rb1_partitions
+          conf="${QCOM_PTOOL}/platforms/qrb2210-rb1/partitions.conf"
+          "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
+              -o ptool-partitions.xml
+          # partitions.conf sets --type=emmc, nand or ufs
+          if grep -F '^--disk --type=ufs ' "${conf}"; then
+              touch flash-ufs
+          elif grep -F '^--disk --type=emmc ' "${conf}"; then
+              touch flash-emmc
+          fi
+          "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
+      )
+      flash_dir="${ARTIFACTDIR}/flash_rb1"
+      rm -rf "${flash_dir}"
+      mkdir -v "${flash_dir}"
+      # copy partition files
+      cp --preserve=mode,timestamps -v build/qrb2210-rb1_partitions/* \
+          "${flash_dir}"
+      # copy rescue binaries; skip partition files
+      find build/qrb2210-rb1_rescue-image \
+          -not -name 'gpt_*' \
+          -not -name 'patch*.xml' \
+          -not -name 'rawprogram*.xml' \
+          -not -name 'wipe*.xml' \
+          -not -name 'zeros_*' \
+          \( \
+              -name LICENSE \
+              -or -name 'prog_*' \
+              -or -name '*.bin' \
+              -or -name '*.elf' \
+              -or -name '*.fv' \
+              -or -name '*.mbn' \
+          \) \
+          -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
+
+      # TODO: currently not providing CDT; it's present in 96Boards'
+      # RB1_firmware_20231124-v4.zip but not in Linaro's
+      # rb1-bootloader-emmc-linux-47528.zip
+{{- end -}}
 
       ## platform: QCM6490
       # unpack boot binaries
@@ -45,6 +107,8 @@ actions:
           # partitions.conf sets --type=emmc, nand or ufs
           if grep -F '^--disk --type=ufs ' "${conf}"; then
               touch flash-ufs
+          elif grep -F '^--disk --type=emmc ' "${conf}"; then
+              touch flash-emmc
           fi
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
