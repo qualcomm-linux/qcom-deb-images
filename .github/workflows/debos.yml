@@ -72,6 +72,8 @@ jobs:
                           page: 1,
                           per_page: 1,
                       }).data.artifacts[0];
+            console.log("Response3:", JSON.stringify(linux_deb, null, 2));
+            console.log("id:", JSON.stringify(linux_deb.id, null, 2));
             // download both in memory
             let linux_deb_dl =
                 await github.rest.actions.downloadArtifact({
