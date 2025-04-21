@@ -105,9 +105,9 @@ jobs:
                     process.exit(1);
                 }
 
-                await downloadArtifact(linux_deb_artifact_id,
+                await downloadArtifact(linux_deb_artifact.id,
                           'linux-deb-links.zip');
-                await downloadArtifact(u_boot_rb1_artifact_id,
+                await downloadArtifact(u_boot_rb1_artifact.id,
                           'u-boot-rb1-links.zip');
             } catch (error) {
                 console.error('Error retrieving artifacts: ', error);
