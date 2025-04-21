@@ -48,56 +48,62 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            // search for the latest artifact with this name in this repository
-            // (not particularly for this workflow run; artifacts we're looking
-            // for will only be built from a scheduled (cron) run, and not from
-            // pull requests)
-            let linux_deb_url = (
-                await github.rest.actions.listArtifactsForRepo({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          name: "linux-deb-links",
-                          page: 1,
-                          per_page: 1,
-                      })
-                ).data.artifacts[0].archive_download_url;
-
-            let u_boot_rb1_url = (
-                await github.rest.actions.listArtifactsForRepo({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          name: "u-boot-rb1-links",
-                          page: 1,
-                          per_page: 1,
-                      })
-                ).data.artifacts[0].archive_download_url;
-
-            console.log(`URL: ${u_boot_rb1_url}`);
-
-            // write files under temp dir
-            const fs = require('fs');
-            fs.writeFileSync('linux-deb-links.zip',
-                             Buffer.from(linux_deb_url));
-            fs.writeFileSync('u-boot-rb1-links.zip',
-                             Buffer.from(u_boot_rb1_url));
-
-            const path = require('path');
-            // Print the current directory
-            const currentDirectory = process.cwd();
-            console.log(`Current directory: ${currentDirectory}`);
-
-            // List files in the current directory
-            fs.readdir(currentDirectory, (err, files) => {
-                if (err) {
-                    console.error('Error reading directory:', err);
-                    return;
+            // helper to search for the latest artifact with this name in this
+            // repository (not particularly for this workflow run; artifacts
+            // we're looking for will only be built from a scheduled (cron)
+            // run, and not from pull requests)
+            async function lastArtifactByName(name) {
+                try {
+                    const response = await github.rest.actions.listArtifactsForRepo({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        name: name,
+                        page: 1,
+                        per_page: 1
+                    });
+                    if (response.data.artifacts && response.data.artifacts.length > 0) {
+                        return response.data.artifacts[0];
+                    } else {
+                        console.log(`Artifact with name ${name} not found`);
+                    }
+                } catch (error) {
+                    console.error(`Error listing artifact with name ${name}:`, error);
+                    throw error;
                 }
-                console.log('Files in current directory:');
-                files.forEach(file => {
-                    console.log(file);
-                });
-            });
+            }
 
+            // helper to download an artifact by id and save it into filePath
+            async function downloadArtifact(artifactId, filePath) {
+                try {
+                    const response = await github.rest.actions.downloadArtifact({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        artifact_id: artifactId,
+                        archive_format: 'zip'
+                    });
+                    fs.writeFileSync(filePath, Buffer.from(response.data));
+                    console.log(`Artifact saved to ${filePath}`);
+                } catch (error) {
+                    console.error(`Error downloading artifact with ID ${artifactId}:`, error);
+                    throw error;
+                }
+            }
+
+            try {
+                let linux_deb_artifact = await listArtifactByName("linux-deb-links");
+                let u_boot_rb1_artifact = await listArtifactByName("u-boot-rb1-links");
+
+                if (!linux_deb_artifact || !u_boot_rb1_artifact) {
+                    console.error('One or both artifacts are missing');
+                    process.exit(1);
+                }
+
+                await downloadArtifact(owner, repo, linux_deb_artifact_id, 'linux-deb-links.zip');
+                await downloadArtifact(owner, repo, u_boot_rb1_artifact_id, 'u-boot-rb1-links.zip');
+            } catch (error) {
+                console.error('Error retrieving artifacts: ', error);
+                process.exit(1);
+            }
 
       - name: Download Linux deb and U-Boot for RB1 from fileserver
         run: |
