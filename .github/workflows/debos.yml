@@ -72,6 +72,8 @@ jobs:
                       })
                 ).data.artifacts[0].archive_download_url;
 
+            console.log(`URL: ${u_boot_rb1_url}`);
+
             // write files under temp dir
             const fs = require('fs');
             fs.writeFileSync('linux-deb-links.zip',
@@ -101,9 +103,11 @@ jobs:
         run: |
             set -ux
             apt update
-            apt -y install unzip
+            apt -y install unzip file
             pwd
             ls
+            ls ..
+            file ../linux-deb-links.zip
             unzip -l ../linux-deb-links.zip
             unzip -l ../u-boot-rb1-links.zip
             mkdir linux-deb-links
