@@ -81,7 +81,7 @@ jobs:
 
             const path = require('path');
             // Print the current directory
-            const currentDirectory = __dirname;
+            const currentDirectory = process.cwd();
             console.log(`Current directory: ${currentDirectory}`);
 
             // List files in the current directory
