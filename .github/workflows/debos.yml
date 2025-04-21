@@ -44,6 +44,52 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download links to Linux deb and U-Boot for RB1
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // this doesn't restrict to a particular workflow run, but the
+            // artifacts we're looking for will only be built from a scheduled
+            // (cron) run, and not from pull requests
+            let allArtifacts =
+                await github.rest.actions.listArtifacts({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                      });
+            // keep first artifact named u-boot-rb1-links and linux-deb-links
+            let u_boot_rb1 = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "u-boot-rb1-links"
+            })[0];
+            let linux_deb = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "linux-deb-links"
+            })[0];
+            // download both in memory
+            let linux_deb_dl =
+                await github.rest.actions.downloadArtifact({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          artifact_id: linux_deb.id,
+                          archive_format: 'zip',
+                      });
+            let u_boot_rb1_dl =
+                await github.rest.actions.downloadArtifact({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          artifact_id: u_boot_rb1.id,
+                          archive_format: 'zip',
+                      });
+            // write files under temp dir
+            const fs = require('fs');
+            const path = require('path');
+            const temp = '${{ runner.temp }}/artifacts';
+            if (!fs.existsSync(temp)){
+              fs.mkdirSync(temp);
+            }
+            fs.writeFileSync(path.join(temp, 'linux_deb_links.zip'),
+                             Buffer.from(linux_deb_dl.data));
+            fs.writeFileSync(path.join(temp, 'u_boot_rb1_links.zip'),
+                             Buffer.from(u_boot_rb1_dl.data));
+
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
       - name: Update OS packages
