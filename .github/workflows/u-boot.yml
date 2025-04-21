@@ -2,11 +2,11 @@ name: Build U-Boot for RB1
 
 on:
   # run on pull requests to the main branch
-  pull_request:
-    branches: [main]
+#  pull_request:
+#    branches: [main]
   # run on pushes to the main branch
-  push:
-    branches: [main]
+#  push:
+#    branches: [main]
   # run weekly on Monday at 8:30am
   schedule:
     - cron: '30 8 * * 1'
