@@ -1,5 +1,9 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $experimentalkernel := or .experimentalkernel "false" }}
+{{- $localdebs := list -}}
+{{- if .localdebs -}}
+{{- $localdebs = split " " .localdebs }}
+{{- end -}}
 
 architecture: arm64
 
@@ -189,6 +193,21 @@ actions:
       sed -i "1s/^/Enabled: no\n/" \
           /etc/apt/sources.list.d/debian-experimental.sources
 {{- end }}
+
+{{ range $deb := $localdebs }}
+  - action: overlay
+    description: Copy local deb "{{ $deb }}"
+    source: {{ $deb }}
+    destination: /local-debs/
+
+  - action: run
+    description: Install local deb "{{ $deb }}"
+    chroot: yes
+    command: |
+      set -eux
+      apt -y install /local-debs/*.deb
+      rm -rf /local-debs/
+{{ end }}
 
   - action: run
     description: Create DTBs tarball
