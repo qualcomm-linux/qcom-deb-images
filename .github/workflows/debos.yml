@@ -90,8 +90,8 @@ jobs:
             }
 
             try {
-                let linux_deb_artifact = await listArtifactByName("linux-deb-links");
-                let u_boot_rb1_artifact = await listArtifactByName("u-boot-rb1-links");
+                let linux_deb_artifact = await lastArtifactByName("linux-deb-links");
+                let u_boot_rb1_artifact = await lastArtifactByName("u-boot-rb1-links");
 
                 if (!linux_deb_artifact || !u_boot_rb1_artifact) {
                     console.error('One or both artifacts are missing');
