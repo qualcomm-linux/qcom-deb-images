@@ -54,20 +54,23 @@ jobs:
             // run, and not from pull requests)
             async function lastArtifactByName(name) {
                 try {
-                    const response = await github.rest.actions.listArtifactsForRepo({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        name: name,
-                        page: 1,
-                        per_page: 1
+                    const response =
+                        await github.rest.actions.listArtifactsForRepo({
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            name: name,
+                            page: 1,
+                            per_page: 1
                     });
-                    if (response.data.artifacts && response.data.artifacts.length > 0) {
+                    if (response.data.artifacts &&
+                        response.data.artifacts.length > 0) {
                         return response.data.artifacts[0];
                     } else {
                         console.log(`Artifact with name ${name} not found`);
                     }
                 } catch (error) {
-                    console.error(`Error listing artifact with name ${name}:`, error);
+                    console.error(`Error listing artifact name ${name}:`,
+                        error);
                     throw error;
                 }
             }
@@ -75,31 +78,37 @@ jobs:
             // helper to download an artifact by id and save it into filePath
             async function downloadArtifact(artifactId, filePath) {
                 try {
-                    const response = await github.rest.actions.downloadArtifact({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        artifact_id: artifactId,
-                        archive_format: 'zip'
+                    const response =
+                        await github.rest.actions.downloadArtifact({
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            artifact_id: artifactId,
+                            archive_format: 'zip'
                     });
                     fs.writeFileSync(filePath, Buffer.from(response.data));
                     console.log(`Artifact saved to ${filePath}`);
                 } catch (error) {
-                    console.error(`Error downloading artifact with ID ${artifactId}:`, error);
+                    console.error(`Error downloading artifact ${artifactId}:`,
+                        error);
                     throw error;
                 }
             }
 
             try {
-                let linux_deb_artifact = await lastArtifactByName("linux-deb-links");
-                let u_boot_rb1_artifact = await lastArtifactByName("u-boot-rb1-links");
+                let linux_deb_artifact =
+                    await lastArtifactByName("linux-deb-links");
+                let u_boot_rb1_artifact =
+                    await lastArtifactByName("u-boot-rb1-links");
 
                 if (!linux_deb_artifact || !u_boot_rb1_artifact) {
                     console.error('One or both artifacts are missing');
                     process.exit(1);
                 }
 
-                await downloadArtifact(owner, repo, linux_deb_artifact_id, 'linux-deb-links.zip');
-                await downloadArtifact(owner, repo, u_boot_rb1_artifact_id, 'u-boot-rb1-links.zip');
+                await downloadArtifact(linux_deb_artifact_id,
+                          'linux-deb-links.zip');
+                await downloadArtifact(u_boot_rb1_artifact_id,
+                          'u-boot-rb1-links.zip');
             } catch (error) {
                 console.error('Error retrieving artifacts: ', error);
                 process.exit(1);
