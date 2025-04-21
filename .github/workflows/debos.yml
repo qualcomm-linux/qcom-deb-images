@@ -48,6 +48,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            const fs = require('fs');
+
             // helper to search for the latest artifact with this name in this
             // repository (not particularly for this workflow run; artifacts
             // we're looking for will only be built from a scheduled (cron)
@@ -95,9 +97,9 @@ jobs:
             }
 
             try {
-                let linux_deb_artifact =
+                const linux_deb_artifact =
                     await lastArtifactByName("linux-deb-links");
-                let u_boot_rb1_artifact =
+                const u_boot_rb1_artifact =
                     await lastArtifactByName("u-boot-rb1-links");
 
                 if (!linux_deb_artifact || !u_boot_rb1_artifact) {
