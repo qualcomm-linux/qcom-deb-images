@@ -48,21 +48,26 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            // this doesn't restrict to a particular workflow run, but the
-            // artifacts we're looking for will only be built from a scheduled
-            // (cron) run, and not from pull requests
-            let allArtifacts =
-                await github.rest.actions.listArtifacts({
+            // search for the latest artifact with this name in this repository
+            // (not particularly for this workflow run; artifacts we're looking
+            // for will only be built from a scheduled (cron) run, and not from
+            // pull requests)
+            let u_boot_rb1 =
+                await github.rest.actions.listArtifactsForRepo({
                           owner: context.repo.owner,
                           repo: context.repo.repo,
-                      });
-            // keep first artifact named u-boot-rb1-links and linux-deb-links
-            let u_boot_rb1 = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "u-boot-rb1-links"
-            })[0];
-            let linux_deb = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "linux-deb-links"
-            })[0];
+                          name: "u-boot-rb1-links",
+                          page: 0,
+                          per_page: 1,
+                      })[0];
+            let linux_deb =
+                await github.rest.actions.listArtifactsForRepo({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          name: "linux-deb-links",
+                          page: 0,
+                          per_page: 1,
+                      })[0];
             // download both in memory
             let linux_deb_dl =
                 await github.rest.actions.downloadArtifact({
