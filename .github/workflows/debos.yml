@@ -108,6 +108,7 @@ jobs:
             ls
             ls ..
             file ../linux-deb-links.zip
+            cat ../linux-deb-links.zip
             unzip -l ../linux-deb-links.zip
             unzip -l ../u-boot-rb1-links.zip
             mkdir linux-deb-links
