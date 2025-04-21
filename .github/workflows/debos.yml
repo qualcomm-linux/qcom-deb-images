@@ -82,6 +82,8 @@ jobs:
 
       - name: Download Linux deb and U-Boot for RB1 from fileserver
         run: |
+            set -ux
+            apt update
             apt -y install unzip
             unzip -l linux_deb_links.zip
             unzip -l u_boot_rb1_links.zip
