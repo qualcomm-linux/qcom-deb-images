@@ -104,12 +104,12 @@ jobs:
             apt -y install unzip
             pwd
             ls
-            unzip -l linux-deb-links.zip
-            unzip -l u-boot-rb1-links.zip
+            unzip -l ../linux-deb-links.zip
+            unzip -l ../u-boot-rb1-links.zip
             mkdir linux-deb-links
             mkdir u-boot-rb1-links
-            unzip linux-deb-links.zip -d linux-deb-links
-            unzip u-boot-rb1-links.zip -d u-boot-rb1-links
+            unzip ../linux-deb-links.zip -d linux-deb-links
+            unzip ../u-boot-rb1-links.zip -d u-boot-rb1-links
             head u-boot-rb1-links/*
             ls `cat u-boot-rb1-links/*.dir`
 
