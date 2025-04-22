@@ -25,6 +25,9 @@ defaults:
 
 env:
   FILESERVER_URL: https://quic-yocto-fileserver-1029608027416.us-central1.run.app
+  # github runs are only unique per repository and may also be re-run;
+  # create an unique id with repository, run id, and run attempt
+  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -80,11 +83,8 @@ jobs:
           # curl will be used to talk to fileserver; should be installed by
           # default
           apt -y install curl
-          # github runs are only unique per repository and may also be re-run;
-          # create an unique id with repository, run id, and run attempt
-          id="${GITHUB_REPOSITORY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           # create a directory for the current run
-          dir="/fileserver-builds/${id}"
+          dir="/fileserver-builds/${BUILD_ID}"
           mkdir -vp "${dir}"
           # copy output files
           cp -av rootfs.tar.gz "${dir}"
@@ -93,20 +93,21 @@ jobs:
           cp -av disk-sdcard.img.gz "${dir}"
           tar -cvf "${dir}"/flash.tar.gz disk-ufs.img1 disk-ufs.img2 flash_*
           # instruct fileserver to publish this directory
-          url="${FILESERVER_URL}/${id}/"
+          url="${FILESERVER_URL}/${BUILD_ID}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"
+
       - name: Prepare LAVA test job
         run: |
-          id="${GITHUB_REPOSITORY}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          url="${FILESERVER_URL}/${id}/"
+          set -x
+          url="${FILESERVER_URL}/${BUILD_ID}/"
           BUILD_FILE_NAME=flash.tar.gz
           BUILD_DOWNLOAD_URL="${url}${BUILD_FILE_NAME}"
           LAVA_JOB_FILE="../ci/lava/rb3gen2-vision-kit-boot.yaml"
 
-          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" ${LAVA_JOB_FILE}
-          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" ${LAVA_JOB_FILE}
-          sed -i "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" ${LAVA_JOB_FILE}
-          sed -i "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" ${LAVA_JOB_FILE}
+          sed -i "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" "${LAVA_JOB_FILE}"
+          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "${LAVA_JOB_FILE}"
+          sed -i "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" "${LAVA_JOB_FILE}"
+          sed -i "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" "${LAVA_JOB_FILE}"
           cat ${LAVA_JOB_FILE}
           echo "LAVA_JOB_FILE=${LAVA_JOB_FILE}" >> "$GITHUB_ENV"
 
@@ -116,7 +117,7 @@ jobs:
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
-          job_definition: ${LAVA_JOB_FILE}
+          job_definition: "${LAVA_JOB_FILE}"
           wait_for_job: true
           fail_action_on_failure: false
           save_result_as_artifact: true
