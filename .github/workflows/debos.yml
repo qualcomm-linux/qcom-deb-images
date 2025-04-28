@@ -31,6 +31,7 @@ concurrency:
 
 jobs:
   build-debos:
+    name: Build and upload debos recipes
     runs-on: [self-hosted, arm64, debbuilder]
     container:
       image: debian:trixie
@@ -120,6 +121,84 @@ jobs:
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               flash_rb1*
+          # instruct fileserver to publish this directory
+          url="${FILESERVER_URL}/${BUILD_ID}/"
+          curl -X POST -H 'Accept: text/event-stream' "${url}"
+
+      - name: Upload artifacts to fileserver space for downloads
+        run: |
+          set -ux
+          # create a directory for the current run
+          dir="/fileserver-downloads/${BUILD_ID}"
+          mkdir -vp "${dir}"
+          # copy output files
+          cp -av rootfs.tar.gz "${dir}"
+
+  rootfs-sbom:
+    name: Generate SBOM for rootfs with Syft
+    # nowadays also available on arm64; set x86 for predictability
+    runs-on: [self-hosted, x86]
+    needs: build-debos
+    container:
+      image: debian:trixie
+      volumes:
+        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
+        - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
+    steps:
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - name: Retrieve rootfs from fileserver
+        run: cp -av /fileserver-downloads/${BUILD_ID}/rootfs.tar.gz .
+
+      - name: Unpack rootfs
+        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar.gz
+
+      # Syft is not packaged in Debian; it's available as a binary tarball or
+      # as container image from upstream
+      - name: Install Syft
+        run: |
+          set -ux
+          apt -y install curl
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
+
+      - name: Generate SBOMs with Syft
+        run: |
+          set -ux
+          # TODO should probably restrict catalogers a bit as the rootfs is
+          # built entirely from deb packages
+          bin/syft --version
+          SYFT_FORMAT_PRETTY=true bin/syft \
+              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
+              -o spdx-json=rootfs-sbom.spdx.json \
+              -o syft-json=rootfs-sbom.syft.json \
+              -o syft-text=rootfs-sbom.syft.txt \
+              -o syft-table \
+              --parallelism `nproc` \
+              --source-name qualcomm-linux-debian-rootfs \
+              --source-version "${BUILD_ID}" \
+              -v \
+              scan rootfs
+          # compress SBOMs
+          gzip rootfs-sbom*
+
+      - name: Upload SBOMs to fileserver space for builds
+        run: |
+          set -ux
+          # curl will be used to talk to fileserver; should be installed by
+          # default
+          apt -y install curl
+          # create a directory for the current run
+          dir="/fileserver-builds/${BUILD_ID}"
+          mkdir -vp "${dir}"
+          # copy SBOMs to fileserver
+          cp -av rootfs-sbom*.gz "${dir}"
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${BUILD_ID}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"
