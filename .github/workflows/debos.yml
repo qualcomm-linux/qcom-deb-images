@@ -75,55 +75,8 @@ jobs:
       - name: Build rootfs with debos
         run: |
           set -ux
-          debos -t xfcedesktop:true -t localdebs:local-debs/ \
-              debos-recipes/qualcomm-linux-debian-rootfs.yaml
-
-      - name: Build UFS and SD card images with debos
-        run: |
-          set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
-              debos-recipes/qualcomm-linux-debian-image.yaml
-          debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
-              debos-recipes/qualcomm-linux-debian-image.yaml
-
-      - name: Build flashable files with debos
-        run: |
-          set -ux
-          debos -t u_boot_rb1:rb1-boot.img \
-                 debos-recipes/qualcomm-linux-debian-flash.yaml
-
-      - name: Upload artifacts to fileserver space for builds
-        run: |
-          set -ux
-          # curl will be used to talk to fileserver; should be installed by
-          # default
-          apt -y install curl
-          # create a directory for the current run
-          dir="/fileserver-builds/${BUILD_ID}"
-          mkdir -vp "${dir}"
-          # copy output files
-          cp -av rootfs.tar.gz "${dir}"
-          cp -av dtbs.tar.gz "${dir}"
-          cp -av disk-ufs.img.gz "${dir}"
-          cp -av disk-sdcard.img.gz "${dir}"
-          # TODO: separate flash_* directories between UFS and eMMC
-          tar -cvf "${dir}"/flash-ufs.tar.gz \
-              disk-ufs.img1 \
-              disk-ufs.img2 \
-              flash_rb3*
-          tar -cvf "${dir}"/flash-emmc.tar.gz \
-              disk-sdcard.img1 \
-              disk-sdcard.img2 \
-              flash_rb1*
-          # instruct fileserver to publish this directory
-          url="${FILESERVER_URL}/${BUILD_ID}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
+          debos -t xfcedesktop:false -t localdebs:local-debs/ \
+                 debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Upload artifacts to fileserver space for downloads
         run: |
