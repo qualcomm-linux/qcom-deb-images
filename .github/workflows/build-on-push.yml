@@ -1,0 +1,12 @@
+name: Build on push to branch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-daily:
+    uses: ./.github/workflows/debos.yml

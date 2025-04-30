@@ -1,17 +1,11 @@
 name: Build debos recipe
 
 on:
-  # run on pull requests to the main branch
-  pull_request:
-    branches: [main]
-  # run on pushes to the main branch
-  push:
-    branches: [main]
-  # run daily at 8:30am
-  schedule:
-    - cron: '30 8 * * *'
-  # allow manual runs
-  workflow_dispatch:
+  workflow_call:
+    outputs:
+      artifacts_url:
+        description: "URL to retrieve build artifacts"
+        value: ${{ jobs.build-debos.outputs.url }}
 
 # only need permission to read repository; implicitely set all other
 # permissions to none
@@ -31,6 +25,8 @@ concurrency:
 
 jobs:
   build-debos:
+    outputs:
+      url: ${{ steps.upload_artifacts.outputs.url }}
     runs-on: [self-hosted, arm64, debbuilder]
     container:
       image: debian:trixie
@@ -98,6 +94,7 @@ jobs:
                  debos-recipes/qualcomm-linux-debian-flash.yaml
 
       - name: Upload artifacts to fileserver space for builds
+        id: upload_artifacts
         run: |
           set -ux
           # curl will be used to talk to fileserver; should be installed by
@@ -123,4 +120,5 @@ jobs:
           # instruct fileserver to publish this directory
           url="${FILESERVER_URL}/${BUILD_ID}/"
           curl -X POST -H 'Accept: text/event-stream' "${url}"
+          echo "url=\"${url}\"" >> $GITHUB_OUTPUT
 
