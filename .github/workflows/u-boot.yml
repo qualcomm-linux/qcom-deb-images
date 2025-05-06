@@ -8,6 +8,7 @@ on:
 # permissions to none
 permissions:
   contents: read
+  security-events: read  # This is required to handle authentication to our artifact publishing API
 
 env:
   # where results will be posted/hosted
@@ -30,7 +31,6 @@ jobs:
     container:
       image: debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
         - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
     steps:
       - uses: actions/checkout@v4
@@ -55,25 +55,25 @@ jobs:
             scripts/build-u-boot-rb1.sh
 
       - name: Upload results to fileserver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -ux
-          # curl will be used to talk to fileserver; should be installed by
-          # default
-          apt -y install curl
-          for dir in "/fileserver-builds/${BUILD_ID}" \
-              "/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest"; do
-              mkdir -vp "${dir}"
-              cp -av \
-                  u-boot/u-boot-nodtb.bin.gz \
-                  u-boot/dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb \
-                  u-boot/u-boot-nodtb.bin.gz-dtb \
-                  u-boot/u-boot.bin \
-                  u-boot/rb1-boot.img \
-                  "${dir}"
-          done
+          # python3-requests is used by publish_aritfacts.py
+          apt -y install python3-requests
+
+          export BUILD_DIR="/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest"
+          mkdir -vp ${BUILD_DIR}
+          cp -av \
+              u-boot/u-boot-nodtb.bin.gz \
+              u-boot/dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb \
+              u-boot/u-boot-nodtb.bin.gz-dtb \
+              u-boot/u-boot.bin \
+              u-boot/rb1-boot.img \
+              ${BUILD_DIR}
           # perhaps help NFS sync
           sync
           # instruct fileserver to publish this directory
-          url="${FILESERVER_URL}/${BUILD_ID}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
-
+          export URL="${FILESERVER_URL}/${BUILD_ID}/"
+          .github/workflows/publish_artifacts.py
+          echo Image available at: ${URL}
