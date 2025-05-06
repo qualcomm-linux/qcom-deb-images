@@ -1,6 +1,8 @@
 name: Build Linux kernel deb
 
 on:
+  pull_request:
+    branches: [main]
   # run weekly on Monday at 8:30am
   schedule:
     - cron: '30 8 * * 1'
