@@ -28,11 +28,11 @@ jobs:
   build-debos:
     outputs:
       url: ${{ steps.upload_artifacts.outputs.url }}
-    runs-on: [self-hosted, arm64, debbuilder]
+    runs-on: [self-hosted, qcom-u2404, arm64]
     container:
       image: debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
     steps:
       # make sure we have latest packages first, to get latest fixes and to

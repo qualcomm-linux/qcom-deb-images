@@ -25,13 +25,13 @@ concurrency:
 jobs:
   build-u-boot-rb1:
     # for cross-builds
-    runs-on: [self-hosted, x86]
+    runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
     #runs-on: [self-hosted, arm64, debbuilder]
     container:
       image: debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
     steps:
       - uses: actions/checkout@v4
         with:
