@@ -36,6 +36,8 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
+      # fwupd tools, enable OTA EFI firmware capsule updates
+      - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
       - init
       # Ethernet, Wi-Fi, WWAN; built-in DHCP client
