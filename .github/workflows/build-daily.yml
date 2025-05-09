@@ -1,0 +1,15 @@
+name: Daily Build
+
+on:
+  # run daily at 8:30am
+  schedule:
+    - cron: '30 8 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-daily:
+    uses: ./.github/workflows/debos.yml
