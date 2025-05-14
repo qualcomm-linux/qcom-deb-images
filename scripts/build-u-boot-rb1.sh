@@ -13,6 +13,8 @@ U_BOOT_DEVICE_TREE="qcom/qrb2210-rb1"
 ABOOT_BASE_ADDRESS="0x80000000"
 ABOOT_PAGE_SIZE="4096"
 ABOOT_OUTPUT="rb1-boot.img"
+CAPSULE_OUTPUT="u-boot-cap.bin"
+CABINET_OUTPUT="u-boot.cab"
 
 log_i() {
     echo "I: $*" >&2
@@ -34,6 +36,8 @@ packages="${packages} make bison flex bc libssl-dev gnutls-dev xxd"
 packages="${packages} coreutils"
 # needed to pack resulting u-boot binary into an Android boot image
 packages="${packages} gzip mkbootimg"
+# needed to build fwupd cabinet archive for EFI firmware capsule updates
+packages="${packages} fwupd"
 
 log_i "Checking build-dependencies ($packages)"
 missing=""
@@ -89,3 +93,25 @@ mkbootimg --base "${ABOOT_BASE_ADDRESS}" \
     --ramdisk empty-ramdisk \
     --output "${ABOOT_OUTPUT}"
 
+# EFI firmware capsule and fwupd cabinet files generation. Note that currently
+# only U-Boot firmware can be updated using capsule updates without support for
+# dual bank (A/B) capsule updates. The next steps is to add support for dual
+# bank capsule updates as well as support to update Qualcomm downstream boot
+# firmware too.
+
+# The GUID used below for U-Boot firmware can be generated dynamically via:
+# $ ./tools/mkeficapsule guidgen dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb UBOOT_BOOT_PARTITION
+# Generating GUIDs for qcom,qrb2210-rb1 with namespace 8c9f137e-91dc-427b-b2d6-b420faebaf2a:
+# UBOOT_BOOT_PARTITION: 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5
+
+./tools/mkeficapsule \
+    --index 1 \
+    --instance 0 \
+    --guid 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5 \
+    "${ABOOT_OUTPUT}" \
+    "${CAPSULE_OUTPUT}"
+rm -f "${CABINET_OUTPUT}"
+fwupdtool build-cabinet \
+    "${CABINET_OUTPUT}" \
+    "${CAPSULE_OUTPUT}" \
+    board/qualcomm/u-boot-cap.metainfo.xml

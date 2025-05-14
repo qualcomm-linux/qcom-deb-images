@@ -70,6 +70,8 @@ jobs:
               u-boot/u-boot-nodtb.bin.gz-dtb \
               u-boot/u-boot.bin \
               u-boot/rb1-boot.img \
+              u-boot/u-boot-cap.bin \
+              u-boot/u-boot.cab \
               ${BUILD_DIR}
           # perhaps help NFS sync
           sync
