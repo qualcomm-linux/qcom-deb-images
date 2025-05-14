@@ -6,6 +6,35 @@ Initially, this repository provides [debos](https://github.com/go-debos/debos) r
 
 We are also working towards providing ready-to-use, pre-built images – stay tuned!
 
+## Firmware updates
+
+On standard Linux distros like Debian, firmware updates are generally delivered via Linux Vendor Firmware Service ([LVFS](https://fwupd.org/)). The OEM/ODM vendors usually upload latest firmware releases on LVFS (refer [here](https://lvfs.readthedocs.io/en/latest/upload.html)) as cabinet (.cab) firmware archive files containing at least one metadata (.metainfo.xml) file describing the firmware update. On the device, fwupd is installed which provides a system-activated daemon listening on D-Bus for installing any firmware updates.
+
+### Firmware delivery
+
+On a Desktop system, its usually GNOME Software which monitors LVFS for any firmware updates and pushes to fwupd if any. On a headless system like most embedded devices, the fwupdmgr command line tool can be used to monitor LVFS for firmware updates as follows:
+
+```bash
+# Download latest metadata from LVFS
+fwupdmgr refresh
+
+# Fetch device specific firmware updates from LVFS
+fwupdmgr get-updates
+
+# Install firmware updates
+fwupdmgr update
+```
+
+### Firmware on devices supported by Qualcomm Linux
+
+The firmware on Qualcomm devices is expected to support UEFI UpdateCapsule plugin for fwupd daemon. However, currently firmware for Qualcomm devices in not available in LVFS which is a work in progress as of now. In order to play with UEFI firmware capsule updates, one can use fwupdtool to locally update firmware like on RB1 as follows:
+
+```bash
+# Transfer U-Boot firmware cabinet archive build from scripts/build-u-boot-rb1.sh to RB1
+sudo fwupdtool install u-boot.cab
+# It will ask for a reboot for the UEFI firmware capsule update to happen
+```
+
 ## Branches
 
 main: Primary development branch. Contributors should develop submissions based on this branch, and submit pull requests to this branch.
