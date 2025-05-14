@@ -11,6 +11,7 @@ on:
 # permissions to none
 permissions:
   contents: read
+  security-events: read  # This is required to handle authentication to our artifact publishing API
 
 env:
   # where results will be posted/hosted
@@ -33,7 +34,6 @@ jobs:
     container:
       image: debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
         - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
     steps:
       - uses: actions/checkout@v4
@@ -64,19 +64,19 @@ jobs:
             scripts/build-linux-deb.sh kernel-configs/systemd-boot.config
 
       - name: Upload results to fileserver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -ux
           # dcmd from devscripts will be used to parse .changes file
           apt -y install --no-install-recommends devscripts
-          # curl will be used to talk to fileserver; should be installed by
-          # default
-          apt -y install curl
+          # python3-requests is used by publish_aritfacts.py
+          apt -y install python3-requests
           # copy to fileserver builds and downloads directories
-          for dir in "/fileserver-builds/${BUILD_ID}" \
-              "/fileserver-downloads/${BUILD_ID}"; do
-              mkdir -vp "${dir}"
-              cp -av `dcmd *.changes` "${dir}"
-          done
+          export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
+          mkdir -vp "${BUILD_DIR}"
+          cp -av `dcmd *.changes` "${BUILD_DIR}"
+
           # create or update linux-deb-latest symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
           (
@@ -90,6 +90,7 @@ jobs:
           # perhaps help NFS sync
           sync
           # instruct fileserver to publish this directory
-          url="${FILESERVER_URL}/${BUILD_ID}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
+          export URL="${FILESERVER_URL}/${BUILD_ID}/"
+          .github/workflows/publish_artifacts.py
+          echo Image available at: ${URL}
 

@@ -11,6 +11,7 @@ on:
 # permissions to none
 permissions:
   contents: read
+  security-events: read  # This is required to handle authentication to our artifact publishing API
 
 env:
   # github runs are only unique per repository and may also be re-run; create a
@@ -31,7 +32,6 @@ jobs:
     container:
       image: debian:trixie
       volumes:
-        - /srv/gh-runners/quic-yocto/builds:/fileserver-builds
         - /srv/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
     steps:
@@ -95,30 +95,30 @@ jobs:
 
       - name: Upload artifacts to fileserver space for builds
         id: upload_artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -ux
-          # curl will be used to talk to fileserver; should be installed by
-          # default
-          apt -y install curl
+          # python3-requests is used by publish_aritfacts.py
+          apt -y install python3-requests
           # create a directory for the current run
-          dir="/fileserver-builds/${BUILD_ID}"
-          mkdir -vp "${dir}"
+          export BUILD_DIR="/tmp/${BUILD_ID}"
+          mkdir -vp "${BUILD_DIR}"
           # copy output files
-          cp -av rootfs.tar.gz "${dir}"
-          cp -av dtbs.tar.gz "${dir}"
-          cp -av disk-ufs.img.gz "${dir}"
-          cp -av disk-sdcard.img.gz "${dir}"
+          cp -av rootfs.tar.gz "${BUILD_DIR}"
+          cp -av dtbs.tar.gz "${BUILD_DIR}"
+          cp -av disk-ufs.img.gz "${BUILD_DIR}"
+          cp -av disk-sdcard.img.gz "${BUILD_DIR}"
           # TODO: separate flash_* directories between UFS and eMMC
-          tar -cvf "${dir}"/flash-ufs.tar.gz \
+          tar -cvf "${BUILD_DIR}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
               flash_rb3*
-          tar -cvf "${dir}"/flash-emmc.tar.gz \
+          tar -cvf "${BUILD_DIR}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               flash_rb1*
           # instruct fileserver to publish this directory
-          url="${FILESERVER_URL}/${BUILD_ID}/"
-          curl -X POST -H 'Accept: text/event-stream' "${url}"
-          echo "url=\"${url}\"" >> $GITHUB_OUTPUT
-
+          export URL="${FILESERVER_URL}/${BUILD_ID}/"
+          .github/workflows/publish_artifacts.py
+          echo Image available at: ${URL}
