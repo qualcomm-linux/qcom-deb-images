@@ -83,10 +83,8 @@ jobs:
                 # use qcom-next specific config fragment, and git repo + branch
                 EXTRA_ARGS="--qcom-next prune.config qcom.config"
             fi
-            scripts/build-linux-deb.py $EXTRA_ARGS \
-                kernel-configs/qemu-boot.config \
-                kernel-configs/qcom-imsdk.config \
-                kernel-configs/systemd-boot.config
+            scripts/build-linux-deb.py `ls kernel-configs/*.config | sort` \
+                $EXTRA_ARGS
 
       - name: Stage artifacts for upload
         run: |
