@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  security-events: read  # This is required to handle authentication to our artifact publishing API
 
 jobs:
   build-daily:
