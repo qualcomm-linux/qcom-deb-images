@@ -24,8 +24,9 @@ packages="git"
 # will pull gcc-aarch64-linux-gnu; should pull a native compiler on arm64 and
 # a cross-compiler on other architectures
 packages="${packages} crossbuild-essential-arm64"
-# linux build-dependencies
-packages="${packages} make flex bison bc libelf-dev libssl-dev libssl-dev:arm64"
+# linux build-dependencies; see linux/scripts/package/mkdebian
+packages="${packages} make flex bison bc libdw-dev libelf-dev libssl-dev"
+packages="${packages} libssl-dev:arm64"
 # linux build-dependencies for debs
 packages="${packages} dpkg-dev debhelper-compat kmod python3 rsync"
 # for nproc
