@@ -76,12 +76,18 @@ actions:
     chroot: true
     command: |
       set -eux
+      # Fixes error when running outside qemu
+      dpkg-divert --local --rename --add /etc/kernel/postinst.d/u-boot-efi-dtb
+      ln -s /bin/true /etc/kernel/postinst.d/u-boot-efi-dtb
       # u-boot-efi-dtb installs a kernel hook that will trigger on kernel
       # installation/upgrade, but also calls it explicitely in its postinst in
       # case it was installed after the kernel; it requires an ESP partition to
       # copy the DTBs though, so install it after the ESP partition is
       # available
       apt -y install u-boot-efi-dtb
+      # Removing previous diversion and symlink
+      rm /etc/kernel/postinst.d/u-boot-efi-dtb
+      dpkg-divert --rename --remove /etc/kernel/postinst.d/u-boot-efi-dtb
       # when building under debos, /sys/firmware/efi is not always present, so
       # the u-boot-efi-dtb postinst doesn't install an initial copy of the
       # DTBs; do this once here
