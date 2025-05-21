@@ -1,4 +1,4 @@
-name: Static analysis of shell scripts with ShellCheck
+name: Static analysis of scripts
 
 on:
   # run on pull requests to the main branch
@@ -19,6 +19,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pylint:
+    name: Install and run Pylint on Python scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Pylint
+        run: sudo apt update && sudo apt -y install pylint
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Pylint (error mode)
+        run: pylint --errors-only scripts/*.py
+
   shellcheck:
     name: Install and run ShellCheck on shell scripts
     runs-on: ubuntu-latest
