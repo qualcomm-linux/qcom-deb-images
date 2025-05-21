@@ -90,19 +90,19 @@ jobs:
         run: |
           set -ux
           # create a directory for the current run
-          BUILD_DIR="./uploads"
-          mkdir -vp "${BUILD_DIR}"
+          dir="debos-artifacts"
+          mkdir -v "${dir}"
           # copy output files
-          cp -av rootfs.tar.gz "${BUILD_DIR}"
-          cp -av dtbs.tar.gz "${BUILD_DIR}"
-          cp -av disk-ufs.img.gz "${BUILD_DIR}"
-          cp -av disk-sdcard.img.gz "${BUILD_DIR}"
+          cp -av rootfs.tar.gz "${dir}"
+          cp -av dtbs.tar.gz "${dir}"
+          cp -av disk-ufs.img.gz "${dir}"
+          cp -av disk-sdcard.img.gz "${dir}"
           # TODO: separate flash_* directories between UFS and eMMC
-          tar -cvf "${BUILD_DIR}"/flash-ufs.tar.gz \
+          tar -cvf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
               flash_rb3*
-          tar -cvf "${BUILD_DIR}"/flash-emmc.tar.gz \
+          tar -cvf "${dir}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               flash_rb1*
@@ -111,4 +111,4 @@ jobs:
         uses: qualcomm-linux/upload-private-artifact-action@v1
         id: upload_artifacts
         with:
-          path: ./uploads
+          path: debos-artifacts
