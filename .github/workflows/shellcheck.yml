@@ -31,5 +31,5 @@ jobs:
           fetch-depth: 0
 
       - name: Run ShellCheck
-        run: shellcheck scripts/*
+        run: shellcheck scripts/*.sh
 
