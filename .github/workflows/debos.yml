@@ -146,6 +146,12 @@ jobs:
               -v \
               scan rootfs
 
+      - name: Generate license summary from Syft report
+        run: |
+          set -ux
+          scripts/syft-license-summary.py rootfs-sbom.syft.json |
+              tee rootfs-sbom.syft-license-summary.csv.txt
+
       - name: Stage SBOMs for publishing
         run: |
           set -ux
