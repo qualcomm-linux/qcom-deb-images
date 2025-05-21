@@ -19,6 +19,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  flake8:
+    name: Install and run Flake8 on Python scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install flake8
+        run: sudo apt update && sudo apt -y install flake8
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Flake8
+        run: flake8 scripts/*.py
+
   pylint:
     name: Install and run Pylint on Python scripts
     runs-on: ubuntu-latest
