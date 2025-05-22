@@ -4,9 +4,22 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  checks: write  # required by test reporting action
+  pull-requests: write  # required by test reporting action
+  contents: read  # github default
+  packages: read  # github default
 
 jobs:
+  event-file:
+    name: "Upload event file"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Event File
+        path: ${{ github.event_path }}
+
   build-pr:
     uses: ./.github/workflows/debos.yml
 

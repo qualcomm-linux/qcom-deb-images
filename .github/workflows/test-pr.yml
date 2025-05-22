@@ -1,0 +1,114 @@
+name: Test PR build
+
+run-name: "Tests triggered by PR: ${{ github.event.workflow_run.display_title }}"
+
+on:
+  workflow_run:
+    workflows: ["Build on PR"]
+    types:
+      - completed
+
+permissions:
+  checks: write  # required by test reporting action
+  pull-requests: write  # required by test reporting action
+  contents: read  # github default
+  packages: read  # github default
+
+jobs:
+  retrieve-build-url:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      url: ${{ steps.set-build-url.outputs.url }}
+    steps:
+      - name: 'Download build URL'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: context.payload.workflow_run.id,
+            });
+            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "build_url"
+            })[0];
+            let download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            const fs = require('fs');
+            const path = require('path');
+            const temp = '${{ runner.temp }}/artifacts';
+            if (!fs.existsSync(temp)){
+              fs.mkdirSync(temp);
+            }
+            fs.writeFileSync(path.join(temp, 'build_url.zip'), Buffer.from(download.data));
+
+      - name: 'Setup build URL'
+        id: set-build-url
+        run: |
+          unzip "${{ runner.temp }}/artifacts/build_url.zip"
+          BUILD_URL=$(cat build_url)
+          echo "Build URL: ${BUILD_URL}"
+          echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
+
+  test:
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+    needs: retrieve-build-url
+    with:
+      url: ${{ needs.retrieve-build-url.outputs.url }}
+
+  publish-test-results:
+    name: "Publish Tests Results"
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Download event file
+        uses: actions/download-artifact@v4
+        with:
+            run-id: ${{ github.event.workflow_run.id }}
+            path: artifacts
+            github-token: ${{ github.token }}
+
+      - name: "List files"
+        run: |
+          echo $GITHUB_WORKSPACE
+          ls -R $GITHUB_WORKSPACE
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          files: "${{ github.workspace }}/artifacts/**/*.xml"
+
+      - name: Prepare PR comment
+        id: pr_comment_prep
+        run: |
+          echo "## Test jobs for commit ${{ github.event.workflow_run.head_sha }}" > pr-comment.txt
+          for json_file in $(find ${{ github.workspace }} -name "test-job-*.json")
+          do
+              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
+              URL=$(cat "$json_file" | jq -r ".url")
+              JOB_ID=$(cat "$json_file" | jq -r ".id")
+              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
+              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
+          done
+          PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: pr-comment.txt
+          pr-number: ${{ steps.pr_comment_prep.outputs.pr_number }}

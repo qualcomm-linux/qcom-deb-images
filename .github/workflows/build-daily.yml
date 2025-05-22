@@ -13,3 +13,9 @@ permissions:
 jobs:
   build-daily:
     uses: ./.github/workflows/debos.yml
+  test-daily:
+    uses: ./.github/workflows/test.yml
+    needs: build-nightly
+    secrets: inherit
+    with:
+      url: ${{ needs.build-daily.outputs.artifacts_url }}

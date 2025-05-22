@@ -5,8 +5,17 @@ on:
     branches: [main]
 
 permissions:
+  checks: write
+  pull-requests: write
   contents: read
+  packages: read
 
 jobs:
   build-daily:
     uses: ./.github/workflows/debos.yml
+  test:
+    uses: ./.github/workflows/test.yml
+    needs: [build]
+    secrets: inherit
+    with:
+      url: ${{ needs.build.outputs.artifacts_url }}
