@@ -7,8 +7,9 @@
 # format
 
 import json
-import sys
 import hashlib
+import argparse
+import os
 from collections import defaultdict
 
 
@@ -32,7 +33,6 @@ def group_by_source_package(data):
         "copyrights": {},
         "source_version": None
     })
-
     for artifact in data.get("artifacts", []):
         metadata = artifact.get("metadata", {})
         binary = metadata.get("package", "unknown")
@@ -41,40 +41,37 @@ def group_by_source_package(data):
         source_version = metadata.get("sourceVersion") or version
         grouped[source]["binaries"].add(binary)
         grouped[source]["source_version"] = source_version
-
         for lic in artifact.get("licenses", []):
             grouped[source]["licenses"].add(lic.get("value", "unknown"))
-
         for loc in artifact.get("locations", []):
             path = loc.get("path", "")
             if "copyright" in path:
                 grouped[source]["copyrights"][binary] = path
-
     return grouped
 
 
-def print_table(grouped):
+def print_table(grouped, rootfs_path):
     print("source,version,binaries,licenses,copyright_sha256")
     for source, data in grouped.items():
         binaries = " ".join(sorted(data["binaries"]))
         licenses = " ".join(sorted(data["licenses"]))
         version = data["source_version"] or "unknown"
-
-        # Compute SHA256 hashes
         hashes = set()
         for path in data["copyrights"].values():
-            hashes.add(sha256_of_file(path.lstrip('/')))
+            full_path = os.path.join(rootfs_path, path.lstrip('/'))
+            hashes.add(sha256_of_file(full_path))
         hash_summary = " ".join(sorted(hashes))
-
         print(f"{source},{version},{binaries},{licenses},{hash_summary}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: syft-license-summary.py <syft-json-file>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+                 description="Summarize Syft license data.")
+    parser.add_argument("syft_json", help="Path to the Syft JSON file")
+    parser.add_argument("--rootfs", required=True,
+                        help="Base path to the root filesystem")
+    args = parser.parse_args()
 
-    syft_file = sys.argv[1]
-    syft_data = load_syft_json(syft_file)
+    syft_data = load_syft_json(args.syft_json)
     syft_grouped = group_by_source_package(syft_data)
-    print_table(syft_grouped)
+    print_table(syft_grouped, args.rootfs)
