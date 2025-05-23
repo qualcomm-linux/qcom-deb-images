@@ -17,8 +17,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # image build id; used for SBOM generation; TODO: should be used in image metadata too
+  BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+
 jobs:
   build-debos:
+    name: Build and upload debos recipes
     outputs:
       url: ${{ steps.upload_artifacts.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
@@ -86,23 +91,23 @@ jobs:
           debos -t u_boot_rb1:rb1-boot.img \
                  debos-recipes/qualcomm-linux-debian-flash.yaml
 
-      - name: Stage build artifacts for publishing
+      - name: Stage debos artifacts for publishing
         run: |
           set -ux
           # create a directory for the current run
-          BUILD_DIR="./uploads"
-          mkdir -vp "${BUILD_DIR}"
+          dir="debos-artifacts"
+          mkdir -v "${dir}"
           # copy output files
-          cp -av rootfs.tar.gz "${BUILD_DIR}"
-          cp -av dtbs.tar.gz "${BUILD_DIR}"
-          cp -av disk-ufs.img.gz "${BUILD_DIR}"
-          cp -av disk-sdcard.img.gz "${BUILD_DIR}"
+          cp -av rootfs.tar.gz "${dir}"
+          cp -av dtbs.tar.gz "${dir}"
+          cp -av disk-ufs.img.gz "${dir}"
+          cp -av disk-sdcard.img.gz "${dir}"
           # TODO: separate flash_* directories between UFS and eMMC
-          tar -cvf "${BUILD_DIR}"/flash-ufs.tar.gz \
+          tar -cvf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
               flash_rb3*
-          tar -cvf "${BUILD_DIR}"/flash-emmc.tar.gz \
+          tar -cvf "${dir}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               flash_rb1*
@@ -111,4 +116,54 @@ jobs:
         uses: qualcomm-linux/upload-private-artifact-action@v1
         id: upload_artifacts
         with:
-          path: ./uploads
+          path: debos-artifacts
+
+      - name: Unpack rootfs to generate SBOM
+        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar.gz
+
+      # Syft is not packaged in Debian; it's available as a binary tarball or
+      # as container image from upstream; it's available on arm64 and x86
+      - name: Install Syft
+        run: |
+          set -ux
+          apt -y install curl
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
+
+      - name: Generate SBOMs with Syft
+        run: |
+          set -ux
+          bin/syft --version
+          SYFT_FORMAT_PRETTY=true bin/syft \
+              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
+              -o spdx-json=rootfs-sbom.spdx.json \
+              -o syft-json=rootfs-sbom.syft.json \
+              -o syft-text=rootfs-sbom.syft.txt \
+              -o syft-table \
+              --parallelism `nproc` \
+              --select-catalogers debian \
+              --source-name qualcomm-linux-debian-rootfs \
+              --source-version "${BUILD_ID}" \
+              -v \
+              scan rootfs
+
+      - name: Generate license summary from Syft report
+        run: |
+          set -ux
+          scripts/syft-license-summary.py \
+              --rootfs rootfs rootfs-sbom.syft.json |
+                  tee rootfs-sbom.syft-license-summary.csv.txt
+
+      - name: Stage SBOMs for publishing
+        run: |
+          set -ux
+          gzip rootfs-sbom.*
+          dir="sboms"
+          mkdir -v sboms
+          cp -av rootfs-sbom.*.gz sboms
+
+      - name: Upload SBOMs as private artifacts
+        uses: qualcomm-linux/upload-private-artifact-action@v1
+        id: upload_sbom_artifacts
+        with:
+          path: sboms
+
