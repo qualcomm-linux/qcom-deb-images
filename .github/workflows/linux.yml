@@ -77,17 +77,9 @@ jobs:
           export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
-
           # create or update linux-deb-latest symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
-          (
-              cd /fileserver-downloads/qcom-deb-images
-              # remove what used to be a directory and create/update symlink to
-              # point to latest build
-              rm -rvf linux-latest
-              rm -rvf linux-deb-latest
-              ln -svf "../${BUILD_ID}" linux-deb-latest
-          )
+          ln -svf "../${BUILD_ID}" /fileserver-downloads/qcom-deb-images/linux-deb-latest
           # perhaps help NFS sync
           sync
 
