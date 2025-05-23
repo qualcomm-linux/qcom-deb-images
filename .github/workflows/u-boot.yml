@@ -26,7 +26,7 @@ jobs:
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
-    #runs-on: [self-hosted, arm64, debbuilder]
+    #runs-on: [self-hosted, qcom-u2404, arm64]
     container:
       image: debian:trixie
       volumes:
