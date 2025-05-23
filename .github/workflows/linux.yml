@@ -60,7 +60,9 @@ jobs:
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
                 debhelper-compat kmod python3 rsync coreutils
-            scripts/build-linux-deb.sh kernel-configs/systemd-boot.config
+            # sort config files alphabetically to have predictable ordering
+            ls kernel-configs/*.config | sort |
+                xargs scripts/build-linux-deb.sh
 
       - name: Upload results to fileserver
         env:
