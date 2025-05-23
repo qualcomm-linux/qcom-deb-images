@@ -62,19 +62,21 @@ jobs:
                 debhelper-compat kmod python3 rsync coreutils
             scripts/build-linux-deb.sh kernel-configs/systemd-boot.config
 
-      - name: Upload results to fileserver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stage artifacts for upload
         run: |
           set -ux
           # dcmd from devscripts will be used to parse .changes file
           apt -y install --no-install-recommends devscripts
-          # python3-requests is used by publish_aritfacts.py
-          apt -y install python3-requests
-          # copy to fileserver builds and downloads directories
+          # stage artifacts in a directory
+          mkdir -v artifacts
+          cp -av `dcmd *.changes` artifacts
+
+      - name: Upload results to fileserver space for downloads
+        run: |
+          set -ux
           export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
-          cp -av `dcmd *.changes` "${BUILD_DIR}"
+          cp -av artifacts/* "${BUILD_DIR}"
 
           # create or update linux-deb-latest symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
@@ -88,8 +90,10 @@ jobs:
           )
           # perhaps help NFS sync
           sync
-          # instruct fileserver to publish this directory
-          export URL="${FILESERVER_URL}/${BUILD_ID}/"
-          .github/workflows/publish_artifacts.py
-          echo Image available at: ${URL}
+
+      - name: Upload private artifacts
+        uses: qualcomm-linux/upload-private-artifact-action@v1
+        id: upload_artifacts
+        with:
+          path: artifacts
 

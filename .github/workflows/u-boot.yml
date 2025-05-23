@@ -53,16 +53,10 @@ jobs:
                 libssl-dev gnutls-dev xxd coreutils gzip mkbootimg
             scripts/build-u-boot-rb1.sh
 
-      - name: Upload results to fileserver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stage artifacts for upload
         run: |
           set -ux
-          # python3-requests is used by publish_aritfacts.py
-          apt -y install python3-requests
-
-          export BUILD_DIR="/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest"
-          mkdir -vp ${BUILD_DIR}
+          mkdir -v artifacts
           cp -av \
               u-boot/u-boot-nodtb.bin.gz \
               u-boot/dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb \
@@ -71,10 +65,20 @@ jobs:
               u-boot/rb1-boot.img \
               u-boot/u-boot-cap.bin \
               u-boot/u-boot.cab \
-              ${BUILD_DIR}
+              artifacts
+
+      - name: Upload results to fileserver space for downloads
+        run: |
+          set -ux
+          export BUILD_DIR="/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest"
+          mkdir -vp "${BUILD_DIR}"
+          cp -av artifacts/* "${BUILD_DIR}"
           # perhaps help NFS sync
           sync
-          # instruct fileserver to publish this directory
-          export URL="${FILESERVER_URL}/${BUILD_ID}/"
-          .github/workflows/publish_artifacts.py
-          echo Image available at: ${URL}
+
+      - name: Upload private artifacts
+        uses: qualcomm-linux/upload-private-artifact-action@v1
+        id: upload_artifacts
+        with:
+          path: artifacts
+
