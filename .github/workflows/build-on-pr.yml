@@ -22,4 +22,5 @@ jobs:
 
   build-pr:
     uses: ./.github/workflows/debos.yml
-
+  schema-check:
+    uses: ./.github/workflows/lava-schema-check.yml
