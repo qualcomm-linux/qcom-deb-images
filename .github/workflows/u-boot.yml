@@ -70,9 +70,19 @@ jobs:
       - name: Upload results to fileserver space for downloads
         run: |
           set -ux
-          export BUILD_DIR="/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest"
+          export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
+
+          # create or update u-boot-rb1-latest symlink
+          mkdir -vp /fileserver-downloads/qcom-deb-images
+          (
+              cd /fileserver-downloads/qcom-deb-images
+              # remove what used to be a directory and create/update symlink to
+              # point to latest build
+              rm -rvf u-boot-rb1-latest
+              ln -svf "../${BUILD_ID}" u-boot-rb1-latest
+          )
           # perhaps help NFS sync
           sync
 
