@@ -166,4 +166,17 @@ jobs:
         id: upload_sbom_artifacts
         with:
           path: sboms
-
+      - name: "Print output"
+        env:
+          build_url: ${{ steps.upload_artifacts.outputs.url }}
+        run: |
+          echo "Downloads URL: ${build_url}"
+          echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
+          echo "${build_url}" > build_url
+          echo "## Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+      - name: Upload build URL
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_url
+          path: build_url
