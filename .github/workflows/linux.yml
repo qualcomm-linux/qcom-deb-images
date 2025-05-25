@@ -3,7 +3,7 @@ name: Build Linux kernel deb
 on:
   # run weekly on Monday at 8:30am
   schedule:
-    - cron: '30 8 * * 1'
+    - cron: '30 6 * * 1'
   # allow manual runs
   workflow_dispatch:
 
