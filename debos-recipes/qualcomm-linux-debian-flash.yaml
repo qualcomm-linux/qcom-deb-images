@@ -1,3 +1,4 @@
+{{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_rb1 := "false" -}}
 {{- if .u_boot_rb1 -}}
 {{- $build_rb1 = "true" }}
@@ -22,17 +23,21 @@ actions:
     filename: qrb2210-rb1_rescue-image.zip
 {{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
   - action: download
     description: Download QCM6490 boot binaries
     url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00075.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
     name: qcm6490_boot-binaries
     filename: qcm6490_boot-binaries.zip
+{{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
   - action: download
     description: Download RB3 Gen2 Vision Kit CDT
     url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
     name: rb3gen2-vision-kit_cdt
     filename: rb3gen2-vision-kit_cdt.zip
+{{- end }}
 
   - action: run
     description: Generate flash directories for eMMC and UFS boards
@@ -82,6 +87,7 @@ actions:
       # rb1-bootloader-emmc-linux-47528.zip
 {{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
       ## platform: QCM6490
       # unpack boot binaries
       unzip -j "${ROOTDIR}/../qcm6490_boot-binaries.zip" \
@@ -178,6 +184,7 @@ actions:
       sed -i \
           '/label="rootfs"/s#filename="[^"]*"#filename="../disk-ufs.img2"#' \
           "${flash_dir}"/rawprogram*.xml
+{{- end }}
 
       # cleanup
       rm -rf build
