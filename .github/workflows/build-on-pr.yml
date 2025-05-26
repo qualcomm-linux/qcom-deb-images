@@ -3,11 +3,12 @@ name: Build on PR
 on:
   pull_request:
 
+# implicitely set all other permissions to none
 permissions:
-  checks: write  # required by test reporting action
-  pull-requests: write  # required by test reporting action
-  contents: read  # github default
-  packages: read  # github default
+  checks: write # test.yml
+  contents: read # debos.yml lava-schema-check.yml test.yml
+  packages: read # test.yml
+  pull-requests: write # test.yml
 
 jobs:
   event-file:

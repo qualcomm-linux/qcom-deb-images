@@ -7,11 +7,12 @@ on:
         required: true
         type: string
 
+# implicitely set all other permissions to none
 permissions:
-  checks: write  # EnricoMi/publish-unit-test-result-action
-  pull-requests: write  # EnricoMi/publish-unit-test-result-action
-  contents: read  # actions/checkout
-  packages: read  # actions/download-artifact
+  checks: write # EnricoMi/publish-unit-test-result-action
+  contents: read # actions/checkout
+  packages: read # actions/download-artifact
+  pull-requests: write # EnricoMi/publish-unit-test-result-action
 
 jobs:
   prepare-job-list:

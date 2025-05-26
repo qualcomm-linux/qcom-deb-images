@@ -8,11 +8,14 @@ on:
     types:
       - completed
 
+# implicitely set all other permissions to none
 permissions:
-  checks: write  # required by test reporting action
-  pull-requests: write  # required by test reporting action
-  contents: read  # github default
-  packages: read  # github default
+  checks: write # test.yml EnricoMi/publish-unit-test-result-action
+  contents: read # test.yml actions/checkout
+  packages: read # test.yml actions/download-artifact
+  # test.yml EnricoMi/publish-unit-test-result-action
+  # thollander/actions-comment-pull-request
+  pull-requests: write
 
 jobs:
   retrieve-build-url:

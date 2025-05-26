@@ -7,8 +7,9 @@ on:
   # allow manual runs
   workflow_dispatch:
 
+# implicitely set all other permissions to none
 permissions:
-  contents: read
+  contents: read # debos.yml
 
 jobs:
   build-daily:
