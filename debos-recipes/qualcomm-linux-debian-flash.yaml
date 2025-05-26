@@ -1,6 +1,6 @@
 {{- $build_rb1 := "false" -}}
 {{- if .u_boot_rb1 -}}
-{{- $build_rb1 := "true" }}
+{{- $build_rb1 = "true" }}
 {{- end -}}
 
 architecture: arm64
@@ -13,7 +13,7 @@ actions:
     filename: qcom-ptool.tar.gz
     unpack: true
 
-{{- if .u_boot_rb1 }}
+{{- if eq $build_rb1 "true" }}
   # TODO: consider switching to https://releases.linaro.org/96boards/rb1/qualcomm/firmware/RB1_firmware_20231124-v4.zip instead
   - action: download
     description: Download RB1 rescue image
@@ -45,7 +45,7 @@ actions:
       # path to unpacked qcom-ptool tarball
       QCOM_PTOOL="${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-main"
 
-{{- if .u_boot_rb1 }}
+{{- if eq $build_rb1 "true" }}
       ### board: qrb2210-rb1
       # unpack rescue image
       unzip -j "${ROOTDIR}/../qrb2210-rb1_rescue-image.zip" \
