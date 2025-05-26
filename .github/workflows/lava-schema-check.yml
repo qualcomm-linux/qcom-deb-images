@@ -1,4 +1,4 @@
-name: Chech LAVA templates
+name: Check LAVA templates
 
 on:
   workflow_call:
