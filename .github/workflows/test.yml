@@ -7,6 +7,12 @@ on:
         required: true
         type: string
 
+permissions:
+  checks: write  # EnricoMi/publish-unit-test-result-action
+  pull-requests: write  # EnricoMi/publish-unit-test-result-action
+  contents: read  # actions/checkout
+  packages: read  # actions/download-artifact
+
 jobs:
   prepare-job-list:
     runs-on: ubuntu-latest
@@ -74,9 +80,6 @@ jobs:
     name: "Publish Tests Results"
     needs: submit-job
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
 
     steps:
       - name: Download Artifacts
