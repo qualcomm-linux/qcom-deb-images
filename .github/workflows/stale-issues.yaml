@@ -2,9 +2,11 @@ name: Comment on Stale Issues
 on:
     schedule:
       - cron: '30 1 * * *'
-  
+
 jobs:
   stale:
+    # don't run cron from forks of the main repository or from other branches
+    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@v9
@@ -14,4 +16,4 @@ jobs:
             days-before-pr-stale: 30
             stale-pr-message: "This PR is stale. Add a nice message, can mention maintainers or maintainer team to draw attention"
             stale-issue-message: "This issue is stale. Add a nice message, can mention maintainers or maintainer team to draw attention"
-            
+
