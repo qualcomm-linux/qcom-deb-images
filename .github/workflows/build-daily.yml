@@ -7,8 +7,12 @@ on:
   # allow manual runs
   workflow_dispatch:
 
+# implicitely set all other permissions to none
 permissions:
-  contents: read
+  checks: write # test.yml
+  contents: read # debos.yml test.yml
+  packages: read # test.yml
+  pull-requests: write # test.yml
 
 jobs:
   build-daily:

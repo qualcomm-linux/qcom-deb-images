@@ -4,11 +4,12 @@ on:
   push:
     branches: [main]
 
+# implicitely set all other permissions to none
 permissions:
-  checks: write
-  pull-requests: write
-  contents: read
-  packages: read
+  checks: write # test.yml
+  contents: read # debos.yml lava-schema-check.yml test.yml
+  packages: read # test.yml
+  pull-requests: write # test.yml
 
 jobs:
   build-daily:

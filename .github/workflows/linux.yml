@@ -7,10 +7,9 @@ on:
   # allow manual runs
   workflow_dispatch:
 
-# only need permission to read repository; implicitely set all other
-# permissions to none
+# implicitely set all other permissions to none
 permissions:
-  contents: read
+  contents: read # actions/checkout
 
 env:
   # where results will be posted/hosted

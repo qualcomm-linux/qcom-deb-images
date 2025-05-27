@@ -7,10 +7,9 @@ on:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
 
-# only need permission to read repository; implicitely set all other
-# permissions to none
+# implicitely set all other permissions to none
 permissions:
-  contents: read
+  contents: read # actions/checkout
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
