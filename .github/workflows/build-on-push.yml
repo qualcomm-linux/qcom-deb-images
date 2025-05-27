@@ -20,4 +20,4 @@ jobs:
     needs: [build-daily, schema-check]
     secrets: inherit
     with:
-      url: ${{ needs.build.outputs.artifacts_url }}
+      url: ${{ needs.build-daily.outputs.artifacts_url }}
