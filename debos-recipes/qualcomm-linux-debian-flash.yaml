@@ -1,6 +1,7 @@
+{{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_rb1 := "false" -}}
 {{- if .u_boot_rb1 -}}
-{{- $build_rb1 := "true" }}
+{{- $build_rb1 = "true" }}
 {{- end -}}
 
 architecture: arm64
@@ -13,7 +14,7 @@ actions:
     filename: qcom-ptool.tar.gz
     unpack: true
 
-{{- if .u_boot_rb1 }}
+{{- if eq $build_rb1 "true" }}
   # TODO: consider switching to https://releases.linaro.org/96boards/rb1/qualcomm/firmware/RB1_firmware_20231124-v4.zip instead
   - action: download
     description: Download RB1 rescue image
@@ -22,17 +23,21 @@ actions:
     filename: qrb2210-rb1_rescue-image.zip
 {{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
   - action: download
     description: Download QCM6490 boot binaries
     url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00075.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
     name: qcm6490_boot-binaries
     filename: qcm6490_boot-binaries.zip
+{{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
   - action: download
     description: Download RB3 Gen2 Vision Kit CDT
     url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
     name: rb3gen2-vision-kit_cdt
     filename: rb3gen2-vision-kit_cdt.zip
+{{- end }}
 
   - action: run
     description: Generate flash directories for eMMC and UFS boards
@@ -45,35 +50,75 @@ actions:
       # path to unpacked qcom-ptool tarball
       QCOM_PTOOL="${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-main"
 
-{{- if .u_boot_rb1 }}
+{{- if eq $build_rb1 "true" }}
       ### board: qrb2210-rb1
       # unpack rescue image
       unzip -j "${ROOTDIR}/../qrb2210-rb1_rescue-image.zip" \
           -d build/qrb2210-rb1_rescue-image
-      # TODO: on RB1, we don't generate partition files with ptool since its
-      # partitions.conf does not have entries for data files from the rescue
-      # image, while the rescue image defines useful partitions such as the ESP
+      # generate partition files
+      mkdir -v build/qrb2210-rb1_partitions
+      (
+          cd build/qrb2210-rb1_partitions
+          conf="${QCOM_PTOOL}/platforms/qrb2210-rb1/partitions.conf"
+          "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
+              -o ptool-partitions.xml
+          # partitions.conf sets --type=emmc, nand or ufs
+          if grep -F '^--disk --type=ufs ' "${conf}"; then
+              touch flash-ufs
+          elif grep -F '^--disk --type=emmc ' "${conf}"; then
+              touch flash-emmc
+          fi
+          "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
+      )
+
       flash_dir="${ARTIFACTDIR}/flash_rb1"
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
-      # copy rescue image files
-      cp --preserve=mode,timestamps -v build/qrb2210-rb1_rescue-image/* \
+      # copy board partition files
+      cp --preserve=mode,timestamps -v build/qrb2210-rb1_partitions/* \
           "${flash_dir}"
-      # copy RB1 U-Boot binary to u-boot-abootimg.img
+      # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
+      # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
+      # ptool should have a flag not to generate these; note that there are
+      # wipe_rawprogram*.xml files still
+      rm -v "${flash_dir}"/rawprogram*_BLANK_GPT.xml
+      rm -v "${flash_dir}"/rawprogram*_WIPE_PARTITIONS.xml
+      # copy board boot binaries; these shouldn't ship partition files, but
+      # make sure not to accidentally clobber any such file
+      find build/qrb2210-rb1_rescue-image \
+          -not -name 'gpt_*' \
+          -not -name 'patch*.xml' \
+          -not -name 'rawprogram*.xml' \
+          -not -name 'wipe*.xml' \
+          -not -name 'zeros_*' \
+          \( \
+              -name LICENSE \
+              -or -name Qualcomm-Technologies-Inc.-Proprietary \
+              -or -name 'prog_*' \
+              -or -name '*.bin' \
+              -or -name '*.elf' \
+              -or -name '*.fv' \
+              -or -name '*.mbn' \
+          \) \
+          -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
+      # copy RB1 U-Boot binary to boot.img;
+      # qcom-ptool/platforms/*/partitions.conf uses filename=boot.img
+      # boot_a and boot_b partitions
       cp --preserve=mode,timestamps -v "${ARTIFACTDIR}/{{- .u_boot_rb1 -}}" \
-          "${flash_dir}/rb1-boot.img"
+          "${flash_dir}/boot.img"
 
-      # update flashing file for RB1 U-Boot; in the rescue image, this
-      # partition is blanked with boot-erase.img
-      sed -i '/label="boot_a"/s/filename="[^"]*"/filename="rb1-boot.img"/' "${flash_dir}"/rawprogram*.xml
+      # update flashing files for ESP image;
+      # qcom-ptool/platforms/*/partitions.conf uses filename=efi.bin for the
+      # ESP partition on EFI capable platforms
+      sed -i '/label="efi"/s#filename="[^"]*"#filename="../disk-sdcard.img1"#' \
+          "${flash_dir}"/rawprogram*.xml
 
-      # update flashing files for ESP image; in the rescue image, this
-      # partition is blanked with boot-erase.img
-      sed -i '/label="esp"/s#filename="[^"]*"#filename="../disk-sdcard.img1"#' "${flash_dir}"/rawprogram*.xml
-
-      # update flashing files for rootfs image;; in the rescue image, this
-      # partition is not provisioned
-      sed -i '/label="rootfs"/s#filename="[^"]*"#filename="../disk-sdcard.img2"#' "${flash_dir}"/rawprogram*.xml
+      # update flashing files for rootfs image;
+      # qcom-ptool/platforms/*/partitions.conf uses filename=rootfs.img for the
+      # rootfs partition
+      sed -i \
+          '/label="rootfs"/s#filename="[^"]*"#filename="../disk-sdcard.img2"#' \
+          "${flash_dir}"/rawprogram*.xml
 
       # TODO: there is currently no dtb.bin alike system with the RB1 firmware
 
@@ -82,6 +127,7 @@ actions:
       # rb1-bootloader-emmc-linux-47528.zip
 {{- end }}
 
+{{- if eq $build_qcm6490 "true" }}
       ## platform: QCM6490
       # unpack boot binaries
       unzip -j "${ROOTDIR}/../qcm6490_boot-binaries.zip" \
@@ -124,7 +170,8 @@ actions:
           -not -name 'wipe*.xml' \
           -not -name 'zeros_*' \
           \( \
-              -name Qualcomm-Technologies-Inc.-Proprietary \
+              -name LICENSE \
+              -or -name Qualcomm-Technologies-Inc.-Proprietary \
               -or -name 'prog_*' \
               -or -name '*.bin' \
               -or -name '*.elf' \
@@ -178,6 +225,7 @@ actions:
       sed -i \
           '/label="rootfs"/s#filename="[^"]*"#filename="../disk-ufs.img2"#' \
           "${flash_dir}"/rawprogram*.xml
+{{- end }}
 
       # cleanup
       rm -rf build
