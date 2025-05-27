@@ -170,7 +170,8 @@ actions:
           -not -name 'wipe*.xml' \
           -not -name 'zeros_*' \
           \( \
-              -name Qualcomm-Technologies-Inc.-Proprietary \
+              -name LICENSE \
+              -or -name Qualcomm-Technologies-Inc.-Proprietary \
               -or -name 'prog_*' \
               -or -name '*.bin' \
               -or -name '*.elf' \
