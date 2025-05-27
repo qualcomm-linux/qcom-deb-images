@@ -1,5 +1,8 @@
 # Qualcomm Linux deb images
 
+[![Build on push to branch](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml/badge.svg)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml)
+[![Daily Build](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml/badge.svg)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml)
+
 A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
 
 Initially, this repository provides [debos](https://github.com/go-debos/debos) recipes based on Debian trixie for boards such as the Qualcomm RB3 Gen 2.
