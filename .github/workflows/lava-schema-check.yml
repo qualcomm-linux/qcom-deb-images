@@ -3,6 +3,10 @@ name: Check LAVA templates
 on:
   workflow_call:
 
+# implicitely set all other permissions to none
+permissions:
+  contents: read # actions/checkout
+
 jobs:
   schema-check:
     runs-on: ubuntu-latest
