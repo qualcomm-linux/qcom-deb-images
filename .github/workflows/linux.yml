@@ -81,7 +81,7 @@ jobs:
           cp -av artifacts/* "${BUILD_DIR}"
           # create or update linux-deb-latest symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
-          ln -svf "../${BUILD_ID}" /fileserver-downloads/qcom-deb-images/linux-deb-latest
+          ln -fnsv "../${BUILD_ID}" /fileserver-downloads/qcom-deb-images/linux-deb-latest
           # perhaps help NFS sync
           sync
 

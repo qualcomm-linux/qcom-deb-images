@@ -86,7 +86,7 @@ jobs:
               # remove what used to be a directory and create/update symlink to
               # point to latest build
               rm -rvf u-boot-rb1-latest
-              ln -svf "../${BUILD_ID}" u-boot-rb1-latest
+              ln -fnsv "../${BUILD_ID}" u-boot-rb1-latest
           )
           # perhaps help NFS sync
           sync
