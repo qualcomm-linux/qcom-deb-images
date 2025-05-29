@@ -13,7 +13,7 @@ on:
 
 # this provides a fallback on pull_request where we can't set the value
 env:
-  CONFIG_PATH: ${{ inputs.config || 'overlay-debs/mesa-experimental/mesa_25.1.0-1qcom1.yaml' }}
+  CONFIG_PATH: ${{ inputs.config || 'overlay-debs/efivar-experiment/efivar_38-3.1~invalid1.yaml' }}
 
 jobs:
   build:
