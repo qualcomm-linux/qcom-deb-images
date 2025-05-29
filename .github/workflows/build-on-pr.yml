@@ -1,8 +1,5 @@
 name: Build on PR
 
-on:
-  pull_request:
-
 # implicitely set all other permissions to none
 permissions:
   checks: write # test.yml
