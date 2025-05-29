@@ -1,0 +1,330 @@
+diff -Nru efivar-38/debian/changelog efivar-38/debian/changelog
+--- efivar-38/debian/changelog	2024-02-28 02:57:40.000000000 +0000
++++ efivar-38/debian/changelog	2025-05-29 17:32:49.000000000 +0000
+@@ -1,3 +1,11 @@
++efivar (38-3.1~invalid1) trixie-noship; urgency=medium
++
++  * Add test patches from https://github.com/rhboot/efivar/pull/267
++    - 0001-efivar-Add-missing-to-usage-help-options.patch
++    - 0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch
++
++ -- Loïc Minier <loic.minier@oss.qualcomm.com>  Thu, 29 May 2025 17:32:49 +0000
++
+ efivar (38-3.1) unstable; urgency=medium
+ 
+   * Non-maintainer upload.
+diff -Nru efivar-38/debian/patches/0001-efivar-Add-missing-to-usage-help-options.patch efivar-38/debian/patches/0001-efivar-Add-missing-to-usage-help-options.patch
+--- efivar-38/debian/patches/0001-efivar-Add-missing-to-usage-help-options.patch	1970-01-01 00:00:00.000000000 +0000
++++ efivar-38/debian/patches/0001-efivar-Add-missing-to-usage-help-options.patch	2025-05-29 17:30:51.000000000 +0000
+@@ -0,0 +1,26 @@
++From 249182526c0fd6b7b6d5bc02b96d3376e9051ba9 Mon Sep 17 00:00:00 2001
++From: Javier Tia <javier.tia@linaro.org>
++Date: Sun, 9 Jun 2024 00:12:37 -0600
++Subject: [PATCH 1/2] efivar: Add missing > to usage help options
++
++Signed-off-by: Javier Tia <javier.tia@linaro.org>
++---
++ src/efivar.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/src/efivar.c b/src/efivar.c
++index 1f9d613..519f7c5 100644
++--- a/src/efivar.c
+++++ b/src/efivar.c
++@@ -441,7 +441,7 @@ usage(int ret)
++ 		"  -a, --append                      append to variable specified by --name\n"
++ 		"  -f, --datafile=<file>             load or save variable contents from <file>\n"
++ 		"  -e, --export=<file>               export variable to <file>\n"
++-		"  -i, --import=<file>               import variable from <file\n"
+++		"  -i, --import=<file>               import variable from <file>\n"
++ 		"  -L, --list-guids                  show internal guid list\n"
++ 		"  -w, --write                       write to variable specified by --name\n\n"
++ 		"Help options:\n"
++-- 
++2.47.2
++
+diff -Nru efivar-38/debian/patches/0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch efivar-38/debian/patches/0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch
+--- efivar-38/debian/patches/0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch	1970-01-01 00:00:00.000000000 +0000
++++ efivar-38/debian/patches/0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch	2025-05-29 17:30:51.000000000 +0000
+@@ -0,0 +1,273 @@
++From 8c7e3610cafd01f57b62c37dbaec2c4ece3fa3c0 Mon Sep 17 00:00:00 2001
++From: Javier Tia <javier.tia@linaro.org>
++Date: Wed, 30 Oct 2024 11:58:53 -0600
++Subject: [PATCH 2/2] efivar: Copy VarToFile to RTStorageVolatile file at ESP
++
++EFI is becoming more common on embedded boards with the embracing of
++SystemReady-IR.
++
++U-Boot which is most commonly used, is usually storing the EFI variables
++in a file in the ESP. That makes it impossible to support SetVariable at
++Runtime reliably, since the OS doesn't know how to access, read or write
++that file.
++
++OS'es usually need SetVariable at runtime for three reasons:
++
++- Set the BootOrder
++- Enable UEFI Secure Boot
++- OSIndication to signal capsule updates on-disk
++
++Since the variables are stored in a file U-Boot enables SetVariable at
++runtime in the EFI config table and stores any updates in RAM. At the
++same file it creates two volatile variables:
++
++- RTStorageVolatile is the location of the file relative to the ESP
++- VarTofile contains a binary dump of the EFI variables that need to be
++  preserved on the file (BS, RT, NV)
++
++U-Boot fills in the VarToFile dynamically on reads and that includes any
++updates the OS did in the meantime.
++
++So, let's update efivar to do the same thing. Once a variable is written
++to the efivarfs, make sure efivars is mounted as rw and scan for the
++file RTStorageVolatile. If we find that, copy the VarToFile contents in
++a file and preserve the variables across reboots.
++
++Suggested-by: Ilias Apalodimas <ilias.apalodimas@linaro.org>
++Acked-by: Ilias Apalodimas ilias.apalodimas@linaro.org
++Tested-by: Ilias Apalodimas ilias.apalodimas@linaro.org
++Signed-off-by: Javier Tia <javier.tia@linaro.org>
++---
++ src/efivarfs.c              |   4 ++
++ src/include/efivar/efivar.h |   2 +
++ src/lib.c                   | 129 ++++++++++++++++++++++++++++++++++++
++ src/libefivar.map.in        |   2 +
++ src/vars.c                  |   8 ++-
++ 5 files changed, 143 insertions(+), 2 deletions(-)
++
++diff --git a/src/efivarfs.c b/src/efivarfs.c
++index 034d6c1..ad2a40f 100644
++--- a/src/efivarfs.c
+++++ b/src/efivarfs.c
++@@ -312,6 +312,8 @@ efivarfs_del_variable(efi_guid_t guid, const char *name)
++ 	if (rc < 0)
++ 		efi_error("unlink failed");
++ 
+++	efi_save_esp_filename();
+++
++ 	__typeof__(errno) errno_value = errno;
++ 	free(path);
++ 	errno = errno_value;
++@@ -442,6 +444,8 @@ efivarfs_set_variable(efi_guid_t guid, const char *name, const uint8_t *data,
++ 		goto err;
++ 	}
++ 
+++	efi_save_esp_filename();
+++
++ 	/* we're done */
++ 	ret = 0;
++ 
++diff --git a/src/include/efivar/efivar.h b/src/include/efivar/efivar.h
++index b9b265b..a9182b5 100644
++--- a/src/include/efivar/efivar.h
+++++ b/src/include/efivar/efivar.h
++@@ -121,6 +121,8 @@ extern int efi_variable_get_attributes(efi_variable_t *var, uint64_t *attrs)
++ extern int efi_variable_realize(efi_variable_t *var)
++ 			__attribute__((__nonnull__ (1)));
++ 
+++extern void efi_save_esp_filename(void);
+++
++ #ifndef EFIVAR_BUILD_ENVIRONMENT
++ extern int efi_error_get(unsigned int n,
++ 			 char ** const filename,
++diff --git a/src/lib.c b/src/lib.c
++index c17a54d..5256320 100644
++--- a/src/lib.c
+++++ b/src/lib.c
++@@ -16,6 +16,19 @@
++ 
++ #include "efivar.h"
++ 
+++#define VAR2FILE	"/sys/firmware/efi/efivars/VarToFile-b2ac5fc9-92b7-4acd-aeac-11e818c3130c"
+++
+++// RTStorageVolatile-b2ac5fc9-92b7-4acd-aeac-11e818c3130c
+++#define NAME_RTSV	"RTStorageVolatile"
+++#define GUID_RTSV \
+++	EFI_GUID(0xB2AC5FC9,0x92B7,0x4ACD,0xAEAC,0x11,0xE8,0x18,0xC3,0x13,0x0C)
+++
+++static const char *esp_paths[] = {
+++	"/boot",
+++	"/boot/efi",
+++	"/efi"
+++};
+++
++ static int default_probe(void)
++ {
++ 	return 1;
++@@ -227,6 +240,122 @@ efi_variables_supported(void)
++ 	return 1;
++ }
++ 
+++static void
+++search_esp_filename(const char *filename, char **esp_filename)
+++{
+++	size_t num_paths = sizeof(esp_paths) / sizeof(esp_paths[0]);
+++	size_t esp_filename_size = 0;
+++
+++	for (size_t i = 0; i < num_paths; ++i) {
+++		esp_filename_size = strlen(esp_paths[i]) + strlen(filename) + 2;
+++		*esp_filename = malloc(esp_filename_size);
+++		if (!*esp_filename) {
+++			fprintf(stderr, "Error: Failed to allocate memory for '%s' esp_filename\n", *esp_filename);
+++			exit(1);
+++		}
+++		snprintf(*esp_filename, esp_filename_size, "%s/%s", esp_paths[i], filename);
+++
+++		struct stat buffer;
+++		if (stat(*esp_filename, &buffer) == 0) {
+++			return;
+++		}
+++
+++		free(*esp_filename);
+++		*esp_filename = NULL;
+++	}
+++}
+++
+++static int
+++get_esp_filename(char **esp_filename)
+++{
+++	size_t file_size;
+++	uint32_t file_attr;
+++	uint8_t *file_data = NULL;
+++	int rc = 0;
+++
+++	rc = efi_get_variable(GUID_RTSV, NAME_RTSV, &file_data, &file_size, &file_attr);
+++	if (rc < 0) {
+++		// No error print here. The checking should only happen if
+++		// RTStorageVolatile is there to begin with. i.e., systems, like x86,
+++		// that don't need to store variables in an ESP file
+++		return rc;
+++	}
+++
+++	*esp_filename = (char *)file_data;
+++
+++	return 0;
+++}
+++
+++static void
+++save_esp_filename(const char *esp_filename) {
+++    FILE *var2file = NULL;
+++    FILE *output_file = NULL;
+++    unsigned char buffer[1024];
+++    size_t bytes_read, bytes_written;
+++    bool fail = false;
+++
+++    var2file = fopen(VAR2FILE, "rb");
+++    if (!var2file) {
+++        fprintf(stderr, "Error: Could not open file '%s'\n", VAR2FILE);
+++        exit(1);
+++    }
+++
+++    output_file = fopen(esp_filename, "wb");
+++    if (!output_file) {
+++        fprintf(stderr, "Error: Could not open file '%s'\n", esp_filename);
+++        fclose(var2file);
+++        exit(1);
+++    }
+++
+++    if (fread(buffer, 1, 4, var2file) < 4) {
+++        fprintf(stderr, "Error: Could not skip first 4 bytes or '%s' file is too small\n", esp_filename);
+++        fail = true;
+++        goto clean;
+++    }
+++
+++    while ((bytes_read = fread(buffer, 1, sizeof(buffer), var2file)) > 0) {
+++        bytes_written = fwrite(buffer, 1, bytes_read, output_file);
+++        if (bytes_written != bytes_read) {
+++            fprintf(stderr, "Error: Could not write data to ESP '%s' file\n", esp_filename);
+++            fail = true;
+++            goto clean;
+++        }
+++    }
+++
+++clean:
+++    fclose(var2file);
+++    fclose(output_file);
+++
+++    if (fail)
+++        exit(1);
+++}
+++
+++void PUBLIC
+++efi_save_esp_filename(void)
+++{
+++	int rc = 0;
+++	char *esp_filename = NULL;
+++	char *esp_filename_path = NULL;
+++
+++	rc = get_esp_filename(&esp_filename);
+++	if (rc < 0 || !esp_filename) {
+++		goto cleanup;
+++	}
+++
+++	search_esp_filename(esp_filename, &esp_filename_path);
+++	if (esp_filename_path) {
+++		save_esp_filename(esp_filename_path);
+++	}
+++	else {
+++		fprintf(stderr, "Error: no ESP '%s' file found in ESP partitions to save VarToFile\n", esp_filename);
+++		goto cleanup;
+++	}
+++
+++cleanup:
+++	free(esp_filename);
+++	free(esp_filename_path);
+++}
+++
++ static void CONSTRUCTOR libefivar_init(void);
++ 
++ static void CONSTRUCTOR
++diff --git a/src/libefivar.map.in b/src/libefivar.map.in
++index 59f1a72..fa94d6d 100644
++--- a/src/libefivar.map.in
+++++ b/src/libefivar.map.in
++@@ -90,6 +90,8 @@ libefivar.so.0 {
++ 		efi_guid_x509_sha384;
++ 		efi_guid_x509_sha512;
++ 		efi_guid_zero;
+++
+++		efi_save_esp_filename;
++ 	local:	*;
++ };
++ 
++diff --git a/src/vars.c b/src/vars.c
++index 1cd23d2..81bedb1 100644
++--- a/src/vars.c
+++++ b/src/vars.c
++@@ -435,8 +435,10 @@ vars_del_variable(efi_guid_t guid, const char *name)
++ 	}
++ 
++ 	rc = write(fd, buf, buf_size);
++-	if (rc >= 0)
+++	if (rc >= 0) {
+++		efi_save_esp_filename();
++ 		ret = 0;
+++	}
++ 	else
++ 		efi_error("write() failed");
++ err:
++@@ -594,8 +596,10 @@ vars_set_variable(efi_guid_t guid, const char *name, const uint8_t *data,
++ 		rc = write(fd, &var32, sizeof(var32));
++ 	}
++ 
++-	if (rc >= 0)
+++	if (rc >= 0) {
+++		efi_save_esp_filename();
++ 		ret = 0;
+++	}
++ 	else
++ 		efi_error("write() failed");
++ 
++-- 
++2.47.2
++
+diff -Nru efivar-38/debian/patches/series efivar-38/debian/patches/series
+--- efivar-38/debian/patches/series	2023-11-29 14:23:32.000000000 +0000
++++ efivar-38/debian/patches/series	2025-05-29 17:32:37.000000000 +0000
+@@ -1,2 +1,4 @@
+ 0001-linux-handle-non-ACPI-systems-in-device_get.patch
+ 0002_no_host_march.patch
++0001-efivar-Add-missing-to-usage-help-options.patch
++0002-efivar-Copy-VarToFile-to-RTStorageVolatile-file-at-E.patch

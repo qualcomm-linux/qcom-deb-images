@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20240229T041529Z/pool/main/e/efivar/efivar_38-3.1.dsc"
+dsc_sha256sum: "8cb5bc65ed548f5c223935a5d7396e4c67430096d318e7263b5cb2ffe771629e"
+debdiff_file: "efivar_38-3.1~invalid1.debdiff"
+suite: "trixie"
