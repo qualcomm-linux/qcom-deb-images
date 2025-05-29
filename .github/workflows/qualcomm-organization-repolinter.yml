@@ -1,7 +1,5 @@
 name: Qualcomm Organization Repolinter
 
-on: [push, pull_request]
-
 jobs:
   repolinter:
     runs-on: ubuntu-latest
