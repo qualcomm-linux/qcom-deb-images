@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20250416T143525Z/pool/main/h/hello/hello_2.10-5.dsc"
+dsc_sha256sum: "319f8c377eb48597798b699f72ab853f3439a991583ddd51bf94b415373ffdfe"
+debdiff_file: "hello_2.10-5qcom1.debdiff"
+suite: "trixie"
