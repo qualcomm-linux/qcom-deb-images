@@ -1,12 +1,19 @@
 name: Build a Debian package using an overlay recipe
 
 on:
+  # temporarily allow on push and pull_request
+  push:
+  pull_request:
   workflow_dispatch:
     inputs:
       config:
         description: 'Path to the YAML configuration file'
         required: true
         type: string
+
+# this provides a fallback on pull_request where we can't set the value
+env:
+  CONFIG_PATH: ${{ inputs.config || 'overlay-debs/mesa-experimental/mesa_25.1.0-1qcom1.yaml' }}
 
 jobs:
   build:
