@@ -1,0 +1,89 @@
+diff -Nru mesa-25.0.1/debian/changelog mesa-25.0.1/debian/changelog
+--- mesa-25.0.1/debian/changelog	2025-03-06 11:07:00.000000000 +0000
++++ mesa-25.0.1/debian/changelog	2025-03-06 18:13:37.000000000 +0000
+@@ -1,3 +1,11 @@
++mesa (25.0.1-1qcom1) unstable; urgency=medium
++
++  * patches: add fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids; fixes segfault
++    when trying to use the (currently unsupported GPU) on Qualcomm RB1; from
++    upstream gitlab's MR #33830.
++
++ -- Loïc Minier <loic.minier@oss.qualcomm.com>  Thu, 06 Mar 2025 18:13:37 +0000
++
+ mesa (25.0.1-1) unstable; urgency=medium
+ 
+   [ Timo Aaltonen ]
+diff -Nru mesa-25.0.1/debian/patches/fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids.diff mesa-25.0.1/debian/patches/fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids.diff
+--- mesa-25.0.1/debian/patches/fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids.diff	1970-01-01 00:00:00.000000000 +0000
++++ mesa-25.0.1/debian/patches/fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids.diff	2025-03-06 18:12:57.000000000 +0000
+@@ -0,0 +1,62 @@
++From a255790e7e62904a5470a1edf6fc8aea5d7cc209 Mon Sep 17 00:00:00 2001
++From: =?UTF-8?q?Lo=C3=AFc=20Minier?= <loic.minier@oss.qualcomm.com>
++Date: Fri, 28 Feb 2025 20:12:11 +0000
++Subject: [PATCH] fd_dev_gpu_id: bail out on unsupported GPU ids
++MIME-Version: 1.0
++Content-Type: text/plain; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++
++Signed-off-by: Loïc Minier <loic.minier@oss.qualcomm.com>
++---
++ src/freedreno/common/freedreno_dev_info.h | 9 +++++++++
++ src/freedreno/drm/freedreno_pipe.c        | 7 +++++++
++ 2 files changed, 16 insertions(+)
++
++diff --git a/src/freedreno/common/freedreno_dev_info.h b/src/freedreno/common/freedreno_dev_info.h
++index b925d778bb5..a3858bc20c3 100644
++--- a/src/freedreno/common/freedreno_dev_info.h
+++++ b/src/freedreno/common/freedreno_dev_info.h
++@@ -9,6 +9,7 @@
++ 
++ #include <assert.h>
++ #include <stdbool.h>
+++#include <stddef.h>
++ #include <stdint.h>
++ 
++ #ifdef __cplusplus
++@@ -379,6 +380,14 @@ fd_dev_gpu_id(const struct fd_dev_id *id)
++ /* Unmodified dev info as defined in freedreno_devices.py */
++ const struct fd_dev_info *fd_dev_info_raw(const struct fd_dev_id *id);
++ 
+++/* Helper to check if GPU is known before going any further */
+++static uint8_t
+++fd_dev_is_supported(const struct fd_dev_id *id) {
+++   assert(id);
+++   assert(id->gpu_id || id->chip_id);
+++   return fd_dev_info_raw(id) != NULL;
+++}
+++
++ /* Final dev info with dbg options and everything else applied.  */
++ const struct fd_dev_info fd_dev_info(const struct fd_dev_id *id);
++ 
++diff --git a/src/freedreno/drm/freedreno_pipe.c b/src/freedreno/drm/freedreno_pipe.c
++index ab53c55152d..8373488368a 100644
++--- a/src/freedreno/drm/freedreno_pipe.c
+++++ b/src/freedreno/drm/freedreno_pipe.c
++@@ -45,6 +45,13 @@ fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
++    fd_pipe_get_param(pipe, FD_CHIP_ID, &val);
++    pipe->dev_id.chip_id = val;
++ 
+++   if (!fd_dev_is_supported(&pipe->dev_id)) {
+++      ERROR_MSG("unsupported GPU id 0x%" PRIx32 " / chip id 0x%" PRIx64,
+++                pipe->dev_id.gpu_id,
+++                pipe->dev_id.chip_id);
+++      return NULL;
+++   }
+++
++    pipe->is_64bit = fd_dev_64b(&pipe->dev_id);
++ 
++    /* Use the _NOSYNC flags because we don't want the control_mem bo to hold
++-- 
++2.47.2
++
+diff -Nru mesa-25.0.1/debian/patches/series mesa-25.0.1/debian/patches/series
+--- mesa-25.0.1/debian/patches/series	2025-03-06 11:00:09.000000000 +0000
++++ mesa-25.0.1/debian/patches/series	2025-03-06 18:12:57.000000000 +0000
+@@ -1,3 +1,4 @@
+ path_max.diff
+ src_glx_dri_common.h.diff
+ disable_ppc64el_assembly.diff
++fd_dev_gpu_id-bail-out-on-unsupported-GPU-ids.diff
