@@ -1,0 +1,89 @@
+name: Build a Debian package using an overlay recipe
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: 'Path to the YAML configuration file'
+        required: true
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: [self-hosted, qcom-u2404, "${{ matrix.arch }}"]
+    container:
+      image: debian:trixie
+      options: --privileged  # Required for chroot creation
+    steps:
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          DEBIAN_FRONTEND=noninteractive apt -y upgrade
+          DEBIAN_FRONTEND=noninteractive apt -y full-upgrade
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install sbuild and dependencies
+        run: |
+          set -ux
+          DEBIAN_FRONTEND=noninteractive \
+              apt -y install --no-install-recommends \
+                  sudo sbuild gnupg debootstrap debian-archive-keyring schroot
+
+      - name: Set up sbuild user
+        run: |
+          set -ux
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+          mkdir -p /etc/sbuild
+          echo 'builder' > /etc/sbuild/buildd.conf
+          sbuild-adduser builder
+
+      - name: Create sbuild chroot for target suite
+        run: |
+          set -ux
+          # to read yaml config
+          DEBIAN_FRONTEND=noninteractive \
+              apt -y install --no-install-recommends python3 python3-yaml
+          # read suite from yaml
+          suite="$(python3 -c "import yaml; print(yaml.safe_load(open('${CONFIG_PATH}'))['suite'])")"
+          # defaults args
+          extra_repo=""
+          debootstrap_suite="${suite}"
+          chroot_prefix=""
+          if [ "${suite}" = experimental ]; then
+              # special extra args for experimental
+              debootstrap_suite='unstable'
+              extra_repo='--extra-repository=deb   http://deb.debian.org/debian  experimental main'
+              chroot_prefix='--chroot-prefix=experimental'
+          fi
+          sudo sbuild-createchroot --include=eatmydata,ccache \
+              ${extra_repo:+"${extra_repo}"} \
+              ${chroot_prefix:+"${chroot_prefix}"} \
+              "${debootstrap_suite}" \
+              "/srv/chroot/${suite}-${{ matrix.runs_on }}-sbuild" \
+              http://deb.debian.org/debian
+
+      - name: Download and build deb package
+        run: |
+          set -ux
+          # install dependencies
+          DEBIAN_FRONTEND=noninteractive \
+              apt -y install --no-install-recommends \
+                  python3 devscripts patch python3-yaml debian-keyring
+          # create output dir
+          mkdir -v upload
+          chmod a+rw upload
+          sudo -u builder python3 scripts/build-deb.py \
+              --config "${CONFIG_PATH}" --output-dir upload
+
+      - name: Upload as private artifacts
+        uses: qualcomm-linux/upload-private-artifact-action@v1
+        with:
+          path: upload
+
