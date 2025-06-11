@@ -112,9 +112,11 @@ actions:
     recommends: true
     packages:
       - alsa-utils
+      - clinfo
       - device-tree-compiler
       - i2c-tools
       - locales
+      - mesa-opencl-icd
       - mesa-utils-bin
       # convenience networking commands (arp, ifconfig, route etc.)
       - net-tools
@@ -126,6 +128,7 @@ actions:
       # lsusb
       - usbutils
       - vim
+      - vulkan-tools
       - wget
 
 {{- if eq $xfcedesktop "true" }}
