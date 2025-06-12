@@ -182,6 +182,76 @@ NB: It's also possible to run qdl from the host while the baord is not connected
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
 
+### Test an image locally with qemu
+
+You can boot an image locally with qemu as follows:
+
+1. Install dependencies. `qemu-system-arm` is required together with
+an aarch64 build of UEFI. On Debian and Ubuntu, this is provided by the
+`qemu-system-arm` package which recommends `qemu-efi-aarch64`:
+    ```bash
+    sudo apt install qemu-system-arm qemu-efi-aarch64
+    ```
+
+1. As above under "Usage", build the disk image from the root filesystem
+   tarball if you haven't done this already:
+    ```bash
+    debos debos-recipes/qualcomm-linux-debian-image.yaml
+    ```
+
+1. Run qemu as follows:
+    ```bash
+    # SCSI is required to present a device with a matching 4096 sector size
+    # inside the VM
+    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
+        -device virtio-scsi-pci,id=scsi1 \
+        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
+        -drive if=none,file=disk-ufs.img,format=raw,id=disk1 \
+        -bios /usr/share/AAVMF/AAVMF_CODE.fd
+    ```
+
+#### Copy on write
+
+Instead of modifying `file-ufs.img`, you can arrange copy-on-write, for example
+to reproduce the same first boot multiple times:
+
+1. Prepare a qcow file to contain the writes, backed by `disk-ufs.img`:
+    ```bash
+    qemu-img create -b disk-ufs.img -f qcow -F raw disk1.qcow
+    ```
+
+1. Run qemu as follows:
+    ```bash
+    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
+        -device virtio-scsi-pci,id=scsi1 \
+        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
+        -drive if=none,file=disk1.img,format=qcow,id=disk1 \
+        -bios /usr/share/AAVMF/AAVMF_CODE.fd
+    ```
+
+#### Direct kernel boot
+
+For debugging purposes, it is sometimes useful to boot the kernel directly, for
+example to confirm that an issue in the image lies in the bootloader
+installation. You can do this as follows:
+
+1. Extract the rootfs:
+    ```bash
+    mkdir rootfs
+    tar xzC rootfs -f rootfs.tar.gz
+    ```
+
+2. Run qemu against the kernel and initrd present inside the rootfs directly:
+    ```bash
+    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
+        -device virtio-scsi-pci,id=scsi1 \
+        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
+        -drive if=none,file=disk-ufs.img,format=raw,id=disk1 \
+        -kernel rootfs/boot/vmlinuz-*
+        -initrd rootfs/boot/initrd.img-*
+        -append root=/dev/sda2
+    ```
+
 ## Reporting Issues
 
 We'd love to hear if you run into issues or have ideas for improvements. [Report an Issue on GitHub](../../issues) to discuss, and try to include as much information as possible on your specific environment.
