@@ -37,30 +37,46 @@ with open(args.config, 'r') as f:
 
 # Create a temporary directory
 with tempfile.TemporaryDirectory() as temp_dir:
-    # Download the original Debian source package using dget
-    dsc_url = config['dsc_url']
-    subprocess.run(['dget', '-d', dsc_url], cwd=temp_dir, check=True)
-    print("✅ Original source package downloaded successfully.")
+    script = config.get('script')
+    if script:
+        if not os.path.isabs(script):
+            config_dir = os.path.dirname(args.config)
+            script = os.path.abspath(os.path.join(config_dir, script))
 
-    # Determine the .dsc file name
-    dsc_file = os.path.join(temp_dir, os.path.basename(dsc_url))
+        if 'env' in config:
+            for k, v in config['env'].items():
+                os.putenv(k, v)
 
-    # Verify the SHA256 checksum of the .dsc file
-    with open(dsc_file, 'rb') as f:
-        file_data = f.read()
-        sha256sum = hashlib.sha256(file_data).hexdigest()
+        subprocess.run(script, cwd=temp_dir, check=True)
 
-    expected_sha256 = config['dsc_sha256sum']
-    if sha256sum != expected_sha256:
-        raise ValueError(
-            f"SHA256 checksum does not match!\n"
-            f"Expected: {expected_sha256}\n"
-            f"Actual:   {sha256sum}"
-        )
-    print("✅ Checksum of original source package matched.")
+        print("✅ Successfully executed the script.")
+    else:
+        # Download the original Debian source package using dget
+        dsc_url = config['dsc_url']
+        subprocess.run(['dget', '-d', dsc_url], cwd=temp_dir, check=True)
+        print("✅ Original source package downloaded successfully.")
 
-    # Unpack the source package
-    subprocess.run(['dpkg-source', '-x', dsc_file], cwd=temp_dir, check=True)
+        # Determine the .dsc file name
+        dsc_file = os.path.join(temp_dir, os.path.basename(dsc_url))
+
+        # Verify the SHA256 checksum of the .dsc file
+        with open(dsc_file, 'rb') as f:
+            file_data = f.read()
+            sha256sum = hashlib.sha256(file_data).hexdigest()
+
+        expected_sha256 = config['dsc_sha256sum']
+        if sha256sum != expected_sha256:
+            raise ValueError(
+                f"SHA256 checksum does not match!\n"
+                f"Expected: {expected_sha256}\n"
+                f"Actual:   {sha256sum}"
+            )
+        print("✅ Checksum of original source package matched.")
+
+        # Unpack the source package
+        subprocess.run(['dpkg-source', '-x', dsc_file],
+                       cwd=temp_dir,
+                       check=True)
 
     # Find the unpacked directory
     unpacked_dirs = [
