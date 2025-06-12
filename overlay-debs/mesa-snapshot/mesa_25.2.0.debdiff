@@ -491,6 +491,263 @@ diff -Nru mesa-25.2.0-orig/debian/patches/path_max.diff mesa-25.2.0/debian/patch
   static int (*backends[])(struct pipe_loader_device **, int) = {
 + #ifdef HAVE_LIBDRM
 +    &pipe_loader_drm_probe,
+--- mesa-25.2.0-orig/debian/patches/35316.patch	2025-06-17 11:40:36.606796770 +0300
++++ mesa-25.2.0/debian/patches/35316.patch	2025-06-17 15:02:11.471138105 +0300
+@@ -0,0 +1,254 @@
++From: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
++Subject: freedreno: Add sampling support for RGB/BGR 24-bit component texture formats
++Origin: https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/35316
++
++From e56ef6179653e0b5574d1b9648db25c9cf6e3a6e Mon Sep 17 00:00:00 2001
++From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
++Date: Mon, 12 May 2025 11:49:06 +0530
++Subject: [PATCH 1/4] util: Add pack and unpack for R8G8B8/B8G8R8
++
++This helps in packing and unpacking the R8G8B8/B8G8R8
++pipe formats which are of uint8 type.
++
++Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
++Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
++---
++ src/util/u_pack_color.h | 27 +++++++++++++++++++++++++++
++ 1 file changed, 27 insertions(+)
++
++diff --git a/src/util/u_pack_color.h b/src/util/u_pack_color.h
++index 7d5bf7f35457f..b646729fda540 100644
++--- a/src/util/u_pack_color.h
+++++ b/src/util/u_pack_color.h
++@@ -94,6 +94,16 @@ util_pack_color_ub(uint8_t r, uint8_t g, uint8_t b, uint8_t a,
++          uc->ui[0] = (b << 24) | (g << 16) | (r << 8) | 0xff;
++       }
++       return;
+++   case PIPE_FORMAT_R8G8B8_UNORM:
+++      {
+++         uc->ui[0] = (b << 16) | (g << 8) | r;
+++      }
+++      return;
+++   case PIPE_FORMAT_B8G8R8_UNORM:
+++      {
+++         uc->ui[0] = (r << 16) | (g << 8) | b;
+++      }
+++      return;
++    case PIPE_FORMAT_B5G6R5_UNORM:
++       {
++          uc->us = ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3);
++@@ -219,6 +229,23 @@ util_unpack_color_ub(enum pipe_format format, union util_color *uc,
++          *a = (uint8_t) 0xff;
++       }
++       return;
+++   case PIPE_FORMAT_R8G8B8_UNORM:
+++      {
+++         uint32_t p = uc->ui[0];
+++         *r = (uint8_t) (p & 0xff);
+++         *g = (uint8_t) ((p >> 8) & 0xff);
+++         *b = (uint8_t) ((p >> 16) & 0xff);
+++         *a = (uint8_t) 0xff;
+++      }
+++      return;
+++   case PIPE_FORMAT_B8G8R8_UNORM:
+++      {
+++         uint32_t p = uc->ui[0];
+++         *r = (uint8_t) ((p >> 16) & 0xff);
+++         *g = (uint8_t) ((p >> 8) & 0xff);
+++         *b = (uint8_t) (p & 0xff);
+++         *a = (uint8_t) 0xff;
+++      }
++    case PIPE_FORMAT_B5G6R5_UNORM:
++       {
++          uint16_t p = uc->us;
++-- 
++GitLab
++
++
++From cd56b02b49047b27a4942e8c0ab8302b94101d67 Mon Sep 17 00:00:00 2001
++From: Rob Clark <rob.clark@oss.qualcomm.com>
++Date: Wed, 25 Jun 2025 10:39:24 -0700
++Subject: [PATCH 2/4] freedreno/layout: Support for NPoT formats
++
++Three component formats don't get UBWC, but do get their pitch aligned
++to the next PoT size.
++
++Signed-off-by: Rob Clark <rob.clark@oss.qualcomm.com>
++---
++ src/freedreno/fdl/fd6_layout.c | 55 +++++++++++++++++++++-------------
++ 1 file changed, 35 insertions(+), 20 deletions(-)
++
++diff --git a/src/freedreno/fdl/fd6_layout.c b/src/freedreno/fdl/fd6_layout.c
++index f4d6adfcb4625..d4cd785f63afe 100644
++--- a/src/freedreno/fdl/fd6_layout.c
+++++ b/src/freedreno/fdl/fd6_layout.c
++@@ -139,16 +139,22 @@ fdl6_layout(struct fdl_layout *layout, const struct fd_dev_info *info,
++    layout->layer_first = !is_3d;
++    layout->is_mutable = is_mutable;
++ 
++-   fdl6_get_ubwc_blockwidth(layout, &ubwc_blockwidth, &ubwc_blockheight);
++-
++-   /* For simplicity support UBWC only for 3D images without mipmaps,
++-    * most d3d11 games don't use mipmaps for 3D images.
++-    */
++-   if (depth0 > 1 && mip_levels > 1)
+++   if (!util_is_power_of_two_or_zero(layout->cpp)) {
+++      /* R8G8B8 and other 3 component formats don't get UBWC: */
+++      ubwc_blockwidth = ubwc_blockheight = 0;
++       layout->ubwc = false;
+++   } else {
+++      fdl6_get_ubwc_blockwidth(layout, &ubwc_blockwidth, &ubwc_blockheight);
++ 
++-   if (ubwc_blockwidth == 0)
++-      layout->ubwc = false;
+++      /* For simplicity support UBWC only for 3D images without mipmaps,
+++       * most d3d11 games don't use mipmaps for 3D images.
+++       */
+++      if (depth0 > 1 && mip_levels > 1)
+++         layout->ubwc = false;
+++
+++      if (ubwc_blockwidth == 0)
+++         layout->ubwc = false;
+++   }
++ 
++    assert(!force_ubwc || layout->ubwc);
++ 
++@@ -180,19 +186,28 @@ fdl6_layout(struct fdl_layout *layout, const struct fd_dev_info *info,
++    } else {
++       layout->base_align = 64;
++       layout->pitchalign = 0;
++-      /* align pitch to at least 16 pixels:
++-       * both turnip and galium assume there is enough alignment for 16x4
++-       * aligned gmem store. turnip can use CP_BLIT to work without this
++-       * extra alignment, but gallium driver doesn't implement it yet
++-       */
++-      if (layout->cpp > 4)
++-         layout->pitchalign = fdl_cpp_shift(layout) - 2;
++ 
++-      /* when possible, use a bit more alignment than necessary
++-       * presumably this is better for performance?
++-       */
++-      if (!explicit_layout)
++-         layout->pitchalign = fdl_cpp_shift(layout);
+++      if (util_is_power_of_two_or_zero(layout->cpp)) {
+++         /* align pitch to at least 16 pixels:
+++          * both turnip and galium assume there is enough alignment for 16x4
+++          * aligned gmem store. turnip can use CP_BLIT to work without this
+++          * extra alignment, but gallium driver doesn't implement it yet
+++          */
+++         if (layout->cpp > 4)
+++            layout->pitchalign = fdl_cpp_shift(layout) - 2;
+++
+++         /* when possible, use a bit more alignment than necessary
+++          * presumably this is better for performance?
+++          */
+++         if (!explicit_layout)
+++            layout->pitchalign = fdl_cpp_shift(layout);
+++      } else {
+++         /* 3 component formats have pitch aligned as their counterpart
+++          * 4 component formats
+++          */
+++         layout->cpp_shift = ffs(util_next_power_of_two(layout->cpp)) - 1;
+++         layout->pitchalign = layout->cpp_shift;
+++      }
++ 
++       /* not used, avoid "may be used uninitialized" warning */
++       heightalign = 1;
++-- 
++GitLab
++
++
++From 2837d27c4dce134231fc583a8c0d45e0ba22fe23 Mon Sep 17 00:00:00 2001
++From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
++Date: Sat, 10 May 2025 01:04:49 +0530
++Subject: [PATCH 3/4] freedreno/fdl: Add support for RGB888/BGR888 pipe formats
++ in render buffer creation
++
++This enables the rendering of RGB/BGR 24-bit format buffers directly
++onto the framebuffer. For RGB888, support already exists for vertex and
++texture formats, so render buffer format support has been added. For
++BGR888, support for vertex, texture, and render buffer formats has been
++added. The internal format chosen for both RGB888 and BGR888 is GL_RGB8.
++
++Change-Id: I0557389dba05d3b44d7b935f02683df17e41fbd2
++Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
++Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
++---
++ src/freedreno/fdl/fd6_format_table.c | 12 ++++++++----
++ 1 file changed, 8 insertions(+), 4 deletions(-)
++
++diff --git a/src/freedreno/fdl/fd6_format_table.c b/src/freedreno/fdl/fd6_format_table.c
++index 55d42538debd5..994c15c120e61 100644
++--- a/src/freedreno/fdl/fd6_format_table.c
+++++ b/src/freedreno/fdl/fd6_format_table.c
++@@ -121,12 +121,16 @@ static const struct fd6_format formats[PIPE_FORMAT_COUNT] = {
++    _TC(A4B4G4R4_UNORM, 4_4_4_4_UNORM,           XYZW),
++ 
++    /* 24-bit */
++-   VT_(R8G8B8_UNORM,   8_8_8_UNORM,             WZYX),
++-   VT_(R8G8B8_SNORM,   8_8_8_SNORM,             WZYX),
++-   VT_(R8G8B8_UINT,    8_8_8_UINT,              WZYX),
++-   VT_(R8G8B8_SINT,    8_8_8_SINT,              WZYX),
+++   VTC(R8G8B8_UNORM,   8_8_8_UNORM,             WZYX),
+++   VTC(R8G8B8_SNORM,   8_8_8_SNORM,             WZYX),
+++   VTC(R8G8B8_UINT,    8_8_8_UINT,              WZYX),
+++   VTC(R8G8B8_SINT,    8_8_8_SINT,              WZYX),
++    V__(R8G8B8_USCALED, 8_8_8_UINT,              WZYX),
++    V__(R8G8B8_SSCALED, 8_8_8_SINT,              WZYX),
+++   VTC(B8G8R8_UNORM,   8_8_8_UNORM,             WXYZ),
+++   VTC(B8G8R8_SNORM,   8_8_8_SNORM,             WXYZ),
+++   VTC(B8G8R8_UINT,    8_8_8_UINT,              WXYZ),
+++   VTC(B8G8R8_SINT,    8_8_8_SINT,              WXYZ),
++ 
++    /* 32-bit */
++    V__(R32_UNORM,   32_UNORM,                   WZYX),
++-- 
++GitLab
++
++
++From 31b49cf057c27f41a123e615092f00762caaf329 Mon Sep 17 00:00:00 2001
++From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
++Date: Sat, 10 May 2025 01:11:24 +0530
++Subject: [PATCH 4/4] freedreno/a6xx: Add support for some NPOT block size
++ formats
++
++This enables support for sampler view and shader image for
++non power of two formats such as RGB888/BGR888.
++As the above mentioned formats are of 24 bit, block size
++for each format is 3. So added condition to check this.
++
++Change-Id: Ie48dfd4604ad9392fc655fd7a3b49c8c6a7a7229
++Co-Developed-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
++Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
++Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
++---
++ src/gallium/drivers/freedreno/a6xx/fd6_screen.cc | 13 ++++++++-----
++ 1 file changed, 8 insertions(+), 5 deletions(-)
++
++diff --git a/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc b/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
++index 0b593cef4f4df..3f7387b6c345d 100644
++--- a/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
+++++ b/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
++@@ -67,11 +67,14 @@ fd6_screen_is_format_supported(struct pipe_screen *pscreen,
++    bool has_color = fd6_color_format(format, TILE6_LINEAR) != FMT6_NONE;
++    bool has_tex = fd6_texture_format_supported(screen->info, format, TILE6_LINEAR, false);
++ 
++-   if ((usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE)) &&
++-       has_tex &&
++-       (target == PIPE_BUFFER ||
++-        util_is_power_of_two_or_zero(util_format_get_blocksize(format)))) {
++-      retval |= usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE);
+++   if ((usage & PIPE_BIND_SHADER_IMAGE) && has_tex &&
+++       (target == PIPE_BUFFER || (util_format_get_blocksize(format) == 3)
+++        || util_is_power_of_two_or_zero(util_format_get_blocksize(format)))) {
+++      retval |= usage & PIPE_BIND_SHADER_IMAGE;
+++   }
+++
+++   if ((usage & PIPE_BIND_SAMPLER_VIEW) && has_tex) {
+++      retval |= usage & PIPE_BIND_SAMPLER_VIEW;
++    }
++ 
++    if (usage & PIPE_BIND_SHADER_IMAGE) {
++-- 
++GitLab
++
 diff -Nru mesa-25.2.0-orig/debian/patches/series mesa-25.2.0/debian/patches/series
 --- mesa-25.2.0-orig/debian/patches/series	2025-06-17 14:44:27.640967846 +0300
 +++ mesa-25.2.0/debian/patches/series	2025-06-17 14:45:04.690440415 +0300
@@ -499,3 +756,4 @@ diff -Nru mesa-25.2.0-orig/debian/patches/series mesa-25.2.0/debian/patches/seri
  disable_ppc64el_assembly.diff
  drisw-Avoid-crashing-when-swrast_loader-NULL.patch
 -etnaviv-add-support-for-texelfetch.patch
++35316.patch
