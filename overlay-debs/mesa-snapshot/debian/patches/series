@@ -3,3 +3,4 @@ src_glx_dri_common.h.diff
 disable_ppc64el_assembly.diff
 drisw-Avoid-crashing-when-swrast_loader-NULL.patch
 35316.patch
+35447.patch

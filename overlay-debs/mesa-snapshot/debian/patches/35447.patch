@@ -1,0 +1,205 @@
+From b2832bb2c262e6f4fdebbf857076db4cf4b9a6ad Mon Sep 17 00:00:00 2001
+From: Rob Clark <rob.clark@oss.qualcomm.com>
+Date: Sat, 7 Jun 2025 08:24:18 -0700
+Subject: [PATCH 1/2] freedreno: Remove obsolete comment
+
+We do used CACHED_COHERENT in some cases.  We don't used
+cached-incoherent, so nothing more to do.
+
+Signed-off-by: Rob Clark <rob.clark@oss.qualcomm.com>
+---
+ src/gallium/drivers/freedreno/freedreno_resource.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/src/gallium/drivers/freedreno/freedreno_resource.c b/src/gallium/drivers/freedreno/freedreno_resource.c
+index e28ae81fe1bbb..95777b5ba9a83 100644
+--- a/src/gallium/drivers/freedreno/freedreno_resource.c
++++ b/src/gallium/drivers/freedreno/freedreno_resource.c
+@@ -197,11 +197,6 @@ realloc_bo(struct fd_resource *rsc, uint32_t size)
+            FD_BO_CACHED_COHERENT) |
+       COND(prsc->bind & PIPE_BIND_SHARED, FD_BO_SHARED) |
+       COND(prsc->bind & PIPE_BIND_SCANOUT, FD_BO_SCANOUT);
+-   /* TODO other flags? */
+-
+-   /* if we start using things other than write-combine,
+-    * be sure to check for PIPE_RESOURCE_FLAG_MAP_COHERENT
+-    */
+ 
+    if (rsc->bo)
+       fd_bo_del(rsc->bo);
+-- 
+GitLab
+
+
+From 850b974eee49ce1b1780535d88bab8dbe8d90aad Mon Sep 17 00:00:00 2001
+From: Rob Clark <rob.clark@oss.qualcomm.com>
+Date: Tue, 10 Jun 2025 15:03:21 -0700
+Subject: [PATCH 2/2] freedreno/a6xx: cl_khr_image2d_from_buffer support
+
+This allows sampling from a buffer as if it was a simple (single
+level/layer, linear) 2d image/texture.  Add a helper to convert
+struct pipe_image_view to an apprpriate fdl_layout and wire it up
+in the image view and tex view paths.
+
+Can be tested with cl cts:
+
+ ./test_image_streams 2D read CL_RG CL_SIGNED_INT16 CL_FILTER_NEAREST CL_ADDRESS_CLAMP_TO_EDGE UNNORMALIZED
+
+(for ex)
+
+Signed-off-by: Rob Clark <rob.clark@oss.qualcomm.com>
+---
+ docs/features.txt                             |  2 +-
+ .../drivers/freedreno/a6xx/fd6_image.cc       | 31 ++++++++++++++++++-
+ .../drivers/freedreno/a6xx/fd6_texture.cc     | 31 ++++++++++++++++++-
+ .../drivers/freedreno/a6xx/fd6_texture.h      | 20 ++++++++++++
+ .../drivers/freedreno/freedreno_screen.c      |  5 +++
+ 5 files changed, 86 insertions(+), 3 deletions(-)
+
+diff --git a/docs/features.txt b/docs/features.txt
+index 45224751600a0..dcd900bfaa28a 100644
+--- a/docs/features.txt
++++ b/docs/features.txt
+@@ -763,7 +763,7 @@ Rusticl OpenCL 2.0 -- all DONE:
+   Pipes                                                 not started
+   Extended 2D images creation                           in progress
+   - CL_ABGR                                             DONE
+-  - cl_khr_image2d_from_buffer                          DONE (iris, llvmpipe)
++  - cl_khr_image2d_from_buffer                          DONE (freedreno, iris, llvmpipe)
+   - cl_khr_depth_images                                 DONE
+   - from sRGB images                                    in progress
+   clCreateSamplerWithProperties                         DONE
+diff --git a/src/gallium/drivers/freedreno/a6xx/fd6_image.cc b/src/gallium/drivers/freedreno/a6xx/fd6_image.cc
+index eab2a60d3e108..ed6e2df147d0f 100644
+--- a/src/gallium/drivers/freedreno/a6xx/fd6_image.cc
++++ b/src/gallium/drivers/freedreno/a6xx/fd6_image.cc
+@@ -46,7 +46,36 @@ static void
+ fd6_image_descriptor(struct fd_context *ctx, const struct pipe_image_view *buf,
+                      uint32_t *descriptor)
+ {
+-   if (buf->resource->target == PIPE_BUFFER) {
++   if (buf->access & PIPE_IMAGE_ACCESS_TEX2D_FROM_BUFFER) {
++      struct fdl_view_args args = {
++         .chip = ctx->screen->gen,
++
++         /* Using relocs for addresses still */
++         .iova = buf->u.tex2d_from_buf.offset,
++         .base_miplevel = 0,
++         .level_count = 1,
++         .base_array_layer = 0,
++         .layer_count = 1,
++         .swiz = {PIPE_SWIZZLE_X, PIPE_SWIZZLE_Y, PIPE_SWIZZLE_Z,
++                  PIPE_SWIZZLE_W},
++         .format = buf->format,
++
++         .type = FDL_VIEW_TYPE_2D,
++         .chroma_offsets = {FDL_CHROMA_LOCATION_COSITED_EVEN,
++                            FDL_CHROMA_LOCATION_COSITED_EVEN},
++      };
++
++      struct fdl_layout layout;
++      const struct fdl_layout *layouts = &layout;
++
++      fd6_layout_tex2d_from_buf(&layout, ctx->screen->info, buf->format, &buf->u.tex2d_from_buf);
++
++      struct fdl6_view view;
++      fdl6_view_init(&view, &layouts, &args,
++                     ctx->screen->info->a6xx.has_z24uint_s8uint);
++
++      memcpy(descriptor, view.storage_descriptor, sizeof(view.storage_descriptor));
++   } else if (buf->resource->target == PIPE_BUFFER) {
+       uint32_t size = fd_clamp_buffer_size(buf->format, buf->u.buf.size,
+                                            A4XX_MAX_TEXEL_BUFFER_ELEMENTS_UINT);
+ 
+diff --git a/src/gallium/drivers/freedreno/a6xx/fd6_texture.cc b/src/gallium/drivers/freedreno/a6xx/fd6_texture.cc
+index 38766e2f09955..68b7133c63947 100644
+--- a/src/gallium/drivers/freedreno/a6xx/fd6_texture.cc
++++ b/src/gallium/drivers/freedreno/a6xx/fd6_texture.cc
+@@ -442,7 +442,36 @@ fd6_sampler_view_update(struct fd_context *ctx,
+ 
+    so->ptr1 = rsc;
+ 
+-   if (cso->target == PIPE_BUFFER) {
++   if (cso->is_tex2d_from_buf) {
++      struct fdl_view_args args = {
++         .chip = ctx->screen->gen,
++
++         /* Using relocs for addresses still */
++         .iova = cso->u.tex2d_from_buf.offset,
++         .base_miplevel = 0,
++         .level_count = 1,
++         .base_array_layer = 0,
++         .layer_count = 1,
++         .swiz = {cso->swizzle_r, cso->swizzle_g, cso->swizzle_b,
++                  cso->swizzle_a},
++         .format = format,
++
++         .type = FDL_VIEW_TYPE_2D,
++         .chroma_offsets = {FDL_CHROMA_LOCATION_COSITED_EVEN,
++                            FDL_CHROMA_LOCATION_COSITED_EVEN},
++      };
++
++      struct fdl_layout layout;
++      const struct fdl_layout *layouts = &layout;
++
++      fd6_layout_tex2d_from_buf(&layout, ctx->screen->info, format, &cso->u.tex2d_from_buf);
++
++      struct fdl6_view view;
++      fdl6_view_init(&view, &layouts, &args,
++                     ctx->screen->info->a6xx.has_z24uint_s8uint);
++
++      memcpy(so->descriptor, view.descriptor, sizeof(so->descriptor));
++   } else if (cso->target == PIPE_BUFFER) {
+       uint8_t swiz[4] = {cso->swizzle_r, cso->swizzle_g, cso->swizzle_b,
+                          cso->swizzle_a};
+ 
+diff --git a/src/gallium/drivers/freedreno/a6xx/fd6_texture.h b/src/gallium/drivers/freedreno/a6xx/fd6_texture.h
+index 1ebfe4e44f70b..4e7806212ea1b 100644
+--- a/src/gallium/drivers/freedreno/a6xx/fd6_texture.h
++++ b/src/gallium/drivers/freedreno/a6xx/fd6_texture.h
+@@ -112,6 +112,26 @@ struct fd6_texture_state {
+ struct fd6_texture_state *
+ fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type) assert_dt;
+ 
++
++static inline bool
++fd6_layout_tex2d_from_buf(struct fdl_layout *layout,
++                          const struct fd_dev_info *info,
++                          enum pipe_format format,
++                          const struct pipe_tex2d_from_buf *tex2d_from_buf)
++{
++   *layout = (struct fdl_layout) {
++      .ubwc = false,
++      .tile_all = false,
++      .tile_mode = TILE6_LINEAR,
++   };
++
++   return fdl6_layout(layout, info, format, 1,
++                      tex2d_from_buf->width,
++                      tex2d_from_buf->height,
++                      1, 1, 1, false, false,
++                      false, NULL);
++}
++
+ ENDC;
+ 
+ #endif /* FD6_TEXTURE_H_ */
+diff --git a/src/gallium/drivers/freedreno/freedreno_screen.c b/src/gallium/drivers/freedreno/freedreno_screen.c
+index 0f7627effcd0a..3afe6db9f08dc 100644
+--- a/src/gallium/drivers/freedreno/freedreno_screen.c
++++ b/src/gallium/drivers/freedreno/freedreno_screen.c
+@@ -508,6 +508,11 @@ fd_init_screen_caps(struct fd_screen *screen)
+    caps->shader_buffer_offset_alignment =
+       is_a6xx(screen) ? 64 : (is_a5xx(screen) || is_a4xx(screen) ? 4 : 0);
+ 
++   if (is_a6xx(screen)) {
++      caps->linear_image_pitch_alignment = 64;
++      caps->linear_image_base_address_alignment = 64;
++   }
++
+    caps->max_texture_gather_components =
+       is_a4xx(screen) || is_a5xx(screen) || is_a6xx(screen) ? 4 : 0;
+ 
+-- 
+GitLab
+
