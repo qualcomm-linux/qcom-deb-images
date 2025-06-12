@@ -1,0 +1,7 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20250519T203618Z/pool/main/m/mesa/mesa_25.1.0-1.dsc"
+dsc_sha256sum: "d06c1b0ee300f096de2ac59a2e9583349ca79322612f4502baa5e78ff0be4290"
+debdiff_file: "mesa_25.2.0.debdiff"
+script: mesa-snapshot.sh
+suite: trixie
+env:
+  COMMIT: 7fd99c88b9cd5c0c8c1cb3e92383acac5cb8220b
