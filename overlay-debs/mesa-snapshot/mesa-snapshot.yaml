@@ -1,0 +1,4 @@
+script: mesa-snapshot.sh
+suite: trixie
+env:
+  COMMIT: 1dfe97cc0ba906e598d8f675b450a0f4ee1bdb4b
