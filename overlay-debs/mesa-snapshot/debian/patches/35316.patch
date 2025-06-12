@@ -1,0 +1,476 @@
+From 4dad7976fa994be0edf9e15fda269610e7fd2895 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 16:56:38 +0530
+Subject: [PATCH 01/10] egl/dri2: Add R8G8B8/B8G8R8 pipe formats for pbuffer
+ configs
+
+Extend the list of pipe_format by adding R8G8B8/B8G8R8 pipe formats
+which helps in enabling support for RGB888/BGR888 DRM formats.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/egl/drivers/dri2/egl_dri2.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/egl/drivers/dri2/egl_dri2.c b/src/egl/drivers/dri2/egl_dri2.c
+index 2489a87f90849..51530e8ce52e9 100644
+--- a/src/egl/drivers/dri2/egl_dri2.c
++++ b/src/egl/drivers/dri2/egl_dri2.c
+@@ -86,6 +86,8 @@ static const enum pipe_format dri2_pbuffer_visuals[] = {
+    PIPE_FORMAT_B10G10R10X2_UNORM,
+    PIPE_FORMAT_BGRA8888_UNORM,
+    PIPE_FORMAT_BGRX8888_UNORM,
++   PIPE_FORMAT_B8G8R8_UNORM,
++   PIPE_FORMAT_R8G8B8_UNORM,
+    PIPE_FORMAT_B5G6R5_UNORM,
+ };
+ 
+-- 
+GitLab
+
+
+From bcefd8376bfcfd4682aa23eedbaa43617e84c379 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 17:11:26 +0530
+Subject: [PATCH 02/10] egl/wayland: Add support for RGB888/BGR888 DRM formats
+
+Add the WL_DRM_FORMAT_* and other respective fields for these
+2 formats to dri2_wl_visual config.
+This helps in enabling support to the wayland plaform as the index
+of this struct used in tracking formats supported by wayland server.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/egl/drivers/dri2/platform_wayland.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/src/egl/drivers/dri2/platform_wayland.c b/src/egl/drivers/dri2/platform_wayland.c
+index 4a760c17d1337..2930cb396e050 100644
+--- a/src/egl/drivers/dri2/platform_wayland.c
++++ b/src/egl/drivers/dri2/platform_wayland.c
+@@ -139,6 +139,18 @@ static const struct dri2_wl_visual {
+       PIPE_FORMAT_NONE,
+       WL_DRM_FORMAT_XBGR8888,
+    },
++   {
++      WL_DRM_FORMAT_RGB888,
++      PIPE_FORMAT_B8G8R8_UNORM,
++      PIPE_FORMAT_NONE,
++      WL_DRM_FORMAT_RGB888,
++   },
++   {
++      WL_DRM_FORMAT_BGR888,
++      PIPE_FORMAT_R8G8B8_UNORM,
++      PIPE_FORMAT_NONE,
++      WL_DRM_FORMAT_BGR888,
++   },
+    {
+       WL_DRM_FORMAT_RGB565,
+       PIPE_FORMAT_B5G6R5_UNORM,
+-- 
+GitLab
+
+
+From 6d2a400116cf08e1e94489f2b7add9681e77991e Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 17:48:45 +0530
+Subject: [PATCH 03/10] wayland-drm: Extend wayland-drm to support
+ RGB888/BGR888 formats
+
+For usecases on wayland platform can't create drm buffers
+with RGB/BGR 24bit formats without this commit.
+Check above wl_drm formats are valid or not before creating buffers.
+Also, add wl_resource_post_event() for both wl_drm formats,
+wayland clients can query EGL for RGB888/BGR888 format
+buffers and attach those buffers to wayland compositor.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/egl/wayland/wayland-drm/wayland-drm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/egl/wayland/wayland-drm/wayland-drm.c b/src/egl/wayland/wayland-drm/wayland-drm.c
+index e4751fd83e567..9eed3b6ca121b 100644
+--- a/src/egl/wayland/wayland-drm/wayland-drm.c
++++ b/src/egl/wayland/wayland-drm/wayland-drm.c
+@@ -114,6 +114,8 @@ drm_create_buffer(struct wl_client *client, struct wl_resource *resource,
+    case WL_DRM_FORMAT_XRGB2101010:
+    case WL_DRM_FORMAT_ARGB8888:
+    case WL_DRM_FORMAT_XRGB8888:
++   case WL_DRM_FORMAT_RGB888:
++   case WL_DRM_FORMAT_BGR888:
+    case WL_DRM_FORMAT_YUYV:
+    case WL_DRM_FORMAT_RGB565:
+       break;
+@@ -230,6 +232,8 @@ bind_drm(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+ 
+    wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_ARGB8888);
+    wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_XRGB8888);
++   wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_RGB888);
++   wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_BGR888);
+    wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_RGB565);
+    wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV410);
+    wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV411);
+-- 
+GitLab
+
+
+From 985b81d7e2c51c3c962ea773a6bc75adf743cb99 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Sat, 10 May 2025 01:04:49 +0530
+Subject: [PATCH 04/10] freedreno/fdl: Add support for RGB888/BGR888 pipe
+ formats in render buffer creation
+
+This enables the rendering of RGB/BGR 24-bit format buffers directly
+onto the framebuffer. For RGB888, support already exists for vertex and
+texture formats, so render buffer format support has been added. For
+BGR888, support for vertex, texture and render buffer formats has been
+added. The internal format chosen for both RGB888 and BGR888 is GL_RGB8.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/freedreno/fdl/fd6_format_table.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/src/freedreno/fdl/fd6_format_table.c b/src/freedreno/fdl/fd6_format_table.c
+index 653f0547bc4f1..969f15682cd98 100644
+--- a/src/freedreno/fdl/fd6_format_table.c
++++ b/src/freedreno/fdl/fd6_format_table.c
+@@ -119,12 +119,16 @@ static const struct fd6_format formats[PIPE_FORMAT_COUNT] = {
+    _TC(A4B4G4R4_UNORM, 4_4_4_4_UNORM,           XYZW),
+ 
+    /* 24-bit */
+-   VT_(R8G8B8_UNORM,   8_8_8_UNORM,             WZYX),
+-   VT_(R8G8B8_SNORM,   8_8_8_SNORM,             WZYX),
+-   VT_(R8G8B8_UINT,    8_8_8_UINT,              WZYX),
+-   VT_(R8G8B8_SINT,    8_8_8_SINT,              WZYX),
++   VTC(R8G8B8_UNORM,   8_8_8_UNORM,             WZYX),
++   VTC(R8G8B8_SNORM,   8_8_8_SNORM,             WZYX),
++   VTC(R8G8B8_UINT,    8_8_8_UINT,              WZYX),
++   VTC(R8G8B8_SINT,    8_8_8_SINT,              WZYX),
+    V__(R8G8B8_USCALED, 8_8_8_UINT,              WZYX),
+    V__(R8G8B8_SSCALED, 8_8_8_SINT,              WZYX),
++   VTC(B8G8R8_UNORM,   8_8_8_UNORM,             WXYZ),
++   VTC(B8G8R8_SNORM,   8_8_8_SNORM,             WXYZ),
++   VTC(B8G8R8_UINT,    8_8_8_UINT,              WXYZ),
++   VTC(B8G8R8_SINT,    8_8_8_SINT,              WXYZ),
+ 
+    /* 32-bit */
+    V__(R32_UNORM,   32_UNORM,                   WZYX),
+-- 
+GitLab
+
+
+From 3551214d6d34ceb355d84b4db03cae486d11272c Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Sat, 10 May 2025 01:11:24 +0530
+Subject: [PATCH 05/10] freedreno/a6xx: Add support for some NPOT block size
+ formats
+
+This enables support for sampler view and shader image for
+non power of two formats such as RGB888/BGR888.
+As the above mentioned formats are of 24 bit, block size
+for each format is 3. So added condition to check this
+for PIPE_BIND_SHADER_IMAGE.
+For sampler view, dropped PIPE_BUFFER check as
+PIPE_BIND_SAMPLER_VIEW is solely used for texture sampling.
+
+Co-Developed-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/gallium/drivers/freedreno/a6xx/fd6_screen.cc | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc b/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
+index 1b8ad6add2619..efd9a9899d431 100644
+--- a/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
++++ b/src/gallium/drivers/freedreno/a6xx/fd6_screen.cc
+@@ -66,11 +66,14 @@ fd6_screen_is_format_supported(struct pipe_screen *pscreen,
+    bool has_color = fd6_color_format(format, TILE6_LINEAR) != FMT6_NONE;
+    bool has_tex = fd6_texture_format_supported(screen->info, format, TILE6_LINEAR, false);
+ 
+-   if ((usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE)) &&
+-       has_tex &&
+-       (target == PIPE_BUFFER ||
+-        util_is_power_of_two_or_zero(util_format_get_blocksize(format)))) {
+-      retval |= usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE);
++   if ((usage & PIPE_BIND_SHADER_IMAGE) && has_tex &&
++       (target == PIPE_BUFFER || (util_format_get_blocksize(format) == 3)
++        || util_is_power_of_two_or_zero(util_format_get_blocksize(format)))) {
++      retval |= usage & PIPE_BIND_SHADER_IMAGE;
++   }
++
++   if ((usage & PIPE_BIND_SAMPLER_VIEW) && has_tex) {
++      retval |= usage & PIPE_BIND_SAMPLER_VIEW;
+    }
+ 
+    if (usage & PIPE_BIND_SHADER_IMAGE) {
+-- 
+GitLab
+
+
+From 1f471864d7ef0cb5ee012dba820acea2de2fb754 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 10:46:17 +0530
+Subject: [PATCH 06/10] loader/dri: Add support for RGB888 and BGR888 image
+ formats
+
+Added support for RGB888/BGR888 DRI image formats.
+also, mapped DRI image format with the fourcc format
+for buffer allocations for above mentioned formats
+while image creation.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/loader/loader_dri_helper.c | 4 ++++
+ src/loader/loader_dri_helper.h | 2 ++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/src/loader/loader_dri_helper.c b/src/loader/loader_dri_helper.c
+index ff224b0210442..16cc691c3b684 100644
+--- a/src/loader/loader_dri_helper.c
++++ b/src/loader/loader_dri_helper.c
+@@ -45,6 +45,8 @@ loader_fourcc_to_image_format(int fourcc)
+    case __DRI_IMAGE_FOURCC_SABGR8888: return __DRI_IMAGE_FORMAT_SABGR8;
+    case __DRI_IMAGE_FOURCC_SXRGB8888: return __DRI_IMAGE_FORMAT_SXRGB8;
+    case DRM_FORMAT_RGB565: return __DRI_IMAGE_FORMAT_RGB565;
++   case DRM_FORMAT_RGB888: return __DRI_IMAGE_FORMAT_RGB888;
++   case DRM_FORMAT_BGR888: return __DRI_IMAGE_FORMAT_BGR888;
+    case DRM_FORMAT_ARGB1555: return __DRI_IMAGE_FORMAT_ARGB1555;
+    case DRM_FORMAT_XRGB8888: return __DRI_IMAGE_FORMAT_XRGB8888;
+    case DRM_FORMAT_ARGB8888: return __DRI_IMAGE_FORMAT_ARGB8888;
+@@ -71,6 +73,8 @@ loader_image_format_to_fourcc(int format)
+    case __DRI_IMAGE_FORMAT_SABGR8: return __DRI_IMAGE_FOURCC_SABGR8888;
+    case __DRI_IMAGE_FORMAT_SXRGB8: return __DRI_IMAGE_FOURCC_SXRGB8888;
+    case __DRI_IMAGE_FORMAT_RGB565: return DRM_FORMAT_RGB565;
++   case __DRI_IMAGE_FORMAT_RGB888: return DRM_FORMAT_RGB888;
++   case __DRI_IMAGE_FORMAT_BGR888: return DRM_FORMAT_BGR888;
+    case __DRI_IMAGE_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;
+    case __DRI_IMAGE_FORMAT_ARGB8888: return DRM_FORMAT_ARGB8888;
+    case __DRI_IMAGE_FORMAT_ABGR8888: return DRM_FORMAT_ABGR8888;
+diff --git a/src/loader/loader_dri_helper.h b/src/loader/loader_dri_helper.h
+index c0a11f374ecd7..f92d1fdacf5e1 100644
+--- a/src/loader/loader_dri_helper.h
++++ b/src/loader/loader_dri_helper.h
+@@ -79,6 +79,8 @@ struct loader_screen_resources {
+ #define __DRI_IMAGE_FORMAT_ARGB8888     PIPE_FORMAT_BGRA8888_UNORM
+ #define __DRI_IMAGE_FORMAT_ABGR8888     PIPE_FORMAT_RGBA8888_UNORM
+ #define __DRI_IMAGE_FORMAT_XBGR8888     PIPE_FORMAT_RGBX8888_UNORM
++#define __DRI_IMAGE_FORMAT_RGB888       PIPE_FORMAT_B8G8R8_UNORM
++#define __DRI_IMAGE_FORMAT_BGR888       PIPE_FORMAT_R8G8B8_UNORM
+ #define __DRI_IMAGE_FORMAT_R8           PIPE_FORMAT_R8_UNORM
+ #define __DRI_IMAGE_FORMAT_GR88         PIPE_FORMAT_RG88_UNORM
+ #define __DRI_IMAGE_FORMAT_NONE         PIPE_FORMAT_NONE
+-- 
+GitLab
+
+
+From 4e61acba2283ac89d8170db96488876818483737 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Fri, 16 May 2025 23:51:48 +0530
+Subject: [PATCH 07/10] frontends/dri: Add format and DRI image mapping for
+ RGB888/BGR888
+
+Add mapping for RGB888/BGR888 DRM formats with the
+respective fields in dri2_format_mapping config.
+also, Add mapping for DRI image with internal GL format.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/gallium/frontends/dri/dri_helpers.c | 6 ++++++
+ src/gallium/frontends/dri/dri_util.c    | 8 ++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/src/gallium/frontends/dri/dri_helpers.c b/src/gallium/frontends/dri/dri_helpers.c
+index 1d2ba6a627cf8..7613221204db2 100644
+--- a/src/gallium/frontends/dri/dri_helpers.c
++++ b/src/gallium/frontends/dri/dri_helpers.c
+@@ -461,6 +461,12 @@ static const struct dri2_format_mapping dri2_format_table[] = {
+       { DRM_FORMAT_XBGR8888,      __DRI_IMAGE_FORMAT_XBGR8888,
+         __DRI_IMAGE_COMPONENTS_RGB,       PIPE_FORMAT_RGBX8888_UNORM, 1,
+         { { 0, 0, 0, __DRI_IMAGE_FORMAT_XBGR8888 } } },
++      { DRM_FORMAT_RGB888,        __DRI_IMAGE_FORMAT_RGB888,
++         __DRI_IMAGE_COMPONENTS_RGB,       PIPE_FORMAT_B8G8R8_UNORM, 1,
++         { { 0, 0, 0, __DRI_IMAGE_FORMAT_RGB888 } } },
++      { DRM_FORMAT_BGR888,        __DRI_IMAGE_FORMAT_BGR888,
++         __DRI_IMAGE_COMPONENTS_RGB,       PIPE_FORMAT_R8G8B8_UNORM, 1,
++         { { 0, 0, 0, __DRI_IMAGE_FORMAT_BGR888 } } },
+       { DRM_FORMAT_ARGB1555,      __DRI_IMAGE_FORMAT_ARGB1555,
+         __DRI_IMAGE_COMPONENTS_RGBA,      PIPE_FORMAT_B5G5R5A1_UNORM, 1,
+         { { 0, 0, 0, __DRI_IMAGE_FORMAT_ARGB1555 } } },
+diff --git a/src/gallium/frontends/dri/dri_util.c b/src/gallium/frontends/dri/dri_util.c
+index 9ee8c1156c796..44817eb75e396 100644
+--- a/src/gallium/frontends/dri/dri_util.c
++++ b/src/gallium/frontends/dri/dri_util.c
+@@ -872,6 +872,14 @@ static const struct {
+    uint32_t    image_format;
+    GLenum internal_format;
+ } format_mapping[] = {
++   {
++      .image_format    = __DRI_IMAGE_FORMAT_RGB888,
++      .internal_format =        GL_RGB8,
++   },
++   {
++      .image_format    = __DRI_IMAGE_FORMAT_BGR888,
++      .internal_format =        GL_RGB8,
++   },
+    {
+       .image_format    = __DRI_IMAGE_FORMAT_RGB565,
+       .internal_format =        GL_RGB565,
+-- 
+GitLab
+
+
+From 13c115fa1baa9a7dcd3449ca2c9abda47ceeec2a Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 09:42:49 +0530
+Subject: [PATCH 08/10] gbm/dri: Map RGB888/BGR888 GBM formats with pipe
+ formats
+
+Add mappings for GBM formats to pipe formats in gbm_dri_visual config.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/gbm/backends/dri/gbm_dri.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/gbm/backends/dri/gbm_dri.c b/src/gbm/backends/dri/gbm_dri.c
+index 99c37bad75ca0..8669d30c5af19 100644
+--- a/src/gbm/backends/dri/gbm_dri.c
++++ b/src/gbm/backends/dri/gbm_dri.c
+@@ -314,6 +314,8 @@ static const struct gbm_dri_visual gbm_dri_visuals_table[] = {
+    { GBM_FORMAT_GR1616, PIPE_FORMAT_R16G16_UNORM },
+    { GBM_FORMAT_ARGB1555, PIPE_FORMAT_B5G5R5A1_UNORM },
+    { GBM_FORMAT_RGB565, PIPE_FORMAT_B5G6R5_UNORM },
++   { GBM_FORMAT_RGB888, PIPE_FORMAT_B8G8R8_UNORM },
++   { GBM_FORMAT_BGR888, PIPE_FORMAT_R8G8B8_UNORM },
+    { GBM_FORMAT_BGRX8888, PIPE_FORMAT_X8R8G8B8_UNORM },
+    { GBM_FORMAT_BGRA8888, PIPE_FORMAT_A8R8G8B8_UNORM },
+    { GBM_FORMAT_RGBX8888, PIPE_FORMAT_X8B8G8R8_UNORM },
+-- 
+GitLab
+
+
+From d8e3c2b7c5acf3674a814757daa0cc98d83ae54b Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 11:13:16 +0530
+Subject: [PATCH 09/10] mesa/st: Add support for R8G8B8/B8G8R8 pipe formats
+
+Defined R8G8B8/B8G8R8 pipe formats.
+also mapped these pipe formats to the GL internal format.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/mesa/state_tracker/st_format.c  | 4 +++-
+ src/mesa/state_tracker/st_manager.c | 1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/mesa/state_tracker/st_format.c b/src/mesa/state_tracker/st_format.c
+index 938c4d0048082..236e32d7633af 100644
+--- a/src/mesa/state_tracker/st_format.c
++++ b/src/mesa/state_tracker/st_format.c
+@@ -190,7 +190,7 @@ st_pipe_format_to_mesa_format(enum pipe_format format)
+ struct format_mapping
+ {
+    GLenum glFormats[18];       /**< list of GLenum formats, 0-terminated */
+-   enum pipe_format pipeFormats[14]; /**< list of pipe formats, 0-terminated */
++   enum pipe_format pipeFormats[16]; /**< list of pipe formats, 0-terminated */
+ };
+ 
+ 
+@@ -206,6 +206,8 @@ struct format_mapping
+       PIPE_FORMAT_B8G8R8X8_UNORM, \
+       PIPE_FORMAT_X8R8G8B8_UNORM, \
+       PIPE_FORMAT_X8B8G8R8_UNORM, \
++      PIPE_FORMAT_R8G8B8_UNORM, \
++      PIPE_FORMAT_B8G8R8_UNORM, \
+       PIPE_FORMAT_B5G6R5_UNORM, \
+       DEFAULT_RGBA_FORMATS
+ 
+diff --git a/src/mesa/state_tracker/st_manager.c b/src/mesa/state_tracker/st_manager.c
+index 62ffc317054b4..6bdf1ea766919 100644
+--- a/src/mesa/state_tracker/st_manager.c
++++ b/src/mesa/state_tracker/st_manager.c
+@@ -368,6 +368,7 @@ st_new_renderbuffer_fb(enum pipe_format format, unsigned samples, bool sw)
+    case PIPE_FORMAT_B8G8R8X8_UNORM:
+    case PIPE_FORMAT_X8R8G8B8_UNORM:
+    case PIPE_FORMAT_R8G8B8_UNORM:
++   case PIPE_FORMAT_B8G8R8_UNORM:
+       rb->InternalFormat = GL_RGB8;
+       break;
+    case PIPE_FORMAT_R8G8B8A8_SRGB:
+-- 
+GitLab
+
+
+From 98e2436c49e2cec67d37e89d2d4e9988b9843ba7 Mon Sep 17 00:00:00 2001
+From: "Petar G. Georgiev" <quic_petarg@quicinc.com>
+Date: Mon, 12 May 2025 11:49:06 +0530
+Subject: [PATCH 10/10] util: Add pack and unpack for R8G8B8/B8G8R8
+
+This helps in packing and unpacking the R8G8B8/B8G8R8
+pipe formats which are of uint8 type.
+
+Signed-off-by: Petar G. Georgiev <quic_petarg@quicinc.com>
+Signed-off-by: Lakshman Chandu Kondreddy <quic_lkondred@quicinc.com>
+---
+ src/util/u_pack_color.h | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/src/util/u_pack_color.h b/src/util/u_pack_color.h
+index 7d5bf7f35457f..b646729fda540 100644
+--- a/src/util/u_pack_color.h
++++ b/src/util/u_pack_color.h
+@@ -94,6 +94,16 @@ util_pack_color_ub(uint8_t r, uint8_t g, uint8_t b, uint8_t a,
+          uc->ui[0] = (b << 24) | (g << 16) | (r << 8) | 0xff;
+       }
+       return;
++   case PIPE_FORMAT_R8G8B8_UNORM:
++      {
++         uc->ui[0] = (b << 16) | (g << 8) | r;
++      }
++      return;
++   case PIPE_FORMAT_B8G8R8_UNORM:
++      {
++         uc->ui[0] = (r << 16) | (g << 8) | b;
++      }
++      return;
+    case PIPE_FORMAT_B5G6R5_UNORM:
+       {
+          uc->us = ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3);
+@@ -219,6 +229,23 @@ util_unpack_color_ub(enum pipe_format format, union util_color *uc,
+          *a = (uint8_t) 0xff;
+       }
+       return;
++   case PIPE_FORMAT_R8G8B8_UNORM:
++      {
++         uint32_t p = uc->ui[0];
++         *r = (uint8_t) (p & 0xff);
++         *g = (uint8_t) ((p >> 8) & 0xff);
++         *b = (uint8_t) ((p >> 16) & 0xff);
++         *a = (uint8_t) 0xff;
++      }
++      return;
++   case PIPE_FORMAT_B8G8R8_UNORM:
++      {
++         uint32_t p = uc->ui[0];
++         *r = (uint8_t) ((p >> 16) & 0xff);
++         *g = (uint8_t) ((p >> 8) & 0xff);
++         *b = (uint8_t) (p & 0xff);
++         *a = (uint8_t) 0xff;
++      }
+    case PIPE_FORMAT_B5G6R5_UNORM:
+       {
+          uint16_t p = uc->us;
+-- 
+GitLab
+
