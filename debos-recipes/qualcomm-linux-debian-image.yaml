@@ -138,9 +138,9 @@ actions:
           done
 
   - action: run
-    description: Compress image file
+    description: Add compressed image file
     postprocess: true
-    command: gzip -v -f "${ARTIFACTDIR}/{{ $image }}"
+    command: gzip -v -f -k "${ARTIFACTDIR}/{{ $image }}"
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
