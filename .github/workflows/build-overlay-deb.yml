@@ -51,7 +51,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive \
               apt -y install --no-install-recommends python3 python3-yaml
           # read suite from yaml
-          suite="$(python3 -c "import yaml; print(yaml.safe_load(open('${CONFIG_PATH}'))['suite'])")"
+          suite="$(python3 -c "import yaml; print(yaml.safe_load(open('${{ inputs.config }}'))['suite'])")"
           # defaults args
           extra_repo=""
           debootstrap_suite="${suite}"
@@ -80,7 +80,7 @@ jobs:
           mkdir -v upload
           chmod a+rw upload
           sudo -u builder python3 scripts/build-deb.py \
-              --config "${CONFIG_PATH}" --output-dir upload
+              --config "${{ inputs.config }}" --output-dir upload
 
       - name: Upload as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@v1
