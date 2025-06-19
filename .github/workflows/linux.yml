@@ -1,4 +1,4 @@
-name: Build Linux kernel deb
+name: Build Linux kernel deb and debos image
 
 on:
   # run weekly on Monday at 8:30am
@@ -9,7 +9,7 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  contents: read # actions/checkout
+  contents: read # actions/checkout debos.yml
 
 env:
   # where results will be posted/hosted
@@ -89,4 +89,10 @@ jobs:
         id: upload_artifacts
         with:
           path: artifacts
+
+  debos-mainline-linux:
+    needs: build-linux-deb
+    uses: ./.github/workflows/debos.yml
+    with:
+      mainline_kernel: true
 
