@@ -251,6 +251,8 @@ actions:
     command: |
       set -eux
       apt -y install /root/*.deb
+      # no need to keep these
+      rm -vf /root/*.deb
 {{- end }}
 
   - action: run
