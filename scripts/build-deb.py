@@ -59,8 +59,24 @@ with tempfile.TemporaryDirectory() as temp_dir:
         )
     print("✅ Checksum of original source package matched.")
 
-    # Unpack the source package
-    subprocess.run(['dpkg-source', '-x', dsc_file], cwd=temp_dir, check=True)
+    script = config.get('script')
+    if script:
+        if not os.path.isabs(script):
+            config_dir = os.path.dirname(args.config)
+            script = os.path.abspath(os.path.join(config_dir, script))
+
+        env = os.environ.copy()
+        env['DSC_FILE'] = dsc_file
+        env.update(config.get('env', {}))
+
+        subprocess.run(script, cwd=temp_dir, check=True, env=env)
+
+        print("✅ Successfully executed the script.")
+    else:
+        # Unpack the source package
+        subprocess.run(['dpkg-source', '-x', dsc_file],
+                       cwd=temp_dir,
+                       check=True)
 
     # Find the unpacked directory
     unpacked_dirs = [
