@@ -282,6 +282,22 @@ diff -Nru mesa-25.2.0-orig/debian/rules mesa-25.2.0/debian/rules
  export PATH:=/usr/lib/llvm-$(LLVM_VERSION)/bin/:$(PATH)
  
  export DEB_BUILD_MAINT_OPTIONS=optimize=-lto
+@@ -46,6 +46,7 @@
+ GALLIUM_DRIVERS = softpipe
+ VULKAN_DRIVERS =
+ VULKAN_LAYERS =
++RUSTICL_ENABLE =
+ 
+ confflags_SSE2 = -Dsse2=true
+ confflags_TEFLON = -Dteflon=false
+@@ -76,6 +77,7 @@
+   # Freedreno requires arm in addition
+   ifneq (,$(filter arm arm64,$(DEB_HOST_ARCH_CPU)))
+ 	GALLIUM_DRIVERS += freedreno
++	RUSTICL_ENABLE += freedreno
+   endif
+ 
+   # etnaviv, tegra, vc4 and v3d kernel support are only available on armhf and arm64
 @@ -92,8 +92,6 @@
    ifneq (,$(filter $(DEB_HOST_ARCH), amd64 i386 x32))
  	GALLIUM_DRIVERS += crocus i915 iris svga
@@ -291,6 +307,21 @@ diff -Nru mesa-25.2.0-orig/debian/rules mesa-25.2.0/debian/rules
    endif
  
    ifneq (,$(filter $(DEB_HOST_ARCH), amd64))
+@@ -111,12 +113,14 @@
+   ifneq (,$(filter $(DEB_HOST_ARCH), arm64 amd64 i386))
+ 	GALLIUM_DRIVERS += asahi
+ 	VULKAN_DRIVERS += asahi
++	RUSTICL_ENABLE += asahi
+   endif
+ 
+   # LLVM is required for building r300g, radeonsi and llvmpipe drivers.
+   # It's also required for building OpenCL support.
+   ifneq (,$(filter $(DEB_HOST_ARCH), $(LLVM_ARCHS)))
+ 	GALLIUM_DRIVERS += radeonsi zink llvmpipe
++	RUSTICL_ENABLE += radeonsi
+ 
+ 	# drop virtio from armel, it doesn't build
+ 	ifneq (,$(filter $(DEB_HOST_ARCH), armel))
 @@ -129,7 +127,6 @@
  
  	VULKAN_LAYERS += device-select intel-nullhw overlay
@@ -311,6 +342,18 @@ diff -Nru mesa-25.2.0-orig/debian/rules mesa-25.2.0/debian/rules
  	# gfxstream only builds on 64bit
  	ifeq ($(DEB_HOST_ARCH_BITS),64)
  		VULKAN_DRIVERS += gfxstream
+@@ -172,6 +176,11 @@
+ VULKAN_DRIVERS_LIST := $(subst $(space),$(comma),$(VULKAN_DRIVERS))
+ VULKAN_LAYERS := $(patsubst %,'%',$(VULKAN_LAYERS))
+ VULKAN_LAYERS_LIST := $(subst $(space),$(comma),$(VULKAN_LAYERS))
++RUSTICL_ENABLE := $(patsubst %,'%',$(RUSTICL_ENABLE))
++RUSTICL_ENABLE_LIST := $(subst $(space),$(comma),$(RUSTICL_ENABLE))
++ifneq (,$(filter $(DEB_HOST_ARCH), $(RUSTICL_ARCHS)))
++confflags_GALLIUM += -Dgallium-rusticl-enable-drivers="[$(RUSTICL_ENABLE_LIST)]"
++endif
+ 
+ confflags_GLES = -Dgles1=disabled -Dgles2=enabled
+ confflags_GALLIUM += -Dgallium-drivers="[$(GALLIUM_DRIVERS_LIST)]"
 @@ -205,7 +197,7 @@
  
  rewrite_wrap_files:

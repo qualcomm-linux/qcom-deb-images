@@ -39,6 +39,8 @@ mesa (${version}-0qcom1) testing; urgency=medium
     - debian/patches/path_max.diff: refresh
     - d/rules: dropped removal of mme_{fermi,tu104}_sim_hw_test
     - pull in NVK dependency, librust-rustc-hash-2-dev
+    - opt-in and enable several OpenCL drivers by default: asahi, freedreno and
+      radeonsi
   * Drop support for features removed upstream:
     - XA tracker, dropped packages: libxatracker2, libxatracker-dev.
     - D3D9 tracker, dropped packages libd3dadapter9-mesa,
