@@ -51,12 +51,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install ShellCheck
-        run: sudo apt update && sudo apt -y install shellcheck
+        run: sudo apt update && sudo apt -y install shellcheck file
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run ShellCheck
-        run: shellcheck scripts/*.sh
-
+        run: |
+          # Run shellcheck against all files outside .git/ that `file` reports
+          # as text/x-shellscript
+          find . -path ./.git -prune -o -print0 | \
+            xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "text/x-shellscript" && printf "%s\000" "$1"' -- | \
+            xargs -0t shellcheck
