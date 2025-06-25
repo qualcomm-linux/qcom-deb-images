@@ -114,4 +114,4 @@ rm -f "${CABINET_OUTPUT}"
 fwupdtool build-cabinet \
     "${CABINET_OUTPUT}" \
     "${CAPSULE_OUTPUT}" \
-    board/qualcomm/u-boot-cap.metainfo.xml
+    board/qualcomm/rb1/u-boot-cap.metainfo.xml
