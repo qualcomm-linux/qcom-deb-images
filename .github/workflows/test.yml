@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
+    env:
+      BUILD_URL: ${{ inputs.url }}
     steps:
-      - env:
-          BUILD_URL: ${{ inputs.url }}
       - name: Clone repository
         uses: actions/checkout@v4
         with:
