@@ -7,6 +7,7 @@ COMMIT=${COMMIT:-origin/main}
 
 set -e
 
+# shellcheck disable=SC2153 # DSC_FILE is guaranteed to be defined by build-deb.py
 DEB_FILE=${DSC_FILE%%.dsc}.debian.tar.xz
 ORIG_FILE=$(echo ${DSC_FILE} | sed -e 's/-.*/.orig.tar.xz/')
 
