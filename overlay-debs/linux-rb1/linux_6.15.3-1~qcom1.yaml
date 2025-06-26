@@ -1,0 +1,4 @@
+dsc_url: "https://deb.debian.org/debian/pool/main/l/linux/linux_6.15.3-1~exp1.dsc"
+dsc_sha256sum: "3ab8ec04ec2304df53d0a4133a228a52e9b54d5f0d85ac9ae929e51a4d078231"
+debdiff_file: "linux_6.15.3-1~qcom1.debdiff"
+suite: "experimental"
