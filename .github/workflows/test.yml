@@ -14,13 +14,14 @@ permissions:
   packages: read # actions/download-artifact
   pull-requests: write # EnricoMi/publish-unit-test-result-action
 
+env:
+  BUILD_URL: ${{ inputs.url }}
+
 jobs:
   prepare-job-list:
     runs-on: ubuntu-latest
     outputs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
-    env:
-      BUILD_URL: ${{ inputs.url }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
