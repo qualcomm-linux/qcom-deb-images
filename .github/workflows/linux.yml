@@ -1,4 +1,4 @@
-name: Build Linux kernel deb
+name: Build Linux kernel deb and debos image
 
 on:
   # run weekly on Monday at 8:30am
@@ -9,7 +9,10 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  contents: read # actions/checkout
+  contents: read # actions/checkout debos.yml test.yml
+  contents: read # debos.yml lava-schema-check.yml test.yml
+  packages: read # test.yml
+  pull-requests: write # test.yml
 
 env:
   # where results will be posted/hosted
@@ -89,4 +92,17 @@ jobs:
         id: upload_artifacts
         with:
           path: artifacts
+
+  debos-mainline-linux:
+    needs: build-linux-deb
+    uses: ./.github/workflows/debos.yml
+    with:
+      mainline_kernel: true
+
+  test-mainline-linux:
+    uses: ./.github/workflows/test.yml
+    needs: debos-mainline-linux
+    secrets: inherit
+    with:
+      url: ${{ needs.debos-mainline-linux.outputs.artifacts_url }}
 
