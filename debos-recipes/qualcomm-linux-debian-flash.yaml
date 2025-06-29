@@ -136,7 +136,7 @@ actions:
       mkdir -v build/qcm6490_partitions
       (
           cd build/qcm6490_partitions
-          conf="${QCOM_PTOOL}/platforms/qcm6490/partitions.conf"
+          conf="${QCOM_PTOOL}/platforms/qcs6490-rb3gen2/partitions.conf"
           "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
               -o ptool-partitions.xml
           # partitions.conf sets --type=emmc, nand or ufs
