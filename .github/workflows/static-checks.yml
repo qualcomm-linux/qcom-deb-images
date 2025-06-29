@@ -61,6 +61,10 @@ jobs:
         run: |
           # Run shellcheck against all files outside .git/ that `file` reports
           # as text/x-shellscript
+          #
+          # Ignore the double quoting warning, script authors have better
+          # knowledge of variable contents.
+          export SHELLCHECK_OPTS="-e SC2086"
           find . -path ./.git -prune -o -print0 | \
             xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "text/x-shellscript" && printf "%s\000" "$1"' -- | \
             xargs -0t shellcheck
