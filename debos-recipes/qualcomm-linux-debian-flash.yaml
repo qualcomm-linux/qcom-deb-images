@@ -35,8 +35,8 @@ actions:
   - action: download
     description: Download RB3 Gen2 Vision Kit CDT
     url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
-    name: rb3gen2-vision-kit_cdt
-    filename: rb3gen2-vision-kit_cdt.zip
+    name: qcs6490-rb3gen2-vision-kit_cdt
+    filename: qcs6490-rb3gen2-vision-kit_cdt.zip
 {{- end }}
 
   - action: run
@@ -51,10 +51,12 @@ actions:
       QCOM_PTOOL="${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-main"
 
 {{- if eq $build_rb1 "true" }}
-      ### board: qrb2210-rb1
-      # unpack rescue image
+      ## silicon family: qcm2290
+      # use RB1 rescue image as there are no qcm2290 boot binaries published
       unzip -j "${ROOTDIR}/../qrb2210-rb1_rescue-image.zip" \
           -d build/qrb2210-rb1_rescue-image
+
+      ### platform: qrb2210-rb1
       # generate partition files
       mkdir -v build/qrb2210-rb1_partitions
       (
@@ -71,10 +73,11 @@ actions:
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
 
-      flash_dir="${ARTIFACTDIR}/flash_rb1"
+      #### board: qrb2210-rb1
+      flash_dir="${ARTIFACTDIR}/flash_qrb2210-rb1"
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
-      # copy board partition files
+      # copy platform partition files
       cp --preserve=mode,timestamps -v build/qrb2210-rb1_partitions/* \
           "${flash_dir}"
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
@@ -83,8 +86,8 @@ actions:
       # wipe_rawprogram*.xml files still
       rm -v "${flash_dir}"/rawprogram*_BLANK_GPT.xml
       rm -v "${flash_dir}"/rawprogram*_WIPE_PARTITIONS.xml
-      # copy board boot binaries; these shouldn't ship partition files, but
-      # make sure not to accidentally clobber any such file
+      # copy silicon family boot binaries; these shouldn't ship partition
+      # files, but make sure not to accidentally clobber any such file
       find build/qrb2210-rb1_rescue-image \
           -not -name 'gpt_*' \
           -not -name 'patch*.xml' \
@@ -128,14 +131,16 @@ actions:
 {{- end }}
 
 {{- if eq $build_qcm6490 "true" }}
-      ## platform: QCM6490
+      ## silicon family: qcm6490
       # unpack boot binaries
       unzip -j "${ROOTDIR}/../qcm6490_boot-binaries.zip" \
           -d build/qcm6490_boot-binaries
+
+      ### platform: qcs6490-rb3gen2
       # generate partition files
-      mkdir -v build/qcm6490_partitions
+      mkdir -v build/qcs6490-rb3gen2_partitions
       (
-          cd build/qcm6490_partitions
+          cd build/qcs6490-rb3gen2_partitions
           conf="${QCOM_PTOOL}/platforms/qcs6490-rb3gen2/partitions.conf"
           "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
               -o ptool-partitions.xml
@@ -147,13 +152,12 @@ actions:
           fi
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
-
-      ### board: RB3Gen2 Vision Kit
-      flash_dir="${ARTIFACTDIR}/flash_rb3gen2-vision-kit"
+      #### board qcs6490-rb3gen2-vision-kit
+      flash_dir="${ARTIFACTDIR}/flash_qcs6490-rb3gen2-vision-kit"
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
       # copy platform partition files
-      cp --preserve=mode,timestamps -v build/qcm6490_partitions/* \
+      cp --preserve=mode,timestamps -v build/qcs6490-rb3gen2_partitions/* \
           "${flash_dir}"
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
@@ -161,8 +165,8 @@ actions:
       # wipe_rawprogram*.xml files still
       rm -v "${flash_dir}"/rawprogram*_BLANK_GPT.xml
       rm -v "${flash_dir}"/rawprogram*_WIPE_PARTITIONS.xml
-      # copy platform boot binaries; these shouldn't ship partition files, but
-      # make sure not to accidentally clobber any such file
+      # copy silicon family boot binaries; these shouldn't ship partition
+      # files, but make sure not to accidentally clobber any such file
       find build/qcm6490_boot-binaries \
           -not -name 'gpt_*' \
           -not -name 'patch*.xml' \
@@ -180,10 +184,10 @@ actions:
           \) \
           -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
       # unpack board CDT
-      unzip -j "${ROOTDIR}/../rb3gen2-vision-kit_cdt.zip" \
-          -d build/rb3gen2-vision-kit_cdt
+      unzip -j "${ROOTDIR}/../qcs6490-rb3gen2-vision-kit_cdt.zip" \
+          -d build/qcs6490-rb3gen2-vision-kit_cdt
       # copy just the CDT data; no partition or flashing files
-      cp --preserve=mode,timestamps -v build/rb3gen2-vision-kit_cdt/cdt_vision_kit.bin \
+      cp --preserve=mode,timestamps -v build/qcs6490-rb3gen2-vision-kit_cdt/cdt_vision_kit.bin \
           "${flash_dir}"
 
       # update flashing files for CDT
