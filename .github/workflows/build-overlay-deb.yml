@@ -75,7 +75,12 @@ jobs:
           # install dependencies
           DEBIAN_FRONTEND=noninteractive \
               apt -y install --no-install-recommends \
-                  python3 devscripts patch python3-yaml debian-keyring
+                  debian-keyring \
+                  devscripts \
+                  git \
+                  patch \
+                  python3 \
+                  python3-yaml
           # create output dir
           mkdir -v upload
           chmod a+rw upload
