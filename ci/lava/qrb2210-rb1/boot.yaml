@@ -15,7 +15,7 @@ actions:
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
         - echo "STORAGE=emmc" >> $IMAGE_PATH/flash.settings
         - echo "ROOTFS_IMAGE=disk-sdcard.img2" >> $IMAGE_PATH/flash.settings
-        - echo "DEVICE_TYPE=debian-rb1" >> $IMAGE_PATH/flash.settings
+        - echo "DEVICE_TYPE=debian-qrb2210-rb1" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
       minutes: 5
