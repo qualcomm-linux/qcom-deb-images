@@ -80,9 +80,10 @@ actions:
       # some of these groups are only needed for desktop scenarios
       useradd --create-home --shell /bin/bash --user-group \
           --groups adm,video,users,sudo debian
-      # password must be changed on first login; set it to "debian"
-      chage --lastday 0 debian
+      # set password to "debian"
       echo debian:debian | chpasswd
+      # password must be changed on first login
+      chage --lastday 0 debian
       # add to sudoers
       mkdir -v --mode 755 --parents /etc/sudoers.d
       # subshell to override umask
