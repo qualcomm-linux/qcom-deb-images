@@ -17,10 +17,13 @@ all: disk-ufs.img.gz disk-sdcard.img.gz
 rootfs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS) $<
 
-disk-ufs.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar.gz
+disk-ufs.img disk-ufs.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar.gz
 	$(DEBOS) $<
 
 disk-sdcard.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar.gz
 	$(DEBOS) -t imagetype:sdcard $<
 
-.PHONY: all
+test: disk-ufs.img
+	py.test-3
+
+.PHONY: all test
