@@ -1,0 +1,18 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# shellcheck shell=sh
+
+scan_files() {
+    # For all files under $PWD except under .git that match $mime_type, run the
+    # scanner with the remaining parameters. Return zero if all $cmd succeeded,
+    # non-zero otherwise.
+
+    local mime_type="$1"
+    shift
+
+    # shellcheck disable=SC2016
+    find . -path ./.git -prune -o -print0 | \
+      xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "'"$mime_type"'" && printf "%s\000" "$1"' -- | \
+      xargs -0t -- "$@"
+}

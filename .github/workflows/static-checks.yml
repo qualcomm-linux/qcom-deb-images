@@ -23,28 +23,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install flake8
-        run: sudo apt update && sudo apt -y install flake8
+        run: sudo apt update && sudo apt -y install file flake8
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run Flake8
-        run: flake8 scripts/*.py
+      - name: Run Flake8 and dependencies
+        run: |
+          . scripts/functions
+          scan_files text/x-script.python flake8
 
   pylint:
     name: Install and run Pylint on Python scripts
     runs-on: ubuntu-latest
     steps:
-      - name: Install Pylint
-        run: sudo apt update && sudo apt -y install pylint
+      - name: Install Pylint and dependencies
+        run: sudo apt update && sudo apt -y install file pylint python3-voluptuous
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run Pylint (error mode)
-        run: pylint --errors-only scripts/*.py
+        run: |
+          . scripts/functions
+          scan_files text/x-script.python pylint --errors-only
 
   shellcheck:
     name: Install and run ShellCheck on shell scripts
@@ -59,12 +63,12 @@ jobs:
 
       - name: Run ShellCheck
         run: |
-          # Run shellcheck against all files outside .git/ that `file` reports
-          # as text/x-shellscript
-          #
+          . scripts/functions
+
           # Ignore the double quoting warning, script authors have better
-          # knowledge of variable contents.
-          export SHELLCHECK_OPTS="-e SC2086"
-          find . -path ./.git -prune -o -print0 | \
-            xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "text/x-shellscript" && printf "%s\000" "$1"' -- | \
-            xargs -0t shellcheck
+          # knowledge of variable contents, and we accept that in practice
+          # "local" is implemented everywhere so it's OK to use even though
+          # it's not strictly POSIX.
+          export SHELLCHECK_OPTS="-e SC2086,SC3043"
+
+          scan_files text/x-shellscript shellcheck
