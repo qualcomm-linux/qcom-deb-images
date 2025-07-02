@@ -61,8 +61,8 @@ jobs:
         run: cp -av "/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest/rb1-boot.img" .
 
       # mtools is needed for the flash recipe
-      - name: Install debos and dependencies of the recipes
-        run: apt -y install debos mtools
+      - name: Install debos and dependencies of the recipes and local tests
+        run: apt -y install debos make mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
 
       - name: Setup local APT repo
         run: |
@@ -210,3 +210,12 @@ jobs:
         with:
           name: build_url
           path: build_url
+      - name: Invoke test runner
+        run: |
+           # This is currently a clone of Makefile's "test" target to avoid any
+           # unexpected interactions with triggering depending build targets.
+           # The plan is to move this entire workflow to use make targets
+           # instead but all at once. See #74 and #159.
+
+           # rootfs/ is a build artifact, so should not be scanned for tests
+           py.test-3 --ignore=rootfs
