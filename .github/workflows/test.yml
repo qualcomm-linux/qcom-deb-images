@@ -115,7 +115,7 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: apt-get update && apt-get -y install make python3-pyexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+        run: sudo apt-get update && sudo apt-get -y install make python3-pyexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
       - name: Clone repository
         uses: actions/checkout@v4
         with:
