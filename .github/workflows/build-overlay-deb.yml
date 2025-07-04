@@ -78,7 +78,7 @@ jobs:
                   build-essential \
                   debian-keyring \
                   devscripts \
-                  dh \
+                  debhelper \
                   git \
                   patch \
                   python3 \
