@@ -4,4 +4,4 @@ debdiff_file: "mesa_25.2.0.debdiff"
 script: mesa-snapshot.sh
 suite: trixie
 env:
-  COMMIT: 7fd99c88b9cd5c0c8c1cb3e92383acac5cb8220b
+  COMMIT: c1ba062a30669aa57e371440fca4bfa00a1b45c3
