@@ -24,6 +24,14 @@ actions:
       apt -y modernize-sources
       rm -v /etc/apt/sources.list.bak
 
+{{- if .overlays }}
+{{- range $overlay := split "," .overlays }}
+  - action: overlay
+    description: Apply overlay {{$overlay}}
+    source: overlays/{{$overlay}}
+{{- end }}
+{{- end }}
+
   - action: apt
     description: Install foundational packages
     recommends: true
