@@ -207,7 +207,7 @@ actions:
       Components: main non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
       EOF
-      # update and install kernel from experimental
+      # update and install firmware from unstable
       apt update
       apt -y install -t unstable firmware-atheros firmware-qcom-soc
       # remove sid APT sources and update again
