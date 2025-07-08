@@ -10,7 +10,7 @@ on:
       overlays:
         description: List of overlays to use
         type: string
-        default:
+        default: qsc-deb-releases
 
     outputs:
       artifacts_url:
