@@ -11,6 +11,10 @@ on:
         description: List of overlays to use
         type: string
         default: qsc-deb-releases
+      kernelpackage:
+        description: Name of kernel package to use
+        type: string
+        default:
 
     outputs:
       artifacts_url:
@@ -88,6 +92,7 @@ jobs:
               -t experimentalkernel:true \
               -t xfcedesktop:true \
               ${localdebs} \
+              -t kernelpackage:'${{ inputs.kernelpackage }}' \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS and SD card images with debos
