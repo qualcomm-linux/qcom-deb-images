@@ -1,6 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $experimentalkernel := or .experimentalkernel "false" }}
 {{- $localdebs := or .localdebs "none" }}
+{{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 
 architecture: arm64
 
@@ -189,7 +190,7 @@ actions:
     packages:
       - firmware-atheros
       - firmware-qcom-soc
-      - linux-image-arm64
+      - {{$kernelpackage}}
 
   # XXX this is a workaround until firmware-non-free migrates to testing; it
   # might make sense to have a generic mechanism to do this
@@ -232,7 +233,7 @@ actions:
       EOF
       # update and install kernel from experimental
       apt update
-      apt -y install -t experimental linux-image-arm64
+      apt -y install -t experimental {{$kernelpackage}}
       # disable experimental from APT sources
       sed -i "1s/^/Enabled: no\n/" \
           /etc/apt/sources.list.d/debian-experimental.sources
