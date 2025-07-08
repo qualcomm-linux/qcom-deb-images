@@ -7,6 +7,10 @@ on:
         description: Whether to use a mainline kernel deb
         type: boolean
         default: false
+      overlays:
+        description: List of overlays to use
+        type: string
+        default:
 
     outputs:
       artifacts_url:
@@ -79,7 +83,11 @@ jobs:
           if [ -d debos-recipes/local-debs ]; then
               localdebs="-t localdebs:local-debs/"
           fi
-          debos -t experimentalkernel:true -t xfcedesktop:true ${localdebs} \
+          debos \
+              -t overlays:'${{ inputs.overlays }}' \
+              -t experimentalkernel:true \
+              -t xfcedesktop:true \
+              ${localdebs} \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS and SD card images with debos
