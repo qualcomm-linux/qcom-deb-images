@@ -93,6 +93,7 @@ jobs:
               -t xfcedesktop:true \
               ${localdebs} \
               -t kernelpackage:'${{ inputs.kernelpackage }}' \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS and SD card images with debos
@@ -105,15 +106,18 @@ jobs:
           # whole build is done from memory and the out of memory killer
           # gets triggered
           debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
           debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
 
       - name: Build flashable files with debos
         run: |
           set -ux
           debos -t u_boot_rb1:rb1-boot.img \
-                 debos-recipes/qualcomm-linux-debian-flash.yaml
+              --print-recipe \
+              debos-recipes/qualcomm-linux-debian-flash.yaml
 
       - name: Stage debos artifacts for publishing
         run: |
