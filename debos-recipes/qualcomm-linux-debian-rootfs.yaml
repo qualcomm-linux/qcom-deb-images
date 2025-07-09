@@ -184,6 +184,19 @@ actions:
           update-locale LANG=en_US.UTF-8
       fi
 
+  # usually these packages are pulled by Pre-Depends/Depends/Recommends of
+  # Debian's linux-image, but kernel packages generated with the upstream
+  # deb-pkg target don't have these dependencies, so install these before
+  # installing kernels; this is a separate step because of the Pre-Depends
+  - action: apt
+    description: Install kernel dependencies
+    recommends: true
+    packages:
+      - apparmor
+      - initramfs-tools
+      - kmod
+      - linux-base
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
