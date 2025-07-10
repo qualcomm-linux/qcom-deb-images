@@ -2,6 +2,20 @@ name: Build debos recipe
 
 on:
   workflow_call:
+    inputs:
+      mainline_kernel:
+        description: Whether to use a mainline kernel deb
+        type: boolean
+        default: false
+      overlays:
+        description: List of overlays to use
+        type: string
+        default: qsc-deb-releases
+      kernelpackage:
+        description: Name of kernel package to use
+        type: string
+        default: linux-image-6.16.0-rc3-qcom1
+
     outputs:
       artifacts_url:
         description: "URL to retrieve build artifacts"
@@ -48,15 +62,17 @@ jobs:
       - name: Copy Linux deb and U-Boot for RB1 from fileserver space for downloads
         run: |
           set -ux
-          mkdir -v debos-recipes/local-debs
           dir="/fileserver-downloads/qcom-deb-images"
-          # copy linux-image but not the -dbg e.g.
-          # linux-image-6.15.0-..._6.15.0...-1_arm64.deb but not
-          # linux-image-6.15.0-...-dbg_6.15.0...-1_arm64.deb
-          find "${dir}/linux-deb-latest/" \
-              -name linux-image\*.deb \
-              -not -name linux-image\*-dbg_\*.deb \
-              -exec cp -av '{}' debos-recipes/local-debs/ \;
+          if [ "${{ inputs.mainline_kernel }}" = true ]; then
+              mkdir -v debos-recipes/local-debs
+              # copy linux-image but not the -dbg e.g.
+              # linux-image-6.15.0-..._6.15.0...-1_arm64.deb but not
+              # linux-image-6.15.0-...-dbg_6.15.0...-1_arm64.deb
+              find "${dir}/linux-deb-latest/" \
+                  -name linux-image\*.deb \
+                  -not -name linux-image\*-dbg_\*.deb \
+                  -exec cp -av '{}' debos-recipes/local-debs/ \;
+          fi
           # copy U-Boot RB1 binary
           cp -av "${dir}/u-boot-rb1-latest/rb1-boot.img" .
 
@@ -67,7 +83,17 @@ jobs:
       - name: Build rootfs with debos
         run: |
           set -ux
-          debos -t xfcedesktop:true -t localdebs:local-debs/ \
+          localdebs=""
+          if [ -d debos-recipes/local-debs ]; then
+              localdebs="-t localdebs:local-debs/"
+          fi
+          debos \
+              -t overlays:'${{ inputs.overlays }}' \
+              -t experimentalkernel:true \
+              -t xfcedesktop:true \
+              ${localdebs} \
+              -t kernelpackage:'${{ inputs.kernelpackage }}' \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS and SD card images with debos
@@ -80,15 +106,18 @@ jobs:
           # whole build is done from memory and the out of memory killer
           # gets triggered
           debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
           debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+              --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
 
       - name: Build flashable files with debos
         run: |
           set -ux
           debos -t u_boot_rb1:rb1-boot.img \
-                 debos-recipes/qualcomm-linux-debian-flash.yaml
+              --print-recipe \
+              debos-recipes/qualcomm-linux-debian-flash.yaml
 
       - name: Stage debos artifacts for publishing
         run: |

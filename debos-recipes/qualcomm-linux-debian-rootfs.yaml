@@ -1,6 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $experimentalkernel := or .experimentalkernel "false" }}
 {{- $localdebs := or .localdebs "none" }}
+{{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 
 architecture: arm64
 
@@ -23,6 +24,14 @@ actions:
       set -eux
       apt -y modernize-sources
       rm -v /etc/apt/sources.list.bak
+
+{{- if .overlays }}
+{{- range $overlay := split "," .overlays }}
+  - action: overlay
+    description: Apply overlay {{$overlay}}
+    source: overlays/{{$overlay}}
+{{- end }}
+{{- end }}
 
   - action: apt
     description: Install foundational packages
@@ -175,13 +184,26 @@ actions:
           update-locale LANG=en_US.UTF-8
       fi
 
+  # usually these packages are pulled by Pre-Depends/Depends/Recommends of
+  # Debian's linux-image, but kernel packages generated with the upstream
+  # deb-pkg target don't have these dependencies, so install these before
+  # installing kernels; this is a separate step because of the Pre-Depends
+  - action: apt
+    description: Install kernel dependencies
+    recommends: true
+    packages:
+      - apparmor
+      - initramfs-tools
+      - kmod
+      - linux-base
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
     packages:
       - firmware-atheros
       - firmware-qcom-soc
-      - linux-image-arm64
+      - {{$kernelpackage}}
 
   # XXX this is a workaround until firmware-non-free migrates to testing; it
   # might make sense to have a generic mechanism to do this
@@ -198,7 +220,7 @@ actions:
       Components: main non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
       EOF
-      # update and install kernel from experimental
+      # update and install firmware from unstable
       apt update
       apt -y install -t unstable firmware-atheros firmware-qcom-soc
       # remove sid APT sources and update again
@@ -224,7 +246,7 @@ actions:
       EOF
       # update and install kernel from experimental
       apt update
-      apt -y install -t experimental linux-image-arm64
+      apt -y install -t experimental {{$kernelpackage}}
       # disable experimental from APT sources
       sed -i "1s/^/Enabled: no\n/" \
           /etc/apt/sources.list.d/debian-experimental.sources

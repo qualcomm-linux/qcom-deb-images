@@ -1,0 +1,9 @@
+# QArtifactory qsc-deb-releases repository
+# NB: publishing Sources indices for deb-src isn't supported by Artifactory,
+# but sources are published with other packages files
+Types: deb
+URIs: https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases
+Suites: trixie-overlay
+Components: main
+Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
+Enabled: yes
