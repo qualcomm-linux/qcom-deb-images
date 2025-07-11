@@ -47,6 +47,12 @@ actions:
 - test:
     definitions:
     - from: git
+      name: "alsa-smoke-test"
+      path: automated/linux/alsa-smoke/alsa-smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
+    - from: git
       name: "smoke-test"
       path: automated/linux/smoke/smoke.yaml
       repository: https://github.com/linaro/test-definitions.git
