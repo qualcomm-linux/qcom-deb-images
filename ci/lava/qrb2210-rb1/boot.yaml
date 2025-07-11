@@ -53,7 +53,7 @@ actions:
       repository: https://github.com/linaro/test-definitions.git
       parameters:
         SKIP_INSTALL: "True"
-        TESTS: "pwd, uname -a, ip a"
+        TESTS: "pwd, uname -a, ip a, media-ctl -p"
 - command:
     name: network_turn_on
 context:
