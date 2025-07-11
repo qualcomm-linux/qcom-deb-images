@@ -155,6 +155,9 @@ actions:
       - xserver-xorg-video-all-
       - xserver-xorg
       - plymouth-label- # we probably don't need a boot splash
+      # nm-connection-editor below depends on polkit-1-auth-agent, and APT
+      # picks up ukui-polkit as a random Provides; select mate-polkit instead
+      - mate-polkit
       # from task-xfce-desktop
       - xfce4
       - lightdm
