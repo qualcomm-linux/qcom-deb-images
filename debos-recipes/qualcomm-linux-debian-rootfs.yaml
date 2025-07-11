@@ -140,6 +140,8 @@ actions:
       - sudo
       # lsusb
       - usbutils
+      # media-ctl
+      - v4l-utils
       - vim
       - vulkan-tools
       - wget
