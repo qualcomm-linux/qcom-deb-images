@@ -126,6 +126,7 @@ actions:
       - alsa-utils
       - clinfo
       - device-tree-compiler
+      - docker.io
       - i2c-tools
       - locales
       - mesa-opencl-icd
@@ -142,6 +143,13 @@ actions:
       - vim
       - vulkan-tools
       - wget
+
+  - action: run
+    description: Add default user to docker group
+    chroot: true
+    command: |
+      set -eux
+      usermod -a -G docker debian
 
 {{- if eq $xfcedesktop "true" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
