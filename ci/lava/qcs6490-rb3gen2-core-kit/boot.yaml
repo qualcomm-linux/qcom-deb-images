@@ -53,6 +53,12 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         TESTS: "pwd, uname -a, ip a, media-ctl -p"
+    - from: git
+      name: "usb-smoke-test"
+      path: automated/linux/usb-smoke/usb-smoke-test.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
 - command:
     name: network_turn_on
 context:
