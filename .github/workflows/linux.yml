@@ -10,7 +10,6 @@ on:
 # implicitely set all other permissions to none
 permissions:
   contents: read # actions/checkout debos.yml test.yml
-  contents: read # debos.yml lava-schema-check.yml test.yml
   packages: read # test.yml
   pull-requests: write # test.yml
 
