@@ -173,7 +173,8 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      - firefox-esr
+      # browser
+      - chromium
 {{- end }}
 
   - action: run
