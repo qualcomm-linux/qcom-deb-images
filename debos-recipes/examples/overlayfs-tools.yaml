@@ -1,0 +1,54 @@
+{{- $overlaysize := or .overlaysize "2GiB" }}
+
+architecture: arm64
+
+# this recipe uses overlayfs to install a few extra packages only relevant for
+# testing; the resulting image file can be used during factory testing to
+# provide extra commands, and then removed from the filesystem
+#
+# to run a command from the overlay:
+#     /sbin/overlay-do <command ...>
+# to remove the overlay:
+#     shred -n 1 -v -u /overlay.img
+
+actions:
+  - action: run
+    description: Create overlayfs
+    chroot: true
+    command: |
+      set -eux
+      # create a sparse file to hold the overlay filesystem
+      truncate -s "{{$overlaysize}}" overlay.img
+      mkfs.ext4 /overlay.img
+      # debug
+      cat /proc/filesystems || true
+      lsmod || true
+      losetup -a || true
+      ls /lib/modules || true
+      uname -a || true
+      mkdir -vp /overlay
+      mount -o loop /overlay.img /overlay
+      # create directories needed to mount overlay
+      mkdir -v /overlay/merged /overlay/upper /overlay/work
+      umount /overlay
+      rmdir -vp /overlay
+
+  - action: overlay
+    description: Apply overlayfs overlay
+    source: overlayfs-tools-overlay
+
+  - action: run
+    description: Modernize APT sources
+    chroot: true
+    command: |
+      set -eux
+      # install gst-launch and some difficult to redistribute gstreamer plugins
+      /sbin/overlay-do \
+          apt -y install \
+              gstreamer1.0-libav \
+              gstreamer1.0-plugins-bad \
+              gstreamer1.0-plugins-ugly \
+              gstreamer1.0-tools
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

@@ -297,6 +297,9 @@ actions:
           qcom/qcs6490-rb3gen2.dtb \
           qcom/qrb2210-rb1.dtb
 
+  - action: recipe
+    recipe: examples/overlayfs-tools.yaml
+
   - action: pack
     description: Create root filesystem tarball
     file: rootfs.tar.gz
