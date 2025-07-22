@@ -109,3 +109,20 @@ jobs:
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> $GITHUB_STEP_SUMMARY
           done
+  local-tests:
+    name: "Local tests"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: apt-get update && apt-get -y install make python3-pyexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+      - name: Decompress required build artifacts
+        run: gzip -d disk-ufs.img.gz
+      - name: Invoke test runner
+        run: make test
