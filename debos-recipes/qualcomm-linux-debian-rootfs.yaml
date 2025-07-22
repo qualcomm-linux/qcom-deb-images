@@ -86,9 +86,11 @@ actions:
       set -eux
       # pre-emptively create a sudo group if sudo isn't installed
       getent group sudo >/dev/null 2>&1 || groupadd --system sudo
-      # some of these groups are only needed for desktop scenarios
+      # some useful groups for desktop scenarios, but also to run payloads
+      # from the serial console, over SSH, or in containers - where the desktop
+      # session has not updated ACLs to the device nodes
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,video,users,sudo debian
+          --groups adm,audio,render,sudo,users,video debian
       # password must be changed on first login; set it to "debian"
       chage --lastday 0 debian
       echo debian:debian | chpasswd
@@ -99,6 +101,7 @@ actions:
         umask 226
         echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
       )
+
   # NB: Recommends pull in way too many packages, and we don't need to follow
   # Recommends reaching outside of this Priority level
   - action: apt
@@ -123,6 +126,7 @@ actions:
       - alsa-utils
       - clinfo
       - device-tree-compiler
+      - docker.io
       - i2c-tools
       - locales
       - mesa-opencl-icd
@@ -136,9 +140,18 @@ actions:
       - sudo
       # lsusb
       - usbutils
+      # media-ctl
+      - v4l-utils
       - vim
       - vulkan-tools
       - wget
+
+  - action: run
+    description: Add default user to docker group
+    chroot: true
+    command: |
+      set -eux
+      usermod -a -G docker debian
 
 {{- if eq $xfcedesktop "true" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
