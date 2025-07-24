@@ -26,7 +26,7 @@ actions:
 {{- if eq $build_qcm6490 "true" }}
   - action: download
     description: Download QCM6490 boot binaries
-    url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00075.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
+    url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
     name: qcm6490_boot-binaries
     filename: qcm6490_boot-binaries.zip
 {{- end }}
