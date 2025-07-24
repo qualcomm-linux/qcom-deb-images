@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20250724T172356Z/pool/main/r/rmtfs/rmtfs_1.1-3.dsc"
+dsc_sha256sum: "600df007ef07ea5e72b5a301086eec77d721871b365dfcabed64f23d1f3084f8"
+debdiff_file: "rmtfs_1.1-3qcom1.debdiff"
+suite: "trixie"
