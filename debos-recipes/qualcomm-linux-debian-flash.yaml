@@ -21,6 +21,10 @@ actions:
     url: https://releases.linaro.org/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip
     name: qrb2210-rb1_rescue-image.zip
     filename: qrb2210-rb1_rescue-image.zip
+  - action: run
+    description: Verify download
+    chroot: false
+    command: echo c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d ${ROOTDIR}/../qrb2210-rb1_rescue-image.zip|sha256sum --strict -c -
 {{- end }}
 
 {{- if eq $build_qcm6490 "true" }}
@@ -29,6 +33,10 @@ actions:
     url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
     name: qcm6490_boot-binaries
     filename: qcm6490_boot-binaries.zip
+  - action: run
+    description: Verify download
+    chroot: false
+    command: echo 9c100d7b184ecf0ab9c4be71a8bb7c243fdc79a64380ca3025024dd2b14c5078 ${ROOTDIR}/../qcm6490_boot-binaries.zip|sha256sum --strict -c -
 {{- end }}
 
 {{- if eq $build_qcm6490 "true" }}
@@ -37,6 +45,10 @@ actions:
     url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
     name: qcs6490-rb3gen2-vision-kit_cdt
     filename: qcs6490-rb3gen2-vision-kit_cdt.zip
+  - action: run
+    description: Verify download
+    chroot: false
+    command: echo a339e297b454c4dc3805fe8cd11d6d8dcb801aa8f0c2dc691561c2785019fa3c ${ROOTDIR}/../qcs6490-rb3gen2-vision-kit_cdt.zip|sha256sum --strict -c -
 {{- end }}
 
   - action: run
