@@ -52,9 +52,6 @@ mesa (${version}-0qcom1) testing; urgency=medium
   * Backport to trixie:
     - Build with LLVM 19 since LLVM 20 is not available in trixie.
     - d/control: regenerate
-  * Feature patches:
-    - d/p/35316.patch: freedreno: Add sampling support for RGB/BGR
-      24-bit component texture formats.
 
  -- Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>  Wed, 11 Jun 2025 14:58:50 +0300
 
