@@ -17,6 +17,8 @@ git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa
 cd mesa
 git fetch --depth 1 origin ${COMMIT##origin/}
 
+git checkout -f ${COMMIT}
+
 date=$(git log -1 --format=%cd --date=format:%Y%m%d ${COMMIT})
 subject=$(git log -1 --format="%h (\"%s\")" ${COMMIT})
 version=25.2.0~git${date}
