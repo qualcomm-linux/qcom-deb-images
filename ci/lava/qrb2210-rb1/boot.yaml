@@ -38,11 +38,17 @@ actions:
       password_prompt: 'Password'
       password: debian
       login_commands:
+      - "debian"
+      - "new password"
+      - "new password"
       - sudo su
     method: minimal
     prompts:
     - root@debian
     - debian@debian
+    - "Current password"
+    - "New password"
+    - "Retype new password"
     timeout:
       minutes: 3
 - test:
