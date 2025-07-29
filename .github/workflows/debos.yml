@@ -25,11 +25,6 @@ on:
 permissions:
   contents: read # actions/checkout
 
-# cancel in progress builds for this workflow triggered by the same ref
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   # image build id; used for SBOM generation; TODO: should be used in image metadata too
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
