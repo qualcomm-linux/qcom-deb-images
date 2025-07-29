@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20250729T124641Z/pool/main/x/xfdesktop4/xfdesktop4_4.20.1-1.dsc"
+dsc_sha256sum: "d3a0d146e7cd6152fca946d676edf4beff4efbf76557a73a9142c7025398f1c7"
+debdiff_file: "xfdesktop4_4.20.1-1qcom1.debdiff"
+suite: "trixie"

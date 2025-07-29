@@ -1,0 +1,28 @@
+diff -Nru xfdesktop4-4.20.1/debian/changelog xfdesktop4-4.20.1/debian/changelog
+--- xfdesktop4-4.20.1/debian/changelog	2025-03-03 01:34:59.000000000 +0000
++++ xfdesktop4-4.20.1/debian/changelog	2025-07-29 13:48:35.000000000 +0100
+@@ -1,3 +1,11 @@
++xfdesktop4 (4.20.1-1qcom1) trixie; urgency=medium
++
++  * Use the system configured
++    /usr/share/images/desktop-base/desktop-background (as maintained by
++    update-alternatives) as the default backdrop.
++
++ -- Robie Basak <robibasa@qti.qualcomm.com>  Tue, 29 Jul 2025 13:48:35 +0100
++
+ xfdesktop4 (4.20.1-1) unstable; urgency=medium
+ 
+   * Team upload.
+diff -Nru xfdesktop4-4.20.1/debian/rules xfdesktop4-4.20.1/debian/rules
+--- xfdesktop4-4.20.1/debian/rules	2025-03-03 01:34:50.000000000 +0000
++++ xfdesktop4-4.20.1/debian/rules	2025-07-29 13:48:35.000000000 +0100
+@@ -8,7 +8,8 @@
+ 
+ override_dh_auto_configure:
+ 	dh_auto_configure -- --enable-thunarx \
+-		--docdir=\$${prefix}/share/doc/xfdesktop4-data
++		--docdir=\$${prefix}/share/doc/xfdesktop4-data \
++		--with-default-backdrop-filename=/usr/share/images/desktop-base/desktop-background
+ 
+ override_dh_install:
+ 	dh_install
