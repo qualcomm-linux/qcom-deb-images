@@ -53,10 +53,6 @@ actions:
       - network-manager
       # standard networking files (/etc/hosts, /etc/services etc.)
       - netbase
-      # Qualcomm's IPC Router protocol; this is a dependency of the
-      # tqftpserv service, but it's actually not needed on RB1
-      # TODO drop me once https://bugs.debian.org/1104039 is fixed
-      - qrtr-tools
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
