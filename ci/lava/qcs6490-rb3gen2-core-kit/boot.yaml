@@ -47,12 +47,30 @@ actions:
 - test:
     definitions:
     - from: git
+      name: "alsa-smoke-test"
+      path: automated/linux/alsa-smoke/alsa-smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
+    - from: git
       name: "smoke-test"
       path: automated/linux/smoke/smoke.yaml
       repository: https://github.com/linaro/test-definitions.git
       parameters:
         SKIP_INSTALL: "True"
-        TESTS: "pwd, uname -a, ip a"
+        TESTS: "pwd, uname -a, ip a, media-ctl -p"
+    - from: git
+      name: "usb-smoke-test"
+      path: automated/linux/usb-smoke/usb-smoke-test.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
+    - from: git
+      name: "wlan-smoke-test"
+      path: automated/linux/wlan-smoke/wlan-smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
 - command:
     name: network_turn_on
 context:
