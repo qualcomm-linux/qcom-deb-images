@@ -14,7 +14,7 @@ on:
       kernelpackage:
         description: Name of kernel package to use
         type: string
-        default: linux-image-6.16.0-qcom1+
+        default: linux-image-6.16.0-qcom2+
 
     outputs:
       artifacts_url:
