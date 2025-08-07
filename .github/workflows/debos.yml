@@ -36,7 +36,7 @@ jobs:
       url: ${{ steps.upload_artifacts.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: debian:trixie
+      image: public.ecr.aws/debian/debian:trixie
       volumes:
         - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
