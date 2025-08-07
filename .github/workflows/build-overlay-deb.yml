@@ -15,7 +15,7 @@ jobs:
         arch: [amd64, arm64]
     runs-on: [self-hosted, qcom-u2404, "${{ matrix.arch }}"]
     container:
-      image: debian:trixie
+      image: public.ecr.aws/debian/debian:trixie
       options: --privileged  # Required for chroot creation
     steps:
       - name: Update OS packages
