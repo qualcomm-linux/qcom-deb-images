@@ -33,10 +33,22 @@ actions:
     url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip
     name: qcm6490_boot-binaries
     filename: qcm6490_boot-binaries.zip
+
   - action: run
     description: Verify download
     chroot: false
     command: echo 9c100d7b184ecf0ab9c4be71a8bb7c243fdc79a64380ca3025024dd2b14c5078 ${ROOTDIR}/../qcm6490_boot-binaries.zip|sha256sum --strict -c -
+
+  - action: download
+    description: Download QCM6490 contents.xml
+    url: https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/contents.xml
+    name: qcm6490_contents-xml
+    filename: qcm6490_contents.xml
+
+  - action: run
+    description: Verify download
+    chroot: false
+    command: echo 42b384c0a82ffc294ffd690294b0261aadb2aa7bb6d85dd3eea522b50f90e7a3 ${ROOTDIR}/../qcm6490_contents.xml|sha256sum --strict -c -
 {{- end }}
 
 {{- if eq $build_qcm6490 "true" }}
@@ -45,6 +57,7 @@ actions:
     url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
     name: qcs6490-rb3gen2-vision-kit_cdt
     filename: qcs6490-rb3gen2-vision-kit_cdt.zip
+
   - action: run
     description: Verify download
     chroot: false
@@ -171,6 +184,8 @@ actions:
       # copy platform partition files
       cp --preserve=mode,timestamps -v build/qcs6490-rb3gen2_partitions/* \
           "${flash_dir}"
+      # copy platform contents.xml
+      cp "${ROOTDIR}/../qcm6490_contents.xml" "${flash_dir}"/contents.xml
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
       # ptool should have a flag not to generate these; note that there are
@@ -234,6 +249,10 @@ actions:
       # ESP partition on EFI capable platforms
       sed -i '/label="efi"/s#filename="[^"]*"#filename="../disk-ufs.img1"#' \
           "${flash_dir}"/rawprogram*.xml
+      # contents.xml uses <file_name>efi.bin</file_name> for the ESP partition
+      # on qcm6490
+      sed -i '/<file_name>efi\.bin</s#>[^<]*<#>../disk-ufs.img1<#' \
+          "${flash_dir}"/contents.xml
 
       # update flashing files for rootfs image;
       # qcom-ptool/platforms/*/partitions.conf uses filename=rootfs.img for the
@@ -241,6 +260,10 @@ actions:
       sed -i \
           '/label="rootfs"/s#filename="[^"]*"#filename="../disk-ufs.img2"#' \
           "${flash_dir}"/rawprogram*.xml
+      # contents.xml uses <file_name>system.img</file_name> for the rootfs
+      # partition on qcm6490
+      sed -i '/<file_name>system\.img</s#>[^<]*<#>../disk-ufs.img2<#' \
+          "${flash_dir}"/contents.xml
 {{- end }}
 
       # cleanup
