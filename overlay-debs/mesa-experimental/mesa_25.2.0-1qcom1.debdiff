@@ -1,12 +1,14 @@
 diff -Nru mesa-25.2.0/debian/changelog mesa-25.2.0/debian/changelog
 --- mesa-25.2.0/debian/changelog	2025-08-07 14:08:04.000000000 +0300
 +++ mesa-25.2.0/debian/changelog	2025-05-29 20:16:02.000000000 +0300
-@@ -1,3 +1,11 @@
+@@ -1,3 +1,13 @@
 +mesa (25.2.0-1qcom1) trixie; urgency=medium
 +
 +  * Rebuild for trixie.
 +  * Switch to LLVM 19 (LLVM 20 is not a part of trixie) and also lower libdrm
 +    dependency to the version present in trixie.
++  * Import patch from MR 36656 ("freedreno/layout: Don't align explicit
++    layouts to page size")
 +
 + -- Loïc Minier <loic.minier@oss.qualcomm.com>  Thu, 29 May 2025 17:16:02 +0000
 +
@@ -74,6 +76,73 @@ diff -Nru mesa-25.2.0/debian/control.in mesa-25.2.0/debian/control.in
   libx11-dev,
   libxxf86vm-dev,
   libexpat1-dev,
+diff -Nru mesa-25.2.0/debian/patches/36656.patch mesa-25.2.0/debian/patches/36656.patch
+--- mesa-25.2.0/debian/patches/36656.patch	1970-01-01 02:00:00.000000000 +0200
++++ mesa-25.2.0/debian/patches/36656.patch	2025-05-29 20:16:02.000000000 +0300
+@@ -0,0 +1,55 @@
++From 8c59aacc10c1bdcb0b4febfe2b8068309516194d Mon Sep 17 00:00:00 2001
++From: Rob Clark <rob.clark@oss.qualcomm.com>
++Date: Thu, 7 Aug 2025 15:09:45 -0700
++Subject: [PATCH] freedreno/layout: Don't align explicit layouts to page size
++
++This could cause importing buffers, in particular multiplanar YUV, since
++when the offset of the plane is added, the aligned size could be beyond
++the end of the buffer.
++
++Fixes: 27b0f64b3ed0 ("freedreno/a6xx: Use handle for explicit layout")
++Signed-off-by: Rob Clark <rob.clark@oss.qualcomm.com>
++Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/36656>
++---
++ src/freedreno/ci/freedreno-a618-fails.txt | 11 -----------
++ src/freedreno/fdl/fd6_layout.c            |  2 +-
++ 2 files changed, 1 insertion(+), 12 deletions(-)
++
++diff --git a/src/freedreno/ci/freedreno-a618-fails.txt b/src/freedreno/ci/freedreno-a618-fails.txt
++index c437bbfa9ba01..2f687d2aaf0a2 100644
++--- a/src/freedreno/ci/freedreno-a618-fails.txt
+++++ b/src/freedreno/ci/freedreno-a618-fails.txt
++@@ -226,17 +226,6 @@ spec@arb_base_instance@arb_base_instance-drawarrays,Fail
++ spec@ext_base_instance@arb_base_instance-baseinstance-doesnt-affect-gl-instance-id_gles3,Fail
++ spec@ext_base_instance@arb_base_instance-drawarrays_gles3,Fail
++ 
++-# Bad assumptions in piglit about layout of multiplanar formats,
++-# it should use separate buffers per plane:
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_nv12,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_nv21,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p010,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p012,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p016,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yuv420,Fail
++-spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yvu420,Fail
++-
++ # Regression from https://gitlab.freedesktop.org/mesa/mesa/-/compare/ace49d9e52a6156f114ee00eec759d734bd84fc0...88c79a13b9056099048080e7d41576e0cb69c347
++ spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec2-index-wr-before-gs,Fail
++ spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec3-index-wr-before-gs,Fail
++diff --git a/src/freedreno/fdl/fd6_layout.c b/src/freedreno/fdl/fd6_layout.c
++index d85f86b97cd61..dd32d470e4289 100644
++--- a/src/freedreno/fdl/fd6_layout.c
+++++ b/src/freedreno/fdl/fd6_layout.c
++@@ -317,7 +317,7 @@ fdl6_layout_image(struct fdl_layout *layout, const struct fd_dev_info *info,
++       }
++    }
++ 
++-   if (layout->layer_first) {
+++   if (layout->layer_first && !explicit_layout) {
++       layout->layer_size = align64(layout->size, 4096);
++       layout->size = layout->layer_size * params->array_size;
++    }
++-- 
++GitLab
++
+diff -Nru mesa-25.2.0/debian/patches/series mesa-25.2.0/debian/patches/series
+--- mesa-25.2.0/debian/patches/series	2025-08-07 12:15:38.000000000 +0300
++++ mesa-25.2.0/debian/patches/series	2025-05-29 20:16:02.000000000 +0300
+@@ -1,3 +1,4 @@
+ path_max.diff
+ src_glx_dri_common.h.diff
+ disable_ppc64el_assembly.diff
++36656.patch
 diff -Nru mesa-25.2.0/debian/rules mesa-25.2.0/debian/rules
 --- mesa-25.2.0/debian/rules	2025-08-07 14:06:33.000000000 +0300
 +++ mesa-25.2.0/debian/rules	2025-05-29 20:16:02.000000000 +0300
