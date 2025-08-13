@@ -53,6 +53,12 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         TESTS: "pwd, uname -a, ip a"
+    - from: git
+      name: "wlan-smoke-test"
+      path: automated/linux/wlan-smoke/wlan-smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
 - command:
     name: network_turn_on
 context:
