@@ -57,39 +57,43 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Copy Linux deb and U-Boot for RB1 from fileserver space for downloads
-        run: |
-          set -ux
-          dir="/fileserver-downloads/qcom-deb-images"
-          if [ "${{ inputs.mainline_kernel }}" = true ]; then
-              mkdir -v debos-recipes/local-debs
-              # copy linux-image but not the -dbg e.g.
-              # linux-image-6.15.0-..._6.15.0...-1_arm64.deb but not
-              # linux-image-6.15.0-...-dbg_6.15.0...-1_arm64.deb
-              find "${dir}/linux-deb-latest/" \
-                  -name linux-image\*.deb \
-                  -not -name linux-image\*-dbg_\*.deb \
-                  -exec cp -av '{}' debos-recipes/local-debs/ \;
-          fi
-          # copy U-Boot RB1 binary
-          cp -av "${dir}/u-boot-rb1-latest/rb1-boot.img" .
+      - name: Copy U-Boot for RB1 from fileserver space for downloads
+        run: cp -av "/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest/rb1-boot.img" .
 
       # mtools is needed for the flash recipe
       - name: Install debos and dependencies of the recipes
         run: apt -y install debos mtools
 
+      - name: Setup local APT repo
+        run: |
+          set -ux -o pipefail
+
+          # needed for apt-ftparchive
+          apt -y install --no-install-recommends apt-utils
+          mkdir -v local-apt-repo
+
+          # optionally, copy mainline kernel debs
+          if [ "${{ inputs.mainline_kernel }}" = true ]; then
+              mkdir -v local-apt-repo/linux-deb-latest
+              # get mainline kernel from the fileserver space for downloads
+              cp -av /fileserver-downloads/qcom-deb-images/linux-deb-latest/*.deb \
+                  local-apt-repo/linux-deb-latest
+          fi
+
+          (
+              cd local-apt-repo
+              apt-ftparchive packages . >Packages
+              apt-ftparchive release . >Release
+          )
+
       - name: Build rootfs with debos
         run: |
           set -ux
-          localdebs=""
-          if [ -d debos-recipes/local-debs ]; then
-              localdebs="-t localdebs:local-debs/"
-          fi
           debos \
               -t overlays:'${{ inputs.overlays }}' \
               -t experimentalkernel:true \
               -t xfcedesktop:true \
-              ${localdebs} \
+              -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:'${{ inputs.kernelpackage }}' \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
