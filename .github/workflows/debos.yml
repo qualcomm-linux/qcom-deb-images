@@ -14,7 +14,10 @@ on:
       kernelpackage:
         description: Name of kernel package to use
         type: string
-        default: linux-image-6.16.1-qcom1+
+        # the package name will be passed to APT which interprets the trailing
+        # plus sign in the package name as a request to install the package, so
+        # use two plus signs
+        default: linux-image-6.16.1-qcom1++
 
     outputs:
       artifacts_url:
