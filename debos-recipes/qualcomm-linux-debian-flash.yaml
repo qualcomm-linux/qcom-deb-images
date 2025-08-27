@@ -1,4 +1,5 @@
 {{- $build_qcm6490 := or .build_qcm6490 "true" }}
+{{- $build_qcs8300 := or .build_qcs8300 "true" }}
 {{- $build_qcs9100 := or .build_qcs9100 "true" }}
 {{- $build_rb1 := "false" -}}
 {{- if .u_boot_rb1 -}}
@@ -37,6 +38,30 @@ actions:
     )
     "cdt_filename" "cdt_vision_kit.bin"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
+    "disk_image_type" "ufs"
+)}}
+{{- end }}
+{{- if eq $build_qcs8300 "true" }}
+{{- $boards = append $boards (dict
+    "name" "qcs8300-ride"
+    "silicon_family" "qcs8300"
+    "platform" "qcs8300-ride-sx"
+    "boot_binaries_download" (dict
+        "description" "QCS8300 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
+        "name" "qcs8300_boot-binaries"
+        "filename" "qcs8300_boot-binaries.zip"
+        "sha256sum" "463ffd7f20d243a5673ac49d744c8a35a3ab2067c3588be2741c2e6551f5a8f5"
+    )
+    "cdt_download" (dict
+        "description" "QCS8300 Ride SX EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/ride-sx.zip"
+        "name" "qcs8300-ride-sx_cdt"
+        "filename" "qcs8300-ride-sx_cdt.zip"
+        "sha256sum" "d7fc667372b28383a36d586333097d84b9d9c104f4dd1845d33904e2d6b39f80"
+    )
+    "cdt_filename" "cdt_ride_sx.bin"
+    "dtb" "qcom/qcs8300-ride.dtb"
     "disk_image_type" "ufs"
 )}}
 {{- end }}
