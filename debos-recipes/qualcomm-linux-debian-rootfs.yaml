@@ -1,6 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $experimentalkernel := or .experimentalkernel "false" }}
 {{- $localdebs := or .localdebs "none" }}
+{{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 
 architecture: arm64
@@ -16,6 +17,31 @@ actions:
       - non-free-firmware
     mirror: http://deb.debian.org/debian
     variant: minbase
+
+{{- if ne $aptlocalrepo "none" }}
+  - action: run
+    description: Setup bind mount of local APT repository
+    chroot: false
+    command: |
+      set -eux
+      mkdir -v "${ROOTDIR}/media/apt-local-repo"
+      mount --bind {{$aptlocalrepo}} "${ROOTDIR}/media/apt-local-repo"
+
+  - action: run
+    description: APT update and upgrade with local APT repository
+    chroot: true
+    command: |
+      set -eux
+      cat >/etc/apt/sources.list.d/apt-local-repo.sources <<EOF
+      Types: deb
+      URIs: file:///media/apt-local-repo
+      Suites: /
+      Trusted: true
+      EOF
+
+      apt update
+      apt -y upgrade
+{{- end }}
 
   - action: run
     description: Modernize APT sources
@@ -288,6 +314,24 @@ actions:
       apt -y install /root/*.deb
       # no need to keep these
       rm -vf /root/*.deb
+{{- end }}
+
+{{- if ne $aptlocalrepo "none" }}
+  - action: run
+    description: Remove bind mount of local APT repository
+    chroot: false
+    command: |
+      set -eux
+      umount "${ROOTDIR}/media/apt-local-repo"
+      rmdir -v "${ROOTDIR}/media/apt-local-repo"
+
+  - action: run
+    description: APT update without local APT repository
+    chroot: true
+    command: |
+      set -eux
+      rm -v /etc/apt/sources.list.d/apt-local-repo.sources
+      apt update
 {{- end }}
 
   - action: run
