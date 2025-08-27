@@ -100,8 +100,12 @@ actions:
       ### silicon family: {{ $board.silicon_family }}
 
       # unpack boot binaries
-      unzip -j "${ROOTDIR}/../{{ $board.boot_binaries_download.filename }}" \
-          -d build/{{ $board.name }}_boot-binaries
+      mkdir -v build/{{ $board.name }}_boot-binaries
+      unzip "${ROOTDIR}/../{{ $board.boot_binaries_download.filename }}" \
+          -d build/{{ $board.name }}_boot-binaries/unpack
+      # strip top directories
+      mv build/{{ $board.name }}_boot-binaries/unpack/*/* build/{{ $board.name }}_boot-binaries
+      rmdir -v build/{{ $board.name }}_boot-binaries/unpack/* build/{{ $board.name }}_boot-binaries/unpack
 
       # generate partition files
       mkdir -v build/{{ $board.platform }}_partitions
@@ -160,7 +164,7 @@ actions:
 
       {{- if $board.cdt_download }}
       # unpack board CDT
-      unzip -j "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
+      unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
           -d build/{{ $board.name }}_cdt
       # copy just the CDT data; no partition or flashing files
       cp --preserve=mode,timestamps -v build/{{ $board.name }}_cdt/{{ $board.cdt_filename }} \
