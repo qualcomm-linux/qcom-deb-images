@@ -6,6 +6,7 @@ on:
     - cron: '30 6 * * 1'
   # allow manual runs
   workflow_dispatch:
+  push:
 
 # implicitely set all other permissions to none
 permissions:
@@ -28,8 +29,6 @@ concurrency:
 
 jobs:
   build-linux-deb:
-    # don't run cron from forks of the main repository or from other branches
-    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
