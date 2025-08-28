@@ -9,6 +9,8 @@ GIT_REPO="https://github.com/torvalds/linux"
 GIT_BRANCH="master"
 # base config to use
 CONFIG="defconfig"
+# flavor name
+FLAVOR="upstream"
 
 log_i() {
     echo "I: $*" >&2
@@ -81,8 +83,10 @@ configure_kernel() {
 }
 
 build_kernel() {
+    echo "-${FLAVOR}" >localversion
     make "-j$(nproc)" \
         ARCH=arm64 DEB_HOST_ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+        KDEB_SOURCENAME="linux-${FLAVOR}" \
         deb-pkg
 }
 
