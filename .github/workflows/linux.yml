@@ -6,6 +6,7 @@ on:
     - cron: '30 6 * * 1'
   # allow manual runs
   workflow_dispatch:
+  push:
 
 # implicitely set all other permissions to none
 permissions:
