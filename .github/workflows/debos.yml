@@ -144,11 +144,11 @@ jobs:
               disk-sdcard.img2 \
               flash_qrb2210-*
 
-      - name: Upload private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@v1
-        id: upload_artifacts
-        with:
-          path: debos-artifacts
+      # - name: Upload private artifacts
+      #   uses: qualcomm-linux/upload-private-artifact-action@v1
+      #   id: upload_artifacts
+      #   with:
+      #     path: debos-artifacts
 
       - name: Unpack rootfs to generate SBOM
         run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar.gz
@@ -193,11 +193,11 @@ jobs:
           mkdir -v sboms
           cp -av rootfs-sbom.*.gz sboms
 
-      - name: Upload SBOMs as private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@v1
-        id: upload_sbom_artifacts
-        with:
-          path: sboms
+      # - name: Upload SBOMs as private artifacts
+      #   uses: qualcomm-linux/upload-private-artifact-action@v1
+      #   id: upload_sbom_artifacts
+      #   with:
+      #     path: sboms
       - name: "Print output"
         env:
           build_url: ${{ steps.upload_artifacts.outputs.url }}

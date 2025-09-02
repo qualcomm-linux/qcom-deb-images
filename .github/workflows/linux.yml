@@ -2,9 +2,9 @@ name: Build Linux kernel deb and debos image
 
 on:
   # run weekly on Monday at 8:30am
-  schedule:
-    - cron: '30 6 * * 1'
-  # allow manual runs
+  # schedule:
+  #   - cron: '30 6 * * 1'
+  # # allow manual runs
   workflow_dispatch:
 
 # implicitely set all other permissions to none
@@ -29,7 +29,7 @@ concurrency:
 jobs:
   build-linux-deb:
     # don't run cron from forks of the main repository or from other branches
-    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    if: github.repository == 'qualcomm-linux-stg/qcom-deb-images' && github.ref == 'refs/heads/main'
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
@@ -89,11 +89,11 @@ jobs:
           # perhaps help NFS sync
           sync
 
-      - name: Upload private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@v1
-        id: upload_artifacts
-        with:
-          path: artifacts
+      # - name: Upload private artifacts
+      #   uses: qualcomm-linux/upload-private-artifact-action@v1
+      #   id: upload_artifacts
+      #   with:
+      #     path: artifacts
 
   debos-mainline-linux:
     needs: build-linux-deb
