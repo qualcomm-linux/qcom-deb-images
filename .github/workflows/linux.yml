@@ -99,7 +99,8 @@ jobs:
     uses: ./.github/workflows/debos.yml
     with:
       mainline_kernel: true
-      kernelpackage: ~n^linux-image-[0-9a-f.-]*-upstream$
+      # 
+      kernelpackage: ~n^linux-image-[0-9a-z.-]*-upstream$
 
   test-mainline-linux:
     uses: ./.github/workflows/test.yml
