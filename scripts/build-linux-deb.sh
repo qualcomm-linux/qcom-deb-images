@@ -82,6 +82,29 @@ configure_kernel() {
     fi
 }
 
+set_kernel_version() {
+    # the default upstream algorithm for KERNELRELEASE from
+    # linux/scripts/setlocalversion would be fine, but prepend flavor name for
+    # the package names to be like linux-image-flavor-kernelrelease instead of
+    # linux-image-kernelrelease
+
+    # produce a version based on latest tag name, number of commits on top, and
+    # sha of latest commit, for instance: v6.16, v6.17-rc3-289-gfe3ad7,
+    # v6.17-rc4
+    localversion="$(git describe --tags --abbrev=1)"
+
+    # remove leading "v" and prepend flavor
+    localversion="${FLAVOR}-${localversion#v}"
+
+    log_i "Local version is $localversion"
+
+    # create or update tag
+    git tag --force "$localversion"
+
+    # create localversion file for linux/scripts/setlocalversion
+    echo "$localversion" >localversion
+}
+
 build_kernel() {
     echo "-${FLAVOR}" >localversion
     make -C linux "-j$(nproc)" \
@@ -98,6 +121,9 @@ get_kernel
 
 log_i "Configuring Linux with base config ${CONFIG} and config fragments $*"
 configure_kernel "$@"
+
+log_i "Setting local kernel version for flavor ${FLAVOR}"
+set_kernel_version
 
 log_i "Building Linux deb"
 build_kernel
