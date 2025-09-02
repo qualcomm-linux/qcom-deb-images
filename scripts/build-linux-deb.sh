@@ -22,7 +22,7 @@ fatal() {
 }
 
 check_dependencies() {
-    # needed to clone repository
+    # needed to clone repository and generate version from latest tag/commit
     packages="git"
     # will pull gcc-aarch64-linux-gnu; should pull a native compiler on arm64
     # and a cross-compiler on other architectures
