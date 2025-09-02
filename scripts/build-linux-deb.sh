@@ -86,25 +86,27 @@ configure_kernel() {
 
 set_kernel_version() {
     # the default upstream algorithm for KERNELRELEASE from
-    # linux/scripts/setlocalversion would be fine, but prepend flavor name for
-    # the package names to be like linux-image-flavor-kernelrelease instead of
-    # linux-image-kernelrelease
+    # linux/scripts/setlocalversion would be fine, albeit it doesn't allow
+    # omitting or prefixing the version in linux-image-KERNELRELEASE package
+    # names; instead, append flavor name for the package names to be like
+    # linux-image-kerneversion-flavor instead of linux-image-kernelversion
 
     # produce a version based on latest tag name, number of commits on top, and
     # sha of latest commit, for instance: v6.16, v6.17-rc3-289-gfe3ad7,
     # v6.17-rc4
-    localversion="$(GIT_DIR="${WORK_DIR}/.git" git describe --tags --abbrev=1)"
+    #localversion="$(GIT_DIR="${WORK_DIR}/.git" git describe --tags --abbrev=1)"
 
     # remove leading "v" and prepend flavor
-    localversion="${FLAVOR}-${localversion#v}"
+    #localversion="${FLAVOR}-${localversion#v}"
 
-    log_i "Local version is $localversion"
+    #log_i "Local version is $localversion"
 
     # create or update tag
-    GIT_DIR="${WORK_DIR}/.git" git tag --force "$localversion"
+    #GIT_DIR="${WORK_DIR}/.git" git tag --force "$localversion"
+    GIT_DIR="${WORK_DIR}/.git" git tag --force "${FLAVOR}"
 
     # create localversion file for linux/scripts/setlocalversion
-    echo "$localversion" >"${WORK_DIR}/localversion"
+    echo "-${FLAVOR}" >"${WORK_DIR}/localversion"
 }
 
 build_kernel() {
