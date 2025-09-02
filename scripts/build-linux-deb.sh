@@ -7,6 +7,8 @@ set -eu
 # git repo/branch to use
 GIT_REPO="https://github.com/torvalds/linux"
 GIT_BRANCH="master"
+# where to clone / build
+WORK_DIR="linux"
 # base config to use
 CONFIG="defconfig"
 # flavor name
@@ -64,21 +66,21 @@ check_dependencies() {
 }
 
 get_kernel() {
-    git clone --depth=1 --branch "${GIT_BRANCH}" "${GIT_REPO}" linux
+    git clone --depth=1 --branch "${GIT_BRANCH}" "${GIT_REPO}" "${WORK_DIR}"
 }
 
 configure_kernel() {
-    rm -vf linux/kernel/configs/local.config
+    rm -vf "${WORK_DIR}/kernel/configs/local.config"
     for fragment in "$@"; do
         log_i "Adding config fragment to local.config: ${fragment}"
-        touch linux/kernel/configs/local.config
-        cat "$fragment" >>linux/kernel/configs/local.config
+        touch "${WORK_DIR}/kernel/configs/local.config"
+        cat "$fragment" >>"${WORK_DIR}/kernel/configs/local.config"
     done
 
     if [ -r kernel/configs/local.config ]; then
-        make -C linux ARCH=arm64 "${CONFIG}" local.config
+        make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}" local.config
     else
-        make -C linux ARCH=arm64 "${CONFIG}"
+        make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}"
     fi
 }
 
@@ -91,7 +93,7 @@ set_kernel_version() {
     # produce a version based on latest tag name, number of commits on top, and
     # sha of latest commit, for instance: v6.16, v6.17-rc3-289-gfe3ad7,
     # v6.17-rc4
-    localversion="$(GIT_DIR=linux/.git git describe --tags --abbrev=1)"
+    localversion="$(GIT_DIR="${WORK_DIR}/.git" git describe --tags --abbrev=1)"
 
     # remove leading "v" and prepend flavor
     localversion="${FLAVOR}-${localversion#v}"
@@ -99,15 +101,15 @@ set_kernel_version() {
     log_i "Local version is $localversion"
 
     # create or update tag
-    GIT_DIR=linux/.git git tag --force "$localversion"
+    GIT_DIR="${WORK_DIR}/.git" git tag --force "$localversion"
 
     # create localversion file for linux/scripts/setlocalversion
-    echo "$localversion" >linux/localversion
+    echo "$localversion" >"${WORK_DIR}/localversion"
 }
 
 build_kernel() {
     echo "-${FLAVOR}" >localversion
-    make -C linux "-j$(nproc)" \
+    make -C "${WORK_DIR}" "-j$(nproc)" \
         ARCH=arm64 DEB_HOST_ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
         KDEB_SOURCENAME="linux-${FLAVOR}" \
         deb-pkg
