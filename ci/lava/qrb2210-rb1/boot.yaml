@@ -18,7 +18,7 @@ actions:
         - echo "DEVICE_TYPE=debian-qrb2210-rb1" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
-      minutes: 5
+      minutes: 10
     to: downloads
 - deploy:
     images:
@@ -72,5 +72,5 @@ metadata:
 priority: 50
 timeouts:
   job:
-    minutes: 15
+    minutes: 20
 visibility: public
