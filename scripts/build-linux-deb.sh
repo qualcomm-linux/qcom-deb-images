@@ -91,7 +91,7 @@ set_kernel_version() {
     # produce a version based on latest tag name, number of commits on top, and
     # sha of latest commit, for instance: v6.16, v6.17-rc3-289-gfe3ad7,
     # v6.17-rc4
-    localversion="$(git describe --tags --abbrev=1)"
+    localversion="$(GIT_DIR=linux/.git git describe --tags --abbrev=1)"
 
     # remove leading "v" and prepend flavor
     localversion="${FLAVOR}-${localversion#v}"
@@ -99,10 +99,10 @@ set_kernel_version() {
     log_i "Local version is $localversion"
 
     # create or update tag
-    git tag --force "$localversion"
+    GIT_DIR=linux/.git git tag --force "$localversion"
 
     # create localversion file for linux/scripts/setlocalversion
-    echo "$localversion" >localversion
+    echo "$localversion" >linux/localversion
 }
 
 build_kernel() {
