@@ -76,12 +76,11 @@ do_make() {
         CROSS_COMPILE=aarch64-linux-gnu- \
         DEB_HOST_ARCH=arm64 \
         KDEB_SOURCENAME="linux-${FLAVOR}" \
+        LOCALVERSION="-${FLAVOR}" \
         "$@"
 }
 
 configure_kernel() {
-    export LOCALVERSION="-${FLAVOR}"
-
     rm -vf "${WORK_DIR}/kernel/configs/local.config"
     for fragment in "$@"; do
         log_i "Adding config fragment to local.config: ${fragment}"
