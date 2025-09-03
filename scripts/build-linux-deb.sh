@@ -77,7 +77,7 @@ configure_kernel() {
         cat "$fragment" >>"${WORK_DIR}/kernel/configs/local.config"
     done
 
-    if [ -r kernel/configs/local.config ]; then
+    if [ -r "${WORK_DIR}/kernel/configs/local.config" ]; then
         make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}" local.config
     else
         make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}"
