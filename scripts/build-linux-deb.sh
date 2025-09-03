@@ -85,13 +85,13 @@ configure_kernel() {
 }
 
 build_kernel() {
-    make -C "${WORK_DIR}" "-j$(nproc)" \
-        ARCH=arm64 \
-        CROSS_COMPILE=aarch64-linux-gnu- \
-        DEB_HOST_ARCH=arm64 \
-        KDEB_SOURCENAME="linux-${FLAVOR}" \
-        LOCALVERSION="-${FLAVOR}" \
-        deb-pkg
+    LOCALVERSION="-${FLAVOR}" \
+        make -C "${WORK_DIR}" "-j$(nproc)" \
+            ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            DEB_HOST_ARCH=arm64 \
+            KDEB_SOURCENAME="linux-${FLAVOR}" \
+            deb-pkg
 }
 
 log_i "Checking build-dependencies"
