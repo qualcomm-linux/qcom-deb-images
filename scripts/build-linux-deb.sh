@@ -85,6 +85,8 @@ configure_kernel() {
 }
 
 build_kernel() {
+    # DEBUG
+    sed -i '2i set -x' scripts/setlocalversion
     LOCALVERSION="-${FLAVOR}" \
         make -C "${WORK_DIR}" "-j$(nproc)" \
             ARCH=arm64 \
