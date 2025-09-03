@@ -103,9 +103,6 @@ get_kernel
 log_i "Configuring Linux with base config ${CONFIG} and config fragments $*"
 configure_kernel "$@"
 
-log_i "Setting local kernel version for flavor ${FLAVOR}"
-set_kernel_version
-
 log_i "Building Linux deb"
 build_kernel
 
