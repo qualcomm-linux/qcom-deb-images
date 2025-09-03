@@ -69,7 +69,19 @@ get_kernel() {
     git clone --depth=1 --branch "${GIT_BRANCH}" "${GIT_REPO}" "${WORK_DIR}"
 }
 
+# set some common make args
+do_make() {
+    make -C "${WORK_DIR}" \
+        ARCH=arm64 \
+        CROSS_COMPILE=aarch64-linux-gnu- \
+        DEB_HOST_ARCH=arm64 \
+        KDEB_SOURCENAME="linux-${FLAVOR}" \
+        "$@"
+}
+
 configure_kernel() {
+    export LOCALVERSION="-${FLAVOR}"
+
     rm -vf "${WORK_DIR}/kernel/configs/local.config"
     for fragment in "$@"; do
         log_i "Adding config fragment to local.config: ${fragment}"
@@ -78,22 +90,14 @@ configure_kernel() {
     done
 
     if [ -r "${WORK_DIR}/kernel/configs/local.config" ]; then
-        make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}" local.config
+        do_make "${CONFIG}" local.config
     else
-        make -C "${WORK_DIR}" ARCH=arm64 "${CONFIG}"
+        do_make "${CONFIG}"
     fi
 }
 
 build_kernel() {
-    # DEBUG
-    sed -i '2i set -x' scripts/setlocalversion
-    LOCALVERSION="-${FLAVOR}" \
-        make -C "${WORK_DIR}" "-j$(nproc)" \
-            ARCH=arm64 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            DEB_HOST_ARCH=arm64 \
-            KDEB_SOURCENAME="linux-${FLAVOR}" \
-            deb-pkg
+   do_make "-j$(nproc)" deb-pkg
 }
 
 log_i "Checking build-dependencies"
