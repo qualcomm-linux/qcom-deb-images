@@ -71,13 +71,13 @@ get_kernel() {
 
 # set some common make args
 do_make() {
-    make -C "${WORK_DIR}" \
-        ARCH=arm64 \
-        CROSS_COMPILE=aarch64-linux-gnu- \
-        DEB_HOST_ARCH=arm64 \
-        KDEB_SOURCENAME="linux-${FLAVOR}" \
-        LOCALVERSION="-${FLAVOR}" \
-        "$@"
+    LOCALVERSION="-${FLAVOR}" \
+        make -C "${WORK_DIR}" \
+            ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            DEB_HOST_ARCH=arm64 \
+            KDEB_SOURCENAME="linux-${FLAVOR}" \
+            "$@"
 }
 
 configure_kernel() {
