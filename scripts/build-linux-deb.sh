@@ -105,6 +105,10 @@ check_dependencies
 log_i "Getting Linux from repo ${GIT_REPO} and branch ${GIT_BRANCH}"
 get_kernel
 
+echo DEBUGDEBUGBUG
+sed -i '2i set -x' linux/scripts/setlocalversion
+set -
+
 log_i "Configuring Linux with base config ${CONFIG} and config fragments $*"
 configure_kernel "$@"
 
