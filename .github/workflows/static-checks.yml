@@ -23,28 +23,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install flake8
-        run: sudo apt update && sudo apt -y install flake8
+        run: sudo apt update && sudo apt -y install file flake8
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run Flake8
-        run: flake8 scripts/*.py
+        run: |
+          # Run flake8 against all files outside .git/ that `file` reports
+          # as text/x-script.python
+          find . -path ./.git -prune -o -print0 | \
+            xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "text/x-script.python" && printf "%s\000" "$1"' -- | \
+            xargs -0t flake8
 
   pylint:
     name: Install and run Pylint on Python scripts
     runs-on: ubuntu-latest
     steps:
       - name: Install Pylint
-        run: sudo apt update && sudo apt -y install pylint
+        run: sudo apt update && sudo apt -y install file pylint
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run Pylint (error mode)
-        run: pylint --errors-only scripts/*.py
+        run: |
+          # Run pylint against all files outside .git/ that `file` reports
+          # as text/x-script.python
+          find . -path ./.git -prune -o -print0 | \
+            xargs -0n1 sh -c 'test "$(file --brief --mime-type "$1")" = "text/x-script.python" && printf "%s\000" "$1"' -- | \
+            xargs -0t pylint --errors-only
 
   shellcheck:
     name: Install and run ShellCheck on shell scripts
