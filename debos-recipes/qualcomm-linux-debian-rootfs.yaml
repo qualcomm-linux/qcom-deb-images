@@ -75,10 +75,14 @@ actions:
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
       - init
+      # Bluetooth audio support
+      - libspa-0.2-bluetooth
       # Ethernet, Wi-Fi, WWAN; built-in DHCP client
       - network-manager
       # standard networking files (/etc/hosts, /etc/services etc.)
       - netbase
+      # audio
+      - pipewire
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
@@ -212,6 +216,12 @@ actions:
       - chromium
       # bluetooth settings
       - blueman
+      # audio: wireplumber for session integration, pipewire-pulse for chromium
+      # and xfce4-pulseaudio-plugin, and pavucontrol as referenced from the
+      # xfce pulse panel applet
+      - pavucontrol
+      - pipewire-pulse
+      - wireplumber
 {{- end }}
 
   - action: run
