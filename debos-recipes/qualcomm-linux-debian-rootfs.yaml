@@ -1,5 +1,4 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
-{{- $experimentalkernel := or .experimentalkernel "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
@@ -243,31 +242,6 @@ actions:
       - firmware-atheros
       - firmware-qcom-soc
       - {{$kernelpackage}}
-
-{{- if eq $experimentalkernel "true" }}
-  # this is an optional temporary option to install the kernel from
-  # experimental until trixie/sid have a recent enough kernel, or some overlay
-  # archive is provided; note that the original linux-image-arm64 is kept
-  - action: run
-    description: Install Linux kernel from experimental
-    chroot: true
-    command: |
-      set -eux
-      # add experimental APT sources
-      cat >/etc/apt/sources.list.d/debian-experimental.sources <<EOF
-      Types: deb
-      URIs: http://deb.debian.org/debian/
-      Suites: experimental
-      Components: main non-free-firmware
-      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-      EOF
-      # update and install kernel from experimental
-      apt update
-      apt -y install -t experimental {{$kernelpackage}}
-      # disable experimental from APT sources
-      sed -i "1s/^/Enabled: no\n/" \
-          /etc/apt/sources.list.d/debian-experimental.sources
-{{- end }}
 
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions

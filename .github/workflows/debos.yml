@@ -91,7 +91,6 @@ jobs:
           set -ux
           debos \
               -t overlays:'${{ inputs.overlays }}' \
-              -t experimentalkernel:true \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:'${{ inputs.kernelpackage }}' \
