@@ -244,28 +244,6 @@ actions:
       - firmware-qcom-soc
       - {{$kernelpackage}}
 
-  # XXX this is a workaround until firmware-non-free migrates to testing; it
-  # might make sense to have a generic mechanism to do this
-  - action: run
-    description: Install firmware packages from unstable
-    chroot: true
-    command: |
-      set -eux
-      # add sid APT sources
-      cat >/etc/apt/sources.list.d/debian-sid.sources <<EOF
-      Types: deb
-      URIs: http://deb.debian.org/debian/
-      Suites: sid
-      Components: main non-free-firmware
-      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-      EOF
-      # update and install firmware from unstable
-      apt update
-      apt -y install -t unstable firmware-atheros firmware-qcom-soc
-      # remove sid APT sources and update again
-      rm -f /etc/apt/sources.list.d/debian-sid.sources
-      apt update
-
 {{- if eq $experimentalkernel "true" }}
   # this is an optional temporary option to install the kernel from
   # experimental until trixie/sid have a recent enough kernel, or some overlay
