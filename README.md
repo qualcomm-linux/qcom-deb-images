@@ -123,7 +123,6 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/
 ### Options for debos recipes
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
-- `experimentalkernel`: update the linux kernel to the version from experimental; default: don't update the kernel
 - `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
 - `xfcedesktop`: install a Xfce desktop environment; default: console only environment
 
