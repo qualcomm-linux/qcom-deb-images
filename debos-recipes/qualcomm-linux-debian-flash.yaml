@@ -38,7 +38,6 @@ actions:
     )
     "cdt_filename" "cdt_vision_kit.bin"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcs8300 "true" }}
@@ -62,7 +61,6 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs8300-ride.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcs9100 "true" }}
@@ -86,7 +84,6 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_rb1 "true" }}
@@ -101,7 +98,6 @@ actions:
         "filename" "qrb2210-rb1_rescue-image.zip"
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
     )
-    "disk_image_type" "sdcard"
     "u_boot_file" .u_boot_rb1
 )}}
 {{- end }}
