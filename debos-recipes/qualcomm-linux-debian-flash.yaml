@@ -37,6 +37,7 @@ actions:
         "sha256sum" "a339e297b454c4dc3805fe8cd11d6d8dcb801aa8f0c2dc691561c2785019fa3c"
     )
     "cdt_filename" "cdt_vision_kit.bin"
+    "cdt_strip_toplevel" "false"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
     "disk_image_type" "ufs"
 )}}
@@ -61,6 +62,7 @@ actions:
         "sha256sum" "d7fc667372b28383a36d586333097d84b9d9c104f4dd1845d33904e2d6b39f80"
     )
     "cdt_filename" "cdt_ride_sx.bin"
+    "cdt_strip_toplevel" "false"
     "dtb" "qcom/qcs8300-ride.dtb"
     "disk_image_type" "ufs"
 )}}
@@ -85,6 +87,7 @@ actions:
         "sha256sum" "377a8405899ac82199deaf70bca3648c15b924a3fcef8f109555e661ed70f4b9"
     )
     "cdt_filename" "cdt_ride_sx.bin"
+    "cdt_strip_toplevel" "false"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
     "disk_image_type" "ufs"
 )}}
@@ -214,8 +217,20 @@ actions:
 
       {{- if $board.cdt_download }}
       # unpack board CDT
+      mkdir -v build/{{ $board.name }}_cdt
+      {{- if eq $board.cdt_strip_toplevel "true" }}
+      # strip top directories
+      unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
+          -d build/{{ $board.name }}_cdt/unpack
+      (
+          cd build/{{ $board.name }}_cdt
+          mv unpack/*/* .
+          rmdir -v unpack/* unpack
+      )
+      {{- else }}
       unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
           -d build/{{ $board.name }}_cdt
+      {{- end }}
       # copy just the CDT data; no partition or flashing files
       cp --preserve=mode,timestamps -v build/{{ $board.name }}_cdt/{{ $board.cdt_filename }} \
           "${flash_dir}"
