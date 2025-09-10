@@ -158,6 +158,7 @@ actions:
       (
           cd build/{{ $board.platform }}_ptool
           conf="${QCOM_PTOOL}/platforms/{{ $board.platform }}/partitions.conf"
+          contents="${QCOM_PTOOL}/platforms/{{ $board.platform }}/contents.xml.in"
           disk_type="unknown"
           # make a copy of partitions.conf; infer storage type from lines
           # like:
@@ -220,6 +221,12 @@ actions:
           # generate ptool-partitions.xml from partitions.conf
           "${QCOM_PTOOL}/gen_partition.py" -i partitions.conf \
               -o ptool-partitions.xml
+          # generate contents.xml from ptool-partitions.xml and contents.xml.in
+          if [ -e "$contents" ]; then
+              "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
+                  -t "$contents" \
+                  -o contents.xml
+          fi
           # generate flashing files from qcom-partitions.xml
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
