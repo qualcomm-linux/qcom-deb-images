@@ -157,10 +157,10 @@ actions:
       mv build/{{ $board.name }}_boot-binaries/unpack/*/* build/{{ $board.name }}_boot-binaries
       rmdir -v build/{{ $board.name }}_boot-binaries/unpack/* build/{{ $board.name }}_boot-binaries/unpack
 
-      # generate partition files
-      mkdir -v build/{{ $board.platform }}_partitions
+      # generate ptool files - various XML files for flashing, GPT data etc.
+      mkdir -v build/{{ $board.platform }}_ptool
       (
-          cd build/{{ $board.platform }}_partitions
+          cd build/{{ $board.platform }}_ptool
           conf="${QCOM_PTOOL}/platforms/{{ $board.platform }}/partitions.conf"
           "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
               -o ptool-partitions.xml
@@ -178,7 +178,7 @@ actions:
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
       # copy platform partition files
-      cp --preserve=mode,timestamps -v build/{{ $board.platform }}_partitions/* \
+      cp --preserve=mode,timestamps -v build/{{ $board.platform }}_ptool/* \
           "${flash_dir}"
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
