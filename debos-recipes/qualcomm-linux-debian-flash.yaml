@@ -1,3 +1,4 @@
+{{- $build_qcs615 := or .build_qcs615 "true" }}
 {{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_qcs8300 := or .build_qcs8300 "true" }}
 {{- $build_qcs9100 := or .build_qcs9100 "true" }}
@@ -17,6 +18,31 @@ actions:
     unpack: true
 
 {{- $boards := list }}
+{{- if eq $build_qcs615 "true" }}
+{{- $boards = append $boards (dict
+    "name" "qcs615-adp-air-sa6155p"
+    "silicon_family" "qcs615"
+    "platform" "qcs615-adp-air"
+    "boot_binaries_download" (dict
+        "description" "QCS615 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
+        "name" "qcs615_boot-binaries"
+        "filename" "qcs615_boot-binaries.zip"
+        "sha256sum" "c9b0332873feda447b32491dcbbc96255c3cf88da1868d89ac5113b01cb42f75"
+    )
+    "cdt_download" (dict
+        "description" "QCS615 Ride CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS615/cdt/ADP_AIR_SA6155P.zip"
+        "name" "qcs615-adp-air_cdt"
+        "filename" "qcs615-adp-air_cdt.zip"
+        "sha256sum" "a5a98cbe1c2caa0e35d2fe0a78d56c36ea3e61a43cff9ce98c2567887454bb7f"
+    )
+    "cdt_filename" "adp_3_1.0.bin"
+    "cdt_strip_toplevel" "true"
+    "dtb" "qcom/qcs615-ride.dtb"
+    "disk_image_type" "ufs"
+)}}
+{{- end }}
 {{- if eq $build_qcm6490 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
