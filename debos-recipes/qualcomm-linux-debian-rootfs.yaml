@@ -74,8 +74,10 @@ actions:
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
       - init
-      # Bluetooth audio support
+      # Bluetooth audio support in PipeWire
       - libspa-0.2-bluetooth
+      # libcamera support in PipeWire
+      - libspa-0.2-libcamera
       # Ethernet, Wi-Fi, WWAN; built-in DHCP client
       - network-manager
       # standard networking files (/etc/hosts, /etc/services etc.)
@@ -221,6 +223,16 @@ actions:
       - pavucontrol
       - pipewire-pulse
       - wireplumber
+      # camera: mostly supported through pipewire, but pull the qcam app
+      # and cam CLI tool from libcamera-tools; also install libcamera
+      # gstreamer plugins for for gstreamer based apps; ideally, cam and
+      # qcam would be packaged separately as to allow pulling the CLI
+      # version outside of the desktop list. libcamera-v4l2 provides a
+      # LD_PRELOAD library for compatiblity with apps relying on v4l2
+      # (similar to pipewire and pulse situation)
+      - gstreamer1.0-libcamera
+      - libcamera-tools
+      - libcamera-v4l2
 {{- end }}
 
   - action: run
