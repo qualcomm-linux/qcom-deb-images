@@ -66,7 +66,8 @@ jobs:
                 debhelper-compat kmod python3 rsync coreutils
             scripts/build-linux-deb.sh \
                 kernel-configs/qcom-imsdk.config \
-                kernel-configs/systemd-boot.config
+                kernel-configs/systemd-boot.config \
+                kernel-configs/usb-test-devices.config
 
       - name: Stage artifacts for upload
         run: |
