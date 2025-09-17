@@ -94,6 +94,7 @@ jobs:
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:'${{ inputs.kernelpackage }}' \
+              -t "buildid:${BUILD_ID}" \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
