@@ -17,7 +17,7 @@ actions:
         - echo "DEVICE_TYPE=debian-qcs6490-rb3gen2-vision-kit" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
-      minutes: 20
+      minutes: 200
     to: downloads
 - deploy:
     images:
@@ -73,5 +73,5 @@ tags:
 - cambridge-lab
 timeouts:
   job:
-    minutes: 30
+    minutes: 210
 visibility: public
