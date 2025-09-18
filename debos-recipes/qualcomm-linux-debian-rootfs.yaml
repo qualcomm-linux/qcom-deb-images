@@ -2,6 +2,7 @@
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
+{{- $buildid := or .buildid "" }}
 
 architecture: arm64
 
@@ -245,6 +246,22 @@ actions:
           locale-gen en_US.UTF-8 UTF-8
           update-locale LANG=en_US.UTF-8
       fi
+
+{{- if ne $buildid "" }}
+  - action: run
+    description: Set build ID and flavor in /etc/buildinfo
+    chroot: true
+    command: |
+      set -eux
+      touch /etc/buildinfo
+      chmod 644 /etc/buildinfo
+      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
+{{- if eq $xfcedesktop "true" }}
+      echo "VARIANT_ID=xfce" >>/etc/buildinfo
+{{- else }}
+      echo "VARIANT_ID=console" >>/etc/buildinfo
+{{- end }}
+{{- end }}
 
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
