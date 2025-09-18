@@ -2,15 +2,15 @@ diff -Nru mesa-25.2.0/debian/changelog mesa-25.2.0/debian/changelog
 --- mesa-25.2.0/debian/changelog	2025-08-07 14:08:04.000000000 +0300
 +++ mesa-25.2.0/debian/changelog	2025-05-29 20:16:02.000000000 +0300
 @@ -1,3 +1,9 @@
-+mesa (25.2.2-1qcom1) trixie; urgency=medium
++mesa (25.2.3-1qcom1) trixie; urgency=medium
 +
 +  * Rebuild for trixie.
 +
 + -- Loïc Minier <loic.minier@oss.qualcomm.com>  Thu, 29 May 2025 17:16:02 +0000
 +
- mesa (25.2.2-1) unstable; urgency=medium
+ mesa (25.2.3-1) unstable; urgency=medium
  
-   [ Simon McVittie ]
+   * New upstream release. (LP: #2122654)
 diff -Nru mesa-25.2.0/debian/control mesa-25.2.0/debian/control
 --- mesa-25.2.0/debian/control	2025-08-07 14:08:04.000000000 +0300
 +++ mesa-25.2.0/debian/control	2025-05-29 20:16:02.000000000 +0300

@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian/20250918T143451Z/pool/main/m/mesa/mesa_25.2.3-1.dsc"
+dsc_sha256sum: "3b57e77178b3270c1fae53fecf910f5fb589b8d99560910c320b148ebd2f433b"
+debdiff_file: "mesa_25.2.3-1qcom1.debdiff"
+suite: "trixie"
