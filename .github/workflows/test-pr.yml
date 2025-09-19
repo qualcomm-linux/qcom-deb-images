@@ -10,10 +10,10 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  checks: write # test.yml EnricoMi/publish-unit-test-result-action
-  contents: read # test.yml actions/checkout
-  packages: read # test.yml actions/download-artifact
-  # test.yml EnricoMi/publish-unit-test-result-action
+  checks: write # lava-test.yml EnricoMi/publish-unit-test-result-action
+  contents: read # lava-test.yml actions/checkout
+  packages: read # lava-test.yml actions/download-artifact
+  # lava-test.yml EnricoMi/publish-unit-test-result-action
   # thollander/actions-comment-pull-request
   pull-requests: write
 
@@ -59,7 +59,7 @@ jobs:
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
 
   test:
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/lava-test.yml
     secrets: inherit
     needs: retrieve-build-url
     with:

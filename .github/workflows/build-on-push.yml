@@ -6,10 +6,10 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  checks: write # test.yml
-  contents: read # debos.yml lava-schema-check.yml test.yml
-  packages: read # test.yml
-  pull-requests: write # test.yml
+  checks: write # lava-test.yml
+  contents: read # debos.yml lava-schema-check.yml lava-test.yml
+  packages: read # lava-test.yml
+  pull-requests: write # lava-test.yml
 
 jobs:
   build-daily:
@@ -17,7 +17,7 @@ jobs:
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
   test:
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/lava-test.yml
     needs: [build-daily, schema-check]
     secrets: inherit
     with:
