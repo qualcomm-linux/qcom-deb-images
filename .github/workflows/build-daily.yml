@@ -9,10 +9,10 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  checks: write # test.yml
-  contents: read # debos.yml test.yml
-  packages: read # test.yml
-  pull-requests: write # test.yml
+  checks: write # lava-test.yml
+  contents: read # debos.yml lava-test.yml
+  packages: read # lava-test.yml
+  pull-requests: write # lava-test.yml
 
 jobs:
   build-daily:
@@ -23,7 +23,7 @@ jobs:
   test-daily:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/lava-test.yml
     needs: build-daily
     secrets: inherit
     with:
