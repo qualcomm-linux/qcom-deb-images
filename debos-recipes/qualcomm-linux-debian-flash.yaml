@@ -38,7 +38,6 @@ actions:
     )
     "cdt_filename" "cdt_vision_kit.bin"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcs8300 "true" }}
@@ -62,7 +61,6 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs8300-ride.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcs9100 "true" }}
@@ -86,7 +84,6 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_rb1 "true" }}
@@ -101,7 +98,6 @@ actions:
         "filename" "qrb2210-rb1_rescue-image.zip"
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
     )
-    "disk_image_type" "sdcard"
     "u_boot_file" .u_boot_rb1
 )}}
 {{- end }}
@@ -157,19 +153,81 @@ actions:
       mv build/{{ $board.name }}_boot-binaries/unpack/*/* build/{{ $board.name }}_boot-binaries
       rmdir -v build/{{ $board.name }}_boot-binaries/unpack/* build/{{ $board.name }}_boot-binaries/unpack
 
-      # generate partition files
-      mkdir -v build/{{ $board.platform }}_partitions
+      # generate ptool files - various XML files for flashing, GPT data etc.
+      mkdir -v build/{{ $board.platform }}_ptool
       (
-          cd build/{{ $board.platform }}_partitions
+          cd build/{{ $board.platform }}_ptool
           conf="${QCOM_PTOOL}/platforms/{{ $board.platform }}/partitions.conf"
-          "${QCOM_PTOOL}/gen_partition.py" -i "$conf" \
+          contents="${QCOM_PTOOL}/platforms/{{ $board.platform }}/contents.xml.in"
+          disk_type="unknown"
+          # make a copy of partitions.conf; infer storage type from lines
+          # like:
+          #     --disk --type=ufs --size=137438953472 ...
+          # or:
+          #     --disk --type=emmc --size=76841669632 ...
+          # and patch/add filenames for partitions from lines like:
+          #     --partition --lun=4 --name=dtb_a ... --filename=dtb.bin
+          # or without filename like:
+          #     --partition --lun=3 --name=cdt --size=128KB --type-guid=...
+          # for data from the following table
+          #
+          # |--------|--------------|-------------------|-----------------|
+          # | data   | ptool name   | ptool filename    | debos filename  |
+          # |--------|--------------|-------------------|-----------------|
+          # | ESP    | efi          | efi.bin           | disk-media.img1 |
+          # | rootfs | rootfs       | rootfs.img        | disk-media.img2 |
+          # | DTBs   | dtb_a, dtb_b | dtb.bin           | dtb.bin         |
+          # | CDTs   | cdt          | unset / per board | from download   |
+          # |--------|--------------|-------------------|-----------------|
+          while read line; do
+              case "$line" in
+                # detect storage type
+                "--disk "*)
+                  disk_type="$(echo "$line" | sed -n 's/.*--type=\([^ ]*\).*/\1/p')"
+                  case $disk_type in
+                    "emmc")
+                      touch flash-emmc
+                      esp="../disk-sdcard.img1"
+                      rootfs="../disk-sdcard.img2"
+                      ;;
+                    "ufs")
+                      touch flash-ufs
+                      esp="../disk-ufs.img1"
+                      rootfs="../disk-ufs.img2"
+                      ;;
+                  esac
+                  ;;
+                # read partitions
+                "--partition "*)
+                  name="$(echo "$line" | sed -n 's/.*--name=\([^ ]*\).*/\1/p')"
+                  filename=""
+                  case "$name" in
+                    dtb_a|dtb_b) filename="dtb.bin";;
+                    efi) filename="$esp";;
+                    rootfs) filename="$rootfs";;
+                    {{- if $board.cdt_download }}
+                    cdt) filename={{ $board.cdt_filename }};;
+                    {{- end }}
+                  esac
+                  # override/set filename
+                  if [ -n "$filename" ]; then
+                      line="$(echo "$line" | sed 's/ --filename=[^ ]*//')"
+                      line="${line} --filename=${filename}"
+                  fi
+                  ;;
+              esac
+              echo "$line"
+          done <"$conf" >partitions.conf
+          # generate ptool-partitions.xml from partitions.conf
+          "${QCOM_PTOOL}/gen_partition.py" -i partitions.conf \
               -o ptool-partitions.xml
-          # partitions.conf sets --type=emmc, nand or ufs
-          if grep -F '^--disk --type=ufs ' "${conf}"; then
-              touch flash-ufs
-          elif grep -F '^--disk --type=emmc ' "${conf}"; then
-              touch flash-emmc
+          # generate contents.xml from ptool-partitions.xml and contents.xml.in
+          if [ -e "$contents" ]; then
+              "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
+                  -t "$contents" \
+                  -o contents.xml
           fi
+          # generate flashing files from qcom-partitions.xml
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
 
@@ -178,7 +236,7 @@ actions:
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
       # copy platform partition files
-      cp --preserve=mode,timestamps -v build/{{ $board.platform }}_partitions/* \
+      cp --preserve=mode,timestamps -v build/{{ $board.platform }}_ptool/* \
           "${flash_dir}"
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
@@ -219,10 +277,6 @@ actions:
       # copy just the CDT data; no partition or flashing files
       cp --preserve=mode,timestamps -v build/{{ $board.name }}_cdt/{{ $board.cdt_filename }} \
           "${flash_dir}"
-
-      # update flashing files for CDT
-      sed -i '/label="cdt"/s/filename=""/filename="{{ $board.cdt_filename }}"/' \
-          "${flash_dir}"/rawprogram*.xml
       {{- end }}
 
       {{- if $board.dtb }}
@@ -242,21 +296,7 @@ actions:
       tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "{{ $board.dtb }}"
       # copy into the FAT as combined-dtb.dtb
       mcopy -vmp -i "${dtb_bin}" "build/{{ $board.dtb }}" ::/combined-dtb.dtb
-      # (NB: flashing files already expect "dtb.bin" as a filename)
       {{- end }}
-
-      # update flashing files for ESP image;
-      # qcom-ptool/platforms/*/partitions.conf uses filename=efi.bin for the
-      # ESP partition on EFI capable platforms
-      sed -i '/label="efi"/s#filename="[^"]*"#filename="../disk-{{ $board.disk_image_type }}.img1"#' \
-          "${flash_dir}"/rawprogram*.xml
-
-      # update flashing files for rootfs image;
-      # qcom-ptool/platforms/*/partitions.conf uses filename=rootfs.img for the
-      # rootfs partition
-      sed -i \
-          '/label="rootfs"/s#filename="[^"]*"#filename="../disk-{{ $board.disk_image_type }}.img2"#' \
-          "${flash_dir}"/rawprogram*.xml
 {{- end }}
 
       # cleanup
