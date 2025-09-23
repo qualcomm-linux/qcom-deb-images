@@ -67,7 +67,7 @@ jobs:
           cat "${{ matrix.target }}"
 
       - name: Submit ${{ matrix.target }}
-        timeout-minutes: 20
+        timeout-minutes: 240
         uses: foundriesio/lava-action@v6
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
