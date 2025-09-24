@@ -136,6 +136,7 @@ jobs:
           tar -cvf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
+              flash_qcs615-* \
               flash_qcs6490-* \
               flash_qcs8300-* \
               flash_qcs9100-*

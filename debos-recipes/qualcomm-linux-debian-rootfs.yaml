@@ -341,6 +341,7 @@ actions:
       latest_kernel="$(
           ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
       tar -C "${latest_kernel}" -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          qcom/qcs615-ride.dtb \
           qcom/qcs6490-rb3gen2.dtb \
           qcom/qcs8300-ride.dtb \
           qcom/qcs9100-ride-r3.dtb \
