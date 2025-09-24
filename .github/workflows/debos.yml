@@ -132,18 +132,15 @@ jobs:
           cp -av dtbs.tar.gz "${dir}"
           cp -av disk-ufs.img.gz "${dir}"
           cp -av disk-sdcard.img.gz "${dir}"
-          # TODO: separate flash_* directories between UFS and eMMC
+          # create tarballs with support for all UFS and all eMMC boards
           tar -cvf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
-              flash_qcs615-* \
-              flash_qcs6490-* \
-              flash_qcs8300-* \
-              flash_qcs9100-*
+              $(dirname flash_*/flash-ufs)
           tar -cvf "${dir}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
-              flash_qrb2210-*
+              $(dirname flash_*/flash-emmc)
 
       - name: Upload private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@v1
