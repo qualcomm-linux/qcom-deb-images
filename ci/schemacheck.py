@@ -4,8 +4,8 @@
 import os
 import sys
 import yaml
-import voluptuous
-from lava_common.schemas import validate
+import voluptuous  # pylint: disable=import-error
+from lava_common.schemas import validate  # pylint: disable=import-error
 
 exitcode = 0
 
