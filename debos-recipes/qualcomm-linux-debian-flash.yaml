@@ -21,7 +21,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
     "silicon_family" "qcm6490"
-    "platform" "qcs6490-rb3gen2"
+    "platform" "qcs6490-rb3gen2/ufs"
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip"
@@ -44,7 +44,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs8300-ride"
     "silicon_family" "qcs8300"
-    "platform" "qcs8300-ride-sx"
+    "platform" "qcs8300-ride-sx/ufs"
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
@@ -67,7 +67,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs9100-ride-r3"
     "silicon_family" "qcs9100"
-    "platform" "qcs9100-ride-sx"
+    "platform" "qcs9100-ride-sx/ufs"
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
@@ -90,7 +90,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "silicon_family" "qcm2290"
-    "platform" "qrb2210-rb1"
+    "platform" "qrb2210-rb1/emmc"
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
         "url" "https://releases.linaro.org/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
@@ -154,9 +154,9 @@ actions:
       rmdir -v build/{{ $board.name }}_boot-binaries/unpack/* build/{{ $board.name }}_boot-binaries/unpack
 
       # generate ptool files - various XML files for flashing, GPT data etc.
-      mkdir -v build/{{ $board.platform }}_ptool
+      mkdir -vp build/ptool/{{ $board.platform }}
       (
-          cd build/{{ $board.platform }}_ptool
+          cd build/ptool/{{ $board.platform }}
           conf="${QCOM_PTOOL}/platforms/{{ $board.platform }}/partitions.conf"
           contents="${QCOM_PTOOL}/platforms/{{ $board.platform }}/contents.xml.in"
           disk_type="unknown"
@@ -236,7 +236,7 @@ actions:
       rm -rf "${flash_dir}"
       mkdir -v "${flash_dir}"
       # copy platform partition files
-      cp --preserve=mode,timestamps -v build/{{ $board.platform }}_ptool/* \
+      cp --preserve=mode,timestamps -v build/ptool/{{ $board.platform }}/* \
           "${flash_dir}"
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
