@@ -117,7 +117,9 @@ jobs:
       - name: Build flashable files with debos
         run: |
           set -ux
-          debos -t u_boot_rb1:rb1-boot.img \
+          debos \
+              -t u_boot_rb1:rb1-boot.img \
+              -t "buildid:${BUILD_ID}" \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-flash.yaml
 

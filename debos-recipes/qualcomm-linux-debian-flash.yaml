@@ -6,6 +6,7 @@
 {{- if .u_boot_rb1 -}}
 {{- $build_rb1 = "true" }}
 {{- end -}}
+{{- $buildid := or .buildid "" }}
 
 architecture: arm64
 
@@ -251,6 +252,13 @@ actions:
               "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
                   -t "$contents" \
                   -o contents.xml
+              # XXX insert build_id element before windows_root_path;
+              # this will be nicer to do when gen_contents.py supports
+              # setting this; see also:
+              # https://github.com/qualcomm-linux/qcom-ptool/pull/38
+              sed -i \
+                  "/windows_root_path/ i \t\t\t\t<build_id>{{$buildid}}</build_id>" \
+                  contents.xml
           fi
           # generate flashing files from qcom-partitions.xml
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
