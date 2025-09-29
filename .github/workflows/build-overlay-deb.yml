@@ -14,6 +14,8 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     runs-on: [self-hosted, qcom-u2404, "${{ matrix.arch }}"]
+    env:
+      CONFIG: ${{ inputs.config }}
     container:
       image: public.ecr.aws/debian/debian:trixie
       options: --privileged  # Required for chroot creation
@@ -51,7 +53,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive \
               apt -y install --no-install-recommends python3 python3-yaml
           # read suite from yaml
-          suite="$(python3 -c "import yaml; print(yaml.safe_load(open('${{ inputs.config }}'))['suite'])")"
+          suite="$(python3 -c "import os, yaml; print(yaml.safe_load(open(os.environ['CONFIG']))['suite'])")"
           # defaults args
           extra_repo=""
           debootstrap_suite="${suite}"
@@ -87,7 +89,7 @@ jobs:
           mkdir -v upload
           chmod a+rw upload
           sudo -u builder python3 scripts/build-deb.py \
-              --config "${{ inputs.config }}" --output-dir upload
+              --config "$CONFIG" --output-dir upload
 
       - name: Upload as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@v1
