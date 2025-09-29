@@ -8,6 +8,8 @@
 {{- end -}}
 {{- $buildid := or .buildid "" }}
 
+{{- $target_boards := or .target_boards "all" }}
+
 architecture: arm64
 
 actions:
@@ -166,10 +168,36 @@ actions:
       # path to unpacked qcom-ptool tarball
       QCOM_PTOOL="$(ls -d "${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-"*)"
 
+      # optional list of board names to build
+      targets_file="build/targets.txt"
+      rm -f "${targets_file}"
+      case "{{ $target_boards }}" in
+        all)
+          # no override; build all possible boards (default)
+          touch "${targets_file}"
+{{- range $board := $boards }}
+          echo "{{ $board.name }}" >>"${targets_file}"
+{{- end }}
+          ;;
+        *)
+          echo "{{ $target_boards }}" |
+              tr ',' '\n' |
+              sed '/^$/d' |
+              sort -u >"${targets_file}"
+          ;;
+      esac
+
 {{- range $board := $boards }}
       ### board: {{ $board.name }}
       ### platform: {{ $board.platform }}
       ### silicon family: {{ $board.silicon_family }}
+
+      # set skip_board if board isn't listed
+      skip_board=false
+      if ! grep -Fxq "{{ $board.name }}" "${targets_file}"; then
+          skip_board=true
+          echo "Skipping board {{ $board.name }}: not in target list"
+      fi
 
       # unpack boot binaries
       mkdir -v build/{{ $board.name }}_boot-binaries
@@ -264,6 +292,7 @@ actions:
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
       )
 
+      if [ "${skip_board}" = false ]; then
       # create board-specific flash directory
       flash_dir="${ARTIFACTDIR}/flash_{{ $board.name }}"
       rm -rf "${flash_dir}"
@@ -306,24 +335,30 @@ actions:
               -or -name '*.mbn' \
           \) \
           -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
+      fi
       {{- if $board.u_boot_file }}
+      if [ "${skip_board}" = false ]; then
       # copy U-Boot binary to boot.img;
       # qcom-ptool/platforms/*/partitions.conf uses filename=boot.img
       # boot_a and boot_b partitions
       cp --preserve=mode,timestamps -v "${ARTIFACTDIR}/{{ $board.u_boot_file }}" \
           "${flash_dir}/boot.img"
+      fi
       {{- end }}
 
       {{- if $board.cdt_download }}
+      if [ "${skip_board}" = false ]; then
       # unpack board CDT
       unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
           -d build/{{ $board.name }}_cdt
       # copy just the CDT data; no partition or flashing files
       cp --preserve=mode,timestamps -v build/{{ $board.name }}_cdt/{{ $board.cdt_filename }} \
           "${flash_dir}"
+      fi
       {{- end }}
 
       {{- if $board.dtb }}
+      if [ "${skip_board}" = false ]; then
       # generate a dtb.bin FAT partition with just a single dtb for the current
       # board; long-term this should really be a set of dtbs and overlays as to
       # share dtb.bin across boards
@@ -340,6 +375,7 @@ actions:
       tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "{{ $board.dtb }}"
       # copy into the FAT as combined-dtb.dtb
       mcopy -vmp -i "${dtb_bin}" "build/{{ $board.dtb }}" ::/combined-dtb.dtb
+      fi
       {{- end }}
 {{- end }}
 
