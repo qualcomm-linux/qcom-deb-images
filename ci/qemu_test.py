@@ -6,6 +6,7 @@
 import os
 import signal
 import subprocess
+import sys
 import tempfile
 
 import pexpect
@@ -52,6 +53,7 @@ def vm():
                 "/usr/share/AAVMF/AAVMF_CODE.fd",
             ],
         )
+        child.logfile = sys.stdout.buffer
         yield child
 
         # No need to be nice; that would take time
