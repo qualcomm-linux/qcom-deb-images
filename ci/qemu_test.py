@@ -6,6 +6,7 @@
 import os
 import signal
 import subprocess
+import sys
 import tempfile
 
 import pexpect
@@ -42,7 +43,7 @@ def vm():
                 "-M",
                 "virt",
                 "-drive",
-                f"if=none,file={qcow_path},format=qcow,id=disk1",
+                f"if=none,file={qcow_path},format=qcow,id=disk1,cache=unsafe",
                 "-device",
                 "virtio-scsi-pci,id=scsi1",
                 "-device",
@@ -52,6 +53,7 @@ def vm():
                 "/usr/share/AAVMF/AAVMF_CODE.fd",
             ],
         )
+        child.logfile = sys.stdout.buffer
         yield child
 
         # No need to be nice; that would take time
