@@ -42,7 +42,7 @@ def vm():
                 "-M",
                 "virt",
                 "-drive",
-                f"if=none,file={qcow_path},format=qcow,id=disk1",
+                f"if=none,file={qcow_path},format=qcow,id=disk1,cache=unsafe",
                 "-device",
                 "virtio-scsi-pci,id=scsi1",
                 "-device",
