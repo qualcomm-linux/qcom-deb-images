@@ -168,6 +168,14 @@ actions:
       # path to unpacked qcom-ptool tarball
       QCOM_PTOOL="$(ls -d "${ROOTDIR}/../qcom-ptool.tar.gz.d/qcom-ptool-"*)"
 
+      # build a list of supported dtbs from the dtbs tarball
+      dtbs_file="build/dtbs.txt"
+      : >"${dtbs_file}"
+      if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
+          tar -tzf "${ARTIFACTDIR}/dtbs.tar.gz" --wildcards '*.dtb' \
+              >>"$dtbs_file"
+      fi
+
       # optional list of board names to build
       targets_file="build/targets.txt"
       rm -f "${targets_file}"
@@ -198,6 +206,13 @@ actions:
           skip_board=true
           echo "Skipping board {{ $board.name }}: not in target list"
       fi
+{{- if $board.dtb }}
+      # set skip_board if board has a dtb and dtb isn't present
+      if ! grep -Fxq "{{ $board.dtb }}" "${dtbs_file}"; then
+          skip_board=true
+          echo "Skipping board {{ $board.name }}: dtb not available"
+      fi
+{{- end }}
 
       # unpack boot binaries
       mkdir -v build/{{ $board.name }}_boot-binaries
