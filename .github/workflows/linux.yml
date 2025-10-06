@@ -9,10 +9,10 @@ on:
 
 # implicitely set all other permissions to none
 permissions:
-  checks: write # test.yml
-  contents: read # actions/checkout debos.yml test.yml
-  packages: read # test.yml
-  pull-requests: write # test.yml
+  checks: write # lava-test.yml
+  contents: read # actions/checkout debos.yml lava-test.yml
+  packages: read # lava-test.yml
+  pull-requests: write # lava-test.yml
 
 env:
   # where results will be posted/hosted
@@ -103,7 +103,7 @@ jobs:
       kernelpackage: linux-image-6.17.0
 
   test-mainline-linux:
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/lava-test.yml
     needs: debos-mainline-linux
     secrets: inherit
     with:
