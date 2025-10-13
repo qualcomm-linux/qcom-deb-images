@@ -1,0 +1,4 @@
+dsc_url: "https://snapshot.debian.org/archive/debian-debug/20250414T210501Z/pool/main/p/pipewire/pipewire_1.4.2-1.dsc"
+dsc_sha256sum: "602242d6287b6813c9c3f04307b438ad12cc257e5d7703afe22ace8b41b3645f"
+debdiff_file: "pipewire_1.4.2-1~qcom1.debdiff"
+suite: "trixie"
