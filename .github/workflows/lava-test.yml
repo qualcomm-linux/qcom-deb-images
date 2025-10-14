@@ -16,6 +16,7 @@ permissions:
 
 env:
   BUILD_URL: ${{ inputs.url }}
+  LAVA_CI: ci/lava/
 
 jobs:
   prepare-job-list:
@@ -34,10 +35,15 @@ jobs:
       - name: "List jobs"
         id: listjobs
         run: |
-          JOBFILES=$(find ci/lava/ -name *.yaml)
-          JOBFILES=$(echo "$JOBFILES" | sed -e "s/^/\"/" | sed -e "s/$/\",/" | tr -d "\n" | sed -e "s/.$//")
-          JOBFILES="[${JOBFILES}]"
-          J=$(jq -cn --argjson jobfiles "$JOBFILES" '{target: $jobfiles}')
+          # json with list of relative filenames to LAVA templates
+          J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
+                  jq -Rs '
+                      # split null-delimited list and remove last empty item
+                      split("\u0000")[:-1]
+                      # remove leading "ci/lava/"
+                      | map(sub("^ci/lava/"; ""))
+                      | {target: .}
+                      ')
           echo "jobmatrix=$J" >> $GITHUB_OUTPUT
           echo "Preparing testjob files"
 
@@ -55,16 +61,17 @@ jobs:
 
       - name: "Update test definition ${{ matrix.target }}"
         run: |
-          TARGET=${{ matrix.target }}
-          FIND_PATH="${TARGET#*/}"
-          DEVICE_TYPE_PATH="${FIND_PATH%/*}"
-          DEVICE_TYPE="${DEVICE_TYPE_PATH#*/}"
+          # e.g. qrb2210-rb1/boot.yaml
+          TARGET="${{ matrix.target }}"
+          TEMPLATE="${LAVA_CI}${TARGET}"
+          # left-side – e.g. qrb2210-rb1
+          DEVICE_TYPE="${TARGET%/*}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
-          sed -i "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" "${{ matrix.target }}"
-          sed -i "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" "${{ matrix.target }}"
-          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "${{ matrix.target }}"
-          sed -i "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" "${{ matrix.target }}"
-          cat "${{ matrix.target }}"
+          sed -i "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" "$TEMPLATE"
+          sed -i "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" "$TEMPLATE"
+          sed -i "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" "$TEMPLATE"
+          sed -i "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" "$TEMPLATE"
+          cat "$TEMPLATE"
 
       - name: Submit ${{ matrix.target }}
         timeout-minutes: 240
@@ -72,7 +79,7 @@ jobs:
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ matrix.target }}
+          job_definition: ${{ env.LAVA_CI }}${{ matrix.target }}
           wait_for_job: true
           fail_action_on_failure: false
           save_result_as_artifact: true
