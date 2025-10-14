@@ -72,6 +72,8 @@ jobs:
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
+              -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
+              -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
               -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
               -i "$TEMPLATE"
