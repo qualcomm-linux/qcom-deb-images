@@ -31,4 +31,4 @@ jobs:
               -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
               -i '{}' \;
 
-          python3 ci/schemacheck.py ./ci/lava/
+          ci/schemacheck.py ci/lava/
