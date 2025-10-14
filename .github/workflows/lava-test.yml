@@ -67,8 +67,10 @@ jobs:
           # left-side – e.g. qrb2210-rb1
           DEVICE_TYPE="${TARGET%/*}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
+          BUILD_FILE_NAME="unused"
           sed \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
+              -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
               -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
