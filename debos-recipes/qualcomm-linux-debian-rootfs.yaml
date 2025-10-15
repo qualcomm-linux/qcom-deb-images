@@ -29,7 +29,7 @@ actions:
       mount --bind {{$aptlocalrepo}} "${ROOTDIR}/media/apt-local-repo"
 
   - action: run
-    description: APT update and upgrade with local APT repository
+    description: Setup APT sources for local APT repository
     chroot: true
     command: |
       set -eux
@@ -39,9 +39,6 @@ actions:
       Suites: /
       Trusted: true
       EOF
-
-      apt update
-      apt -y upgrade
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
