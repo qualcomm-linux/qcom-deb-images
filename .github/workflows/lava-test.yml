@@ -35,14 +35,24 @@ jobs:
       - name: "List jobs"
         id: listjobs
         run: |
-          # json with list of relative filenames to LAVA templates
+          # json with display names and relative filenames to LAVA templates
           J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
                   jq --compact-output --raw-input --slurp '
                       # split null-delimited list and remove last empty item
                       split("\u0000")[:-1]
                       # remove leading "ci/lava/"
                       | map(sub("^ci/lava/"; ""))
-                      | {target: .}
+                      # build include entries with target and pretty name
+                      | map({
+                          target: .,
+                          name: (
+                              .
+                              | sub("\\.yaml$"; "")
+                              | gsub("/"; " ")
+                          )
+                        })
+                      # output as matrix.include list
+                      | { include: . }
                       ')
           echo "jobmatrix=$J" >> $GITHUB_OUTPUT
           echo "Preparing testjob files"
@@ -50,6 +60,7 @@ jobs:
   submit-job:
     needs: prepare-job-list
     runs-on: ubuntu-latest
+    name: Submit ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
@@ -59,7 +70,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Update test definition ${{ matrix.target }}"
+      - name: Update test definition ${{ matrix.target }}
         run: |
           # e.g. qrb2210-rb1/boot.yaml
           TARGET="${{ matrix.target }}"
@@ -92,7 +103,7 @@ jobs:
           save_job_details: true
 
   publish-test-results:
-    name: "Publish Tests Results"
+    name: Publish Tests Results
     needs: submit-job
     runs-on: ubuntu-latest
 
@@ -102,7 +113,7 @@ jobs:
         with:
           path: artifacts
 
-      - name: "List files"
+      - name: List files
         run: |
           echo $GITHUB_WORKSPACE
           ls -R $GITHUB_WORKSPACE
