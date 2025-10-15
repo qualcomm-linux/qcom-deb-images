@@ -1,0 +1,6 @@
+# for binary packages built from these source packages, score the version from
+# trixie-overlay higher than versions from Debian for compliance
+Package: src:pipewire:any
+Pin: release n=trixie-overlay
+Pin-Priority: 950
+
