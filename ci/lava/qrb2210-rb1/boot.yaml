@@ -72,7 +72,7 @@ context:
   lava_test_results_dir: /home/lava-%s
   test_character_delay: 10
 device_type: qrb2210-rb1
-job_name: boot test (rb1) {{GITHUB_RUN_ID}}
+job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
 metadata:
   build-commit: '{{GITHUB_SHA}}'
 priority: 50
