@@ -13,7 +13,8 @@ actions:
     suite: trixie
     components:
       - main
-      # for packages of linux-firmware
+      - contrib
+      - non-free
       - non-free-firmware
     mirror: http://deb.debian.org/debian
     variant: minbase
