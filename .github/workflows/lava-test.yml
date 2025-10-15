@@ -37,7 +37,7 @@ jobs:
         run: |
           # json with list of relative filenames to LAVA templates
           J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq -Rs '
+                  jq --compact-output --raw-input --slurp '
                       # split null-delimited list and remove last empty item
                       split("\u0000")[:-1]
                       # remove leading "ci/lava/"
