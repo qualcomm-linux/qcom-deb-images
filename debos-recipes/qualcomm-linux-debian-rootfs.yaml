@@ -51,6 +51,10 @@ actions:
     description: Create Debian APT sources
     source: overlays/apt-sources
 
+  - action: overlay
+    description: Add Debian backports APT configuration
+    source: overlays/backports
+
 {{- if .overlays }}
 {{- range $overlay := split "," .overlays }}
   - action: overlay
