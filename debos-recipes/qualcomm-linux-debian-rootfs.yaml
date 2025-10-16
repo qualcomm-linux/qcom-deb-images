@@ -13,7 +13,8 @@ actions:
     suite: trixie
     components:
       - main
-      # for packages of linux-firmware
+      - contrib
+      - non-free
       - non-free-firmware
     mirror: http://deb.debian.org/debian
     variant: minbase
@@ -28,7 +29,7 @@ actions:
       mount --bind {{$aptlocalrepo}} "${ROOTDIR}/media/apt-local-repo"
 
   - action: run
-    description: APT update and upgrade with local APT repository
+    description: Setup APT sources for local APT repository
     chroot: true
     command: |
       set -eux
@@ -38,18 +39,18 @@ actions:
       Suites: /
       Trusted: true
       EOF
-
-      apt update
-      apt -y upgrade
 {{- end }}
 
-  - action: run
-    description: Modernize APT sources
-    chroot: true
-    command: |
-      set -eux
-      apt -y modernize-sources
-      rm -v /etc/apt/sources.list.bak
+  # after debootstrap, only a basic etc/apt/sources.list is created; add more
+  # modern etc/apt/sources.list.d/debian.sources; sources.list is removed after
+  # applying all overlays, and followed by an APT update and full-upgrade
+  - action: overlay
+    description: Create Debian APT sources
+    source: overlays/apt-sources
+
+  - action: overlay
+    description: Add Debian backports APT configuration
+    source: overlays/backports
 
 {{- if .overlays }}
 {{- range $overlay := split "," .overlays }}
@@ -58,6 +59,20 @@ actions:
     source: overlays/{{$overlay}}
 {{- end }}
 {{- end }}
+
+  - action: run
+    description: Remove old APT sources and upgrade packages
+    chroot: true
+    command: |
+      set -eux
+      # remove old style, incomplete sources, superseded in apt-sources overlay
+      rm -vf /etc/apt/sources.list
+      # install ca-certificates early to make sure https APT sources are
+      # properly picked up
+      apt -y install ca-certificates
+      # APT update and upgrade to pickup changes from overlays
+      apt -y update
+      apt -y full-upgrade
 
   - action: apt
     description: Install foundational packages
