@@ -6,6 +6,7 @@
 {{- if .u_boot_rb1 -}}
 {{- $build_rb1 = "true" }}
 {{- end -}}
+{{- $buildid := or .buildid "" }}
 
 architecture: arm64
 
@@ -251,6 +252,13 @@ actions:
               "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
                   -t "$contents" \
                   -o contents.xml
+              # XXX insert build_id element before windows_root_path;
+              # this will be nicer to do when gen_contents.py supports
+              # setting this; see also:
+              # https://github.com/qualcomm-linux/qcom-ptool/pull/38
+              sed -i \
+                  "/windows_root_path/ i \t\t\t\t<build_id>{{$buildid}}</build_id>" \
+                  contents.xml
           fi
           # generate flashing files from qcom-partitions.xml
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
@@ -263,6 +271,17 @@ actions:
       # copy platform partition files
       cp --preserve=mode,timestamps -v build/ptool/{{ $board.platform }}/* \
           "${flash_dir}"
+      # adjust paths in contents.xml to use board-specific flash_* subdir
+      if [ -e "${flash_dir}/contents.xml" ]; then
+          # one set of backslashes for shell quoting, another one for sed
+          # parsing
+          windows_path=".\\\\flash_{{ $board.name }}\\\\"
+          linux_path="./flash_{{ $board.name }}/"
+          sed -i \
+              -e "s:<windows_root_path>.*:<windows_root_path>${windows_path}</windows_root_path>:" \
+              -e "s:<linux_root_path>.*:<linux_root_path>${linux_path}</linux_root_path>:" \
+              "${flash_dir}/contents.xml"
+      fi
       # remove BLANK_GPT and WIPE_PARTITIONS files as it's common for people
       # to run "qdl rawprogram*.xml", mistakingly including these; perhaps
       # ptool should have a flag not to generate these; note that there are
