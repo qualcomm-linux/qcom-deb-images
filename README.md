@@ -100,12 +100,15 @@ To build flashable assets for all supported boards, follow these steps:
 
     # (optional) if you've built U-Boot for the RB1, run this instead:
     #debos -t u_boot_rb1:u-boot/rb1-boot.img debos-recipes/qualcomm-linux-debian-flash.yaml
+
+    # (optional) build only a subset of boards:
+    #debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
     ```
 
 1. enter Emergency Download Mode (see section below) and flash the resulting images with QDL
     ```bash
     # for RB3 Gen2 Vision Kit or UFS boards in general
-    cd flash_rb3gen2-vision-kit
+    cd flash_qcs6490-rb3gen2-vision-kit
     qdl --storage ufs prog_firehose_ddr.elf rawprogram[0-9].xml patch[0-9].xml
 
     # for RB1 or eMMC boards in general
@@ -134,6 +137,12 @@ For the image recipe:
 
 For the flash recipe:
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format -- see below (NB: debos expects relative pathnames)
+- `target_boards`: comma-separated list of board names to build (default: `all`). Accepted values are the board names defined in the flash recipe, e.g. `qcs615-adp-air-sa6155p`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`, `qrb2210-rb1`.
+
+Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
+
+Deprecated flash options:
+- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
 ```bash
@@ -146,6 +155,10 @@ debos -t dtb:qcom/qcs6490-rb3gen2.dtb debos-recipes/qualcomm-linux-debian-image.
 
 # build an SD card image
 debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
+
+# build flash assets for a subset of boards
+# (see flash recipe for accepted board names)
+debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
 ```
 
 ### Flashing tips
