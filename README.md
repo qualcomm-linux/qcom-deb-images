@@ -182,75 +182,44 @@ NB: It's also possible to run qdl from the host while the baord is not connected
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
 
-### Test an image locally with qemu
+### Boot an image locally with QEMU (helper script)
 
-You can boot an image locally with qemu as follows:
+Use the `scripts/run-qemu.py` helper to boot generated disk images under QEMU. It automatically:
+- Detects your OS and locates an aarch64 UEFI firmware (Debian/Ubuntu: qemu-efi-aarch64; macOS Homebrew: edk2-aarch64).
+- Presents the image via SCSI with the correct sector size (4096 for UFS, 512 for SD/eMMC).
+- Creates a temporary qcow2 copy-on-write overlay by default (your base image remains unchanged).
+- Provides GUI display by default (Gtk on Linux, Cocoa on macOS) and headless mode with `--headless`.
 
-1. Install dependencies. `qemu-system-arm` is required together with
-an aarch64 build of UEFI. On Debian and Ubuntu, this is provided by the
-`qemu-system-arm` package which recommends `qemu-efi-aarch64`:
-    ```bash
-    sudo apt install qemu-system-arm qemu-efi-aarch64
-    ```
+Dependencies:
+- Debian/Ubuntu: `sudo apt install qemu-efi-aarch64 qemu-system-arm qemu-utils`
+- macOS (Homebrew): `brew install qemu`
 
-1. As above under "Usage", build the disk image from the root filesystem
-   tarball if you haven't done this already:
-    ```bash
-    debos debos-recipes/qualcomm-linux-debian-image.yaml
-    ```
+Basic usage:
+```bash
+# Auto-detects disk-ufs.img or disk-sdcard.img in the current directory
+scripts/run-qemu.py
 
-1. Run qemu as follows:
-    ```bash
-    # SCSI is required to present a device with a matching 4096 sector size
-    # inside the VM
-    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
-        -device virtio-scsi-pci,id=scsi1 \
-        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
-        -drive if=none,file=disk-ufs.img,format=raw,id=disk1 \
-        -bios /usr/share/AAVMF/AAVMF_CODE.fd
-    ```
+# Explicit storage type (sector size set accordingly)
+scripts/run-qemu.py --storage ufs
+scripts/run-qemu.py --storage sdcard
 
-#### Copy on write
+# Use a specific image path
+scripts/run-qemu.py --image /path/to/disk-ufs.img
 
-Instead of modifying `file-ufs.img`, you can arrange copy-on-write, for example
-to reproduce the same first boot multiple times:
+# Run headless (no GUI), with serial console on stdio
+scripts/run-qemu.py --headless
 
-1. Prepare a qcow file to contain the writes, backed by `disk-ufs.img`:
-    ```bash
-    qemu-img create -b disk-ufs.img -f qcow -F raw disk1.qcow
-    ```
+# Disable the COW overlay to persist changes to the image
+scripts/run-qemu.py --no-cow
 
-1. Run qemu as follows:
-    ```bash
-    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
-        -device virtio-scsi-pci,id=scsi1 \
-        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
-        -drive if=none,file=disk1.img,format=qcow,id=disk1 \
-        -bios /usr/share/AAVMF/AAVMF_CODE.fd
-    ```
+# Pass extra QEMU arguments (example: 4 vCPUs and 4 GiB RAM)
+scripts/run-qemu.py --qemu-args "-smp 4 -m 4096"
+```
 
-#### Direct kernel boot
-
-For debugging purposes, it is sometimes useful to boot the kernel directly, for
-example to confirm that an issue in the image lies in the bootloader
-installation. You can do this as follows:
-
-1. Extract the rootfs:
-    ```bash
-    mkdir rootfs
-    tar xzC rootfs -f rootfs.tar.gz
-    ```
-
-2. Run qemu against the kernel and initrd present inside the rootfs directly:
-    ```bash
-    qemu-system-aarch64 -cpu cortex-a57 -m 2048 -M virt -nographic \
-        -device virtio-scsi-pci,id=scsi1 \
-        -device scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096 \
-        -drive if=none,file=disk-ufs.img,format=raw,id=disk1 \
-        -kernel rootfs/boot/vmlinuz-*
-        -initrd rootfs/boot/initrd.img-*
-        -append root=/dev/sda2
-    ```
+Notes:
+- If neither `disk-ufs.img` nor `disk-sdcard.img` is found and `--image` is not provided, the script will exit with an error.
+- On Linux, the script looks for `/usr/share/qemu-efi-aarch64/QEMU_EFI.fd`. On macOS with Homebrew, it uses `share/qemu/edk2-aarch64-code.fd` from the `qemu` formula.
+- The overlay is cleaned up automatically when QEMU exits. Use `--no-cow` to make changes persistent on the base image.
 
 ## Reporting Issues
 
