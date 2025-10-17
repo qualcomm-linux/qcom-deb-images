@@ -146,8 +146,8 @@ Deprecated flash options:
 
 Here are some example invocations:
 ```bash
-# build the root filesystem with Xfce and a kernel from experimental
-debos -t xfcedesktop:true -t experimentalkernel:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
+# build the root filesystem with Xfce
+debos -t xfcedesktop:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
