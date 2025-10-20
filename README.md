@@ -1,7 +1,8 @@
 # Qualcomm Linux deb images
 
-[![Build on push to branch](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml/badge.svg)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml)
-[![Daily Build](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml/badge.svg)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml)
+![build on push status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-on-push.yml?label=build%20on%20push)
+![daily build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily.yml?label=daily%20build)
+![mainline build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux.yml?label=weekly%20mainline%20build)
 
 A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
 
