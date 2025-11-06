@@ -92,7 +92,7 @@ jobs:
 
       - name: Submit ${{ matrix.target }}
         timeout-minutes: 240
-        uses: foundriesio/lava-action@v6
+        uses: foundriesio/lava-action@v9
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
