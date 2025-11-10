@@ -36,7 +36,7 @@ jobs:
   build-debos:
     name: Build and upload debos recipes
     outputs:
-      url: ${{ steps.upload_artifacts.outputs.url }}
+      url: ${{ steps.upload_artifacts_gcp.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
       image: public.ecr.aws/debian/debian:trixie
