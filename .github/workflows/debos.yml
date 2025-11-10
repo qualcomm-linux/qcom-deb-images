@@ -117,7 +117,9 @@ jobs:
       - name: Build flashable files with debos
         run: |
           set -ux
-          debos -t u_boot_rb1:rb1-boot.img \
+          debos \
+              -t u_boot_rb1:rb1-boot.img \
+              -t "buildid:${BUILD_ID}" \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-flash.yaml
 
@@ -142,10 +144,20 @@ jobs:
               disk-sdcard.img2 \
               $(dirname flash_*/flash-emmc)
 
-      - name: Upload private artifacts
+      # upload to a cloud storage space accessible by LAVA and developers
+      - name: Upload private artifacts (GCP)
         uses: qualcomm-linux/upload-private-artifact-action@v1
-        id: upload_artifacts
+        id: upload_artifacts_gcp
         with:
+          path: debos-artifacts
+
+      # upload to a cloud storage space accessible by Axiom
+      - name: Upload private artifacts (S3)
+        uses: qualcomm-linux/upload-private-artifact-action@aws-v2
+        with:
+          s3_bucket: qcom-prd-gh-artifacts
+          # should be the default in that action, or ought to reuse BUILD_ID
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
           path: debos-artifacts
 
       - name: Unpack rootfs to generate SBOM
@@ -198,7 +210,7 @@ jobs:
           path: sboms
       - name: "Print output"
         env:
-          build_url: ${{ steps.upload_artifacts.outputs.url }}
+          build_url: ${{ steps.upload_artifacts_gcp.outputs.url }}
         run: |
           echo "Downloads URL: ${build_url}"
           echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
