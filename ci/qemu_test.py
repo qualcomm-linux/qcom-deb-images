@@ -14,10 +14,16 @@ import pexpect
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def vm():
     """A pexpect.spawn object attached to the serial console of a VM freshly
     booting with a CoW base of disk-ufs.img"""
+    # Since qemu booting is slow and we want fast developer iteration, we make the
+    # optimisation compromise that we will not reset the qemu test fixture from a
+    # fresh image for every test. Most tests should not collide with each other. If
+    # we think a new test will do that and we want to make the compromise of giving
+    # it an isolated environment for a slower test suite, we can deal with that
+    # then.
     with tempfile.TemporaryDirectory() as tmpdir:
         qcow_path = os.path.join(tmpdir, "disk1.qcow")
         subprocess.run(
