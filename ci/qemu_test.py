@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import types
 
 import pexpect
 import pytest
@@ -33,7 +34,7 @@ def vm():
             ],
             check=True,
         )
-        child = pexpect.spawn(
+        spawn = pexpect.spawn(
             "qemu-system-aarch64",
             [
                 "-cpu",
@@ -53,15 +54,15 @@ def vm():
                 "/usr/share/AAVMF/AAVMF_CODE.fd",
             ],
         )
-        child.logfile = sys.stdout.buffer
-        yield child
+        spawn.logfile = sys.stdout.buffer
+        yield types.SimpleNamespace(spawn=spawn)
 
         # No need to be nice; that would take time
-        child.kill(signal.SIGKILL)
+        spawn.kill(signal.SIGKILL)
 
         # If this blocks then we have a problem. Better to hang than build up
         # excess qemu processes that won't die.
-        child.wait()
+        spawn.wait()
 
 
 def test_password_reset_required(vm):
@@ -69,16 +70,16 @@ def test_password_reset_required(vm):
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/69
 
     # This takes a minute or two on a ThinkPad T14s Gen 6 Snapdragon
-    vm.expect_exact("debian login:", timeout=240)
+    vm.spawn.expect_exact("debian login:", timeout=240)
 
-    vm.send("debian\r\n")
-    vm.expect_exact("Password:")
-    vm.send("debian\r\n")
-    vm.expect_exact("You are required to change your password immediately")
-    vm.expect_exact("Current password:")
-    vm.send("debian\r\n")
-    vm.expect_exact("New password:")
-    vm.send("new password\r\n")
-    vm.expect_exact("Retype new password:")
-    vm.send("new password\r\n")
-    vm.expect_exact("debian@debian:~$")
+    vm.spawn.send("debian\r\n")
+    vm.spawn.expect_exact("Password:")
+    vm.spawn.send("debian\r\n")
+    vm.spawn.expect_exact("You are required to change your password immediately")
+    vm.spawn.expect_exact("Current password:")
+    vm.spawn.send("debian\r\n")
+    vm.spawn.expect_exact("New password:")
+    vm.spawn.send("new password\r\n")
+    vm.spawn.expect_exact("Retype new password:")
+    vm.spawn.send("new password\r\n")
+    vm.spawn.expect_exact("debian@debian:~$")
