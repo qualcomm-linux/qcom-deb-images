@@ -61,7 +61,7 @@ jobs:
           if [ "${suite}" = experimental ]; then
               # special extra args for experimental
               debootstrap_suite='unstable'
-              extra_repo='--extra-repository=deb   http://deb.debian.org/debian  experimental main'
+              extra_repo='--extra-repository=deb   https://deb.debian.org/debian  experimental main'
               chroot_prefix='--chroot-prefix=experimental'
           fi
           sudo sbuild-createchroot --include=eatmydata,ccache \
