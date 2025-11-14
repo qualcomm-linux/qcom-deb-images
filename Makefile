@@ -7,10 +7,14 @@ FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
 DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) --memory 1GiB --scratchsize 4GiB
 DEBOS := debos $(DEBOS_OPTS)
 
-# Use http_proxy from the environment, or apt's http_proxy if set, to speed up
-# builds.
+# Use http_proxy and https_proxy from the environment, or apt's configs if set,
+# to speed up builds.
 http_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::http::Proxy)
-export http_proxy
+https_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::https::Proxy)
+export http_proxy https_proxy
+
+print:
+	echo $(https_proxy)
 
 all: disk-ufs.img.gz disk-sdcard.img.gz
 
