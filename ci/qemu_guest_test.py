@@ -40,10 +40,6 @@ def apt_dependencies():
     )
 
 
-@pytest.mark.xfail(
-    reason="https://github.com/qualcomm-linux/qcom-deb-images/issues/193",
-    strict=True,
-)
 def test_sudo_no_fqdn(apt_dependencies):
     """sudo should not call FQDN lookup functions
 
