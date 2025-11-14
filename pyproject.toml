@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+# See ci/qemu_test.py and ci/qemu_test_guest.py for details on arrangements for
+# guest tests.
+addopts = "-m 'not guest'"
+markers = [
+    "guest: Tests that run from inside a built image"
+]
