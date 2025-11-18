@@ -16,7 +16,7 @@ actions:
       - contrib
       - non-free
       - non-free-firmware
-    mirror: http://deb.debian.org/debian
+    mirror: https://deb.debian.org/debian
     variant: minbase
 
 {{- if ne $aptlocalrepo "none" }}
