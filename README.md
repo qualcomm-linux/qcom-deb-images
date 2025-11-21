@@ -4,7 +4,7 @@
 [![daily build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily.yml?label=daily%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml)
 [![mainline build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux.yml?label=weekly%20mainline%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux.yml)
 
-A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
+A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline-centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
 
 Initially, this repository provides [debos](https://github.com/go-debos/debos) recipes based on Debian trixie for boards such as the Qualcomm RB3 Gen 2.
 
@@ -16,7 +16,7 @@ On standard Linux distros like Debian, firmware updates are generally delivered 
 
 ### Firmware delivery
 
-On a Desktop system, its usually GNOME Software which monitors LVFS for any firmware updates and pushes to fwupd if any. On a headless system like most embedded devices, the fwupdmgr command line tool can be used to monitor LVFS for firmware updates as follows:
+On a Desktop system, it's usually GNOME Software which monitors LVFS for any firmware updates and pushes to fwupd if any. On a headless system like most embedded devices, the fwupdmgr command-line tool can be used to monitor LVFS for firmware updates as follows:
 
 ```bash
 # Download latest metadata from LVFS
@@ -31,10 +31,10 @@ fwupdmgr update
 
 ### Firmware on devices supported by Qualcomm Linux
 
-The firmware on Qualcomm devices is expected to support UEFI UpdateCapsule plugin for fwupd daemon. However, currently firmware for Qualcomm devices in not available in LVFS which is a work in progress as of now. In order to play with UEFI firmware capsule updates, one can use fwupdtool to locally update firmware like on RB1 as follows:
+The firmware on Qualcomm devices is expected to support UEFI UpdateCapsule plugin for fwupd daemon. However, currently firmware for Qualcomm devices is not available in LVFS which is a work in progress as of now. In order to play with UEFI firmware capsule updates, one can use fwupdtool to locally update firmware like on RB1 as follows:
 
 ```bash
-# Transfer U-Boot firmware cabinet archive build from scripts/build-u-boot-rb1.sh to RB1
+# Transfer U-Boot firmware cabinet archive built by scripts/build-u-boot-rb1.sh to RB1
 sudo fwupdtool install u-boot.cab
 # It will ask for a reboot for the UEFI firmware capsule update to happen
 ```
@@ -86,7 +86,7 @@ To build flashable assets for all supported boards, follow these steps:
 
 1. build disk and filesystem images from the root filesystem tarball
     ```bash
-    # the default is to build an UFS image
+    # the default is to build a UFS image
     debos debos-recipes/qualcomm-linux-debian-image.yaml
 
     # (optional) if you want SD card images or support for eMMC boards, run
@@ -100,12 +100,15 @@ To build flashable assets for all supported boards, follow these steps:
 
     # (optional) if you've built U-Boot for the RB1, run this instead:
     #debos -t u_boot_rb1:u-boot/rb1-boot.img debos-recipes/qualcomm-linux-debian-flash.yaml
+
+    # (optional) build only a subset of boards:
+    #debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
     ```
 
 1. enter Emergency Download Mode (see section below) and flash the resulting images with QDL
     ```bash
     # for RB3 Gen2 Vision Kit or UFS boards in general
-    cd flash_rb3gen2-vision-kit
+    cd flash_qcs6490-rb3gen2-vision-kit
     qdl --storage ufs prog_firehose_ddr.elf rawprogram[0-9].xml patch[0-9].xml
 
     # for RB1 or eMMC boards in general
@@ -114,7 +117,7 @@ To build flashable assets for all supported boards, follow these steps:
 
 ### Debos tips
 
-By default, debos will try to pick a fast build backend. It will prefer to use its KVM backend (`-b kvm`) when available, and otherwise an UML environment (`-b uml`). If none of these work, a solid backend is QEMU (`-b qemu`). Because the target images are arm64, building under QEMU can be really slow, especially when building from another architecture such as amd64.
+By default, debos will try to pick a fast build backend. It will prefer to use its KVM backend (`-b kvm`) when available, and otherwise a UML environment (`-b uml`). If none of these work, a solid backend is QEMU (`-b qemu`). Because the target images are arm64, building under QEMU can be really slow, especially when building from another architecture such as amd64.
 
 To build large images, the debos resource defaults might not be sufficient. Consider raising the default debos memory and scratchsize settings. This should provide a good set of minimum defaults:
 ```bash
@@ -125,20 +128,26 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
 - `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
-- `xfcedesktop`: install a Xfce desktop environment; default: console only environment
+- `xfcedesktop`: install an Xfce desktop environment; default: console only environment
 
 For the image recipe:
-- `dtb`: override the firmware provided device tree with one from the linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
-- `imagetype`: either `ufs` (the default) or (`sdcard`); UFS images are named disk-ufs.img and use 4096 bytes sectors and SD card images are named disk-sdcard.img and use 512 bytes sectors
-- `imagesize`: set the output disk image size; default: `4.5GiB`
+- `dtb`: override the firmware provided device tree with one from the Linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
+- `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named disk-ufs.img and use 4096-byte sectors and SD card images are named disk-sdcard.img and use 512-byte sectors
+- `imagesize`: set the output disk image size; default: `4GiB`
 
 For the flash recipe:
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format -- see below (NB: debos expects relative pathnames)
+- `target_boards`: comma-separated list of board names to build (default: `all`). Accepted values are the board names defined in the flash recipe, e.g. `qcs615-adp-air-sa6155p`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`, `qrb2210-rb1`.
+
+Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
+
+Deprecated flash options:
+- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
 ```bash
-# build the root filesystem with Xfce and a kernel from experimental
-debos -t xfcedesktop:true -t experimentalkernel:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
+# build the root filesystem with Xfce
+debos -t xfcedesktop:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
@@ -146,11 +155,15 @@ debos -t dtb:qcom/qcs6490-rb3gen2.dtb debos-recipes/qualcomm-linux-debian-image.
 
 # build an SD card image
 debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
+
+# build flash assets for a subset of boards
+# (see flash recipe for accepted board names)
+debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
 ```
 
 ### Flashing tips
 
-The `disk-sdcard.img` disk image can simply be written to a SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
+The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
 
 For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl). Create a `rawprogram-ufs.xml` file as follows:
 ```xml
@@ -177,7 +190,7 @@ To enter EDL mode:
 1. connect a cable from the flashing host to the USB type-C port on the board
 1. run qdl to flash the board
 
-NB: It's also possible to run qdl from the host while the baord is not connected, and starting the board directly in EDL mode.
+NB: It's also possible to run qdl from the host while the board is not connected, then start the board directly in EDL mode.
 
 ## Development
 
