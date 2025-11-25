@@ -135,11 +135,11 @@ jobs:
           cp -av disk-ufs.img.gz "${dir}"
           cp -av disk-sdcard.img.gz "${dir}"
           # create tarballs with support for all UFS and all eMMC boards
-          tar -cvf "${dir}"/flash-ufs.tar.gz \
+          tar -cvzf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
               $(dirname flash_*/flash-ufs)
-          tar -cvf "${dir}"/flash-emmc.tar.gz \
+          tar -cvzf "${dir}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               $(dirname flash_*/flash-emmc)
