@@ -113,6 +113,27 @@ actions:
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
 )}}
+{{- $boards = append $boards (dict
+    "name" "lemans-evk"
+    "silicon_family" "qcs9075"
+    "platform" "iq-9075-evk/ufs"
+    "boot_binaries_download" (dict
+        "description" "QCS9100 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
+        "name" "qcs9100_boot-binaries"
+        "filename" "qcs9100_boot-binaries.zip"
+        "sha256sum" "c201c9e966a706c9e76685ff4298f0940958c4d4877299eee1248ef26b809aa0"
+    )
+    "cdt_download" (dict
+        "description" "QCS9100 RB8 Core Kit CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS9100/cdt/rb8_core_kit.zip"
+        "name" "qcs9100-rb8-core-kit_cdt"
+        "filename" "qcs9100-rb8-core-kit_cdt.zip"
+        "sha256sum" "a252244f800d7c9e15883e12935af4113f9f2ecba6490e46cd9b943169f15bfa"
+    )
+    "cdt_filename" "cdt_rb8_core_kit.bin"
+    "dtb" "qcom/lemans-evk.dtb"
+)}}
 {{- end }}
 {{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
