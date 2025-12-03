@@ -146,6 +146,13 @@ actions:
         echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
       )
 
+  # See: https://github.com/qualcomm-linux/qcom-deb-images/issues/193
+  - action: run
+    description: Configure sudo to use !fqdn
+    command: |
+      set -eux
+      echo "Defaults !fqdn" > ${ROOTDIR}/etc/sudoers.d/disable-fqdn
+
   # NB: Recommends pull in way too many packages, and we don't need to follow
   # Recommends reaching outside of this Priority level
   - action: apt
