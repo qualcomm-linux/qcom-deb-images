@@ -127,6 +127,7 @@ actions:
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
     )
     "u_boot_file" .u_boot_rb1
+    "dtb" "qcom/qrb2210-rb1.dtb"
 )}}
 {{- end }}
 
