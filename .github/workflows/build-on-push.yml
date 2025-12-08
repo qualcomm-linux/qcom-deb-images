@@ -2,7 +2,7 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    branches: [main, lava-board-expectations]
 
 # implicitely set all other permissions to none
 permissions:
