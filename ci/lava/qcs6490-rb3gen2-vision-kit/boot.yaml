@@ -14,7 +14,7 @@ actions:
         - echo "OVERLAY=overlay.tar.gz" >> $IMAGE_PATH/flash.settings
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
         - echo "ROOTFS_IMAGE=disk-ufs.img2" >> $IMAGE_PATH/flash.settings
-        - echo "DEVICE_TYPE=debian-qcs6490-rb3gen2-vision-kit" >> $IMAGE_PATH/flash.settings
+        - echo "DEVICE_TYPE=debian-{{DEVICE_TYPE}}" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
       minutes: 200
@@ -70,7 +70,7 @@ actions:
 context:
   lava_test_results_dir: /home/lava-%s
   test_character_delay: 10
-device_type: qcs6490
+device_type: {{DEVICE_TYPE}}
 job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
 metadata:
   build-commit: '{{GITHUB_SHA}}'

@@ -15,7 +15,7 @@ actions:
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
         - echo "STORAGE=emmc" >> $IMAGE_PATH/flash.settings
         - echo "ROOTFS_IMAGE=disk-sdcard.img2" >> $IMAGE_PATH/flash.settings
-        - echo "DEVICE_TYPE=debian-qrb2210-rb1" >> $IMAGE_PATH/flash.settings
+        - echo "DEVICE_TYPE=debian-{{DEVICE_TYPE}}" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
       minutes: 200
@@ -71,7 +71,7 @@ actions:
 context:
   lava_test_results_dir: /home/lava-%s
   test_character_delay: 10
-device_type: qrb2210-rb1
+device_type: {{DEVICE_TYPE}}
 job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
 metadata:
   build-commit: '{{GITHUB_SHA}}'
