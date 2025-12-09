@@ -16,67 +16,36 @@ permissions:
 
 env:
   BUILD_URL: ${{ inputs.url }}
-  LAVA_CI: ci/lava/
 
 jobs:
-  prepare-job-list:
-    runs-on: ubuntu-latest
-    outputs:
-      jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Print trigger
-        run: |
-          echo "Triggered by ${{ github.event_name }}"
-          echo "Build URL: $BUILD_URL"
-      - name: "List jobs"
-        id: listjobs
-        run: |
-          # json with display names and relative filenames to LAVA templates
-          J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq --compact-output --raw-input --slurp '
-                      # split null-delimited list and remove last empty item
-                      split("\u0000")[:-1]
-                      # remove leading "ci/lava/"
-                      | map(sub("^ci/lava/"; ""))
-                      # build include entries with target and pretty name
-                      | map({
-                          target: .,
-                          name: (
-                              .
-                              | sub("\\.yaml$"; "")
-                              | gsub("/"; " ")
-                          )
-                        })
-                      # output as matrix.include list
-                      | { include: . }
-                      ')
-          echo "jobmatrix=$J" >> $GITHUB_OUTPUT
-          echo "Preparing testjob files"
-
   submit-job:
-    needs: prepare-job-list
     runs-on: ubuntu-latest
     name: Submit ${{ matrix.name }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
+      matrix:
+        include:
+          - device_type: qcs6490-rb3gen2-vision-kit
+            lava_template: ci/lava/qcs6490-rb3gen2-vision-kit/boot.yaml
+            name: qcs6490-rb3gen2-vision-kit boot
+          - device_type: qrb2210-rb1
+            lava_template: ci/lava/qrb2210-rb1/boot.yaml
+            name: qrb2210-rb1 boot
     steps:
+      - name: Print trigger
+        run: |
+          echo "Triggered by ${{ github.event_name }}"
+          echo "Build URL: $BUILD_URL"
+
       - name: Clone repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Update test definition ${{ matrix.target }}
+      - name: Update test definition ${{ matrix.name }}
         run: |
-          # e.g. qrb2210-rb1/boot.yaml
-          TARGET="${{ matrix.target }}"
-          TEMPLATE="${LAVA_CI}${TARGET}"
-          # left-side – e.g. qrb2210-rb1
-          DEVICE_TYPE="${TARGET%/*}"
+          TEMPLATE="${{ matrix.lava_template }}"
+          DEVICE_TYPE="${{ matrix.device_type }}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
           BUILD_FILE_NAME="unused"
           sed \
@@ -90,13 +59,13 @@ jobs:
               -i "$TEMPLATE"
           cat "$TEMPLATE"
 
-      - name: Submit ${{ matrix.target }}
+      - name: Submit ${{ matrix.name }}
         timeout-minutes: 240
         uses: foundriesio/lava-action@v9
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ env.LAVA_CI }}${{ matrix.target }}
+          job_definition: ${{ matrix.lava_template }}
           wait_for_job: true
           fail_action_on_failure: false
           save_result_as_artifact: true
