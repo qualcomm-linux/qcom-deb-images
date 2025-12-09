@@ -28,11 +28,11 @@ jobs:
           - device_type: qcs6490-rb3gen2-vision-kit
             lava_template: ci/lava/qcs6490-rb3gen2-vision-kit/boot.yaml
             name: qcs6490-rb3gen2-vision-kit boot
-            file_name: flash-ufs.tar.gz
+            storage: ufs
           - device_type: qrb2210-rb1
             lava_template: ci/lava/qrb2210-rb1/boot.yaml
             name: qrb2210-rb1 boot
-            file_name: flash-emmc.tar.gz
+            storage: emmc
     steps:
       - name: Print trigger
         run: |
@@ -48,8 +48,9 @@ jobs:
         run: |
           TEMPLATE="${{ matrix.lava_template }}"
           DEVICE_TYPE="${{ matrix.device_type }}"
+          STORAGE="${{ matrix.storage }}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="${{ matrix.file_name }}"
+          BUILD_FILE_NAME="flash-${STORAGE}.tar.gz"
           sed \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
@@ -58,6 +59,7 @@ jobs:
               -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
               -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
+              -e "s|{{STORAGE}}|${STORAGE}|g" \
               -i "$TEMPLATE"
           cat "$TEMPLATE"
 
