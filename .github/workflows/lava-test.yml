@@ -28,9 +28,11 @@ jobs:
           - device_type: qcs6490-rb3gen2-vision-kit
             lava_template: ci/lava/qcs6490-rb3gen2-vision-kit/boot.yaml
             name: qcs6490-rb3gen2-vision-kit boot
+            file_name: flash-ufs.tar.gz
           - device_type: qrb2210-rb1
             lava_template: ci/lava/qrb2210-rb1/boot.yaml
             name: qrb2210-rb1 boot
+            file_name: flash-emmc.tar.gz
     steps:
       - name: Print trigger
         run: |
@@ -47,7 +49,7 @@ jobs:
           TEMPLATE="${{ matrix.lava_template }}"
           DEVICE_TYPE="${{ matrix.device_type }}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="unused"
+          BUILD_FILE_NAME="${{ matrix.file_name }}"
           sed \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \

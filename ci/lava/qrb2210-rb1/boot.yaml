@@ -4,7 +4,7 @@ actions:
       image:
         headers:
           Authentication: Q_GITHUB_TOKEN
-        url: "{{BUILD_DOWNLOAD_URL}}/flash-emmc.tar.gz"
+        url: "{{BUILD_DOWNLOAD_URL}}/{{BUILD_FILE_NAME}}"
     postprocess:
       docker:
         image: ghcr.io/foundriesio/lava-lmp-sign:main
@@ -23,7 +23,7 @@ actions:
 - deploy:
     images:
       image:
-        url: downloads://flash-emmc.tar.gz
+        url: downloads://{{BUILD_FILE_NAME}}
       settings:
         url: downloads://flash.settings
       overlay:
