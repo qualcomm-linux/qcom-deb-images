@@ -14,7 +14,7 @@ actions:
         - echo "OVERLAY=overlay.tar.gz" >> $IMAGE_PATH/flash.settings
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
         - echo "STORAGE={{STORAGE}}" >> $IMAGE_PATH/flash.settings
-        - echo "ROOTFS_IMAGE=disk-ufs.img2" >> $IMAGE_PATH/flash.settings
+        - echo "ROOTFS_IMAGE={{ROOTFS_IMAGE}}" >> $IMAGE_PATH/flash.settings
         - echo "DEVICE_TYPE=debian-{{DEVICE_TYPE}}" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
