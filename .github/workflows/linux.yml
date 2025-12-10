@@ -103,7 +103,7 @@ jobs:
       mainline_kernel: true
       kernelpackage: linux-image-6.18.0-g3f9f0252130e
 
-  test-mainline-linux:
+  lava-mainline-linux:
     uses: ./.github/workflows/lava-test.yml
     needs: debos-mainline-linux
     secrets: inherit

@@ -12,13 +12,13 @@ permissions:
   pull-requests: write # lava-test.yml
 
 jobs:
-  build-daily:
+  debos-on-push:
     uses: ./.github/workflows/debos.yml
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
-  test:
+  lava-on-push:
     uses: ./.github/workflows/lava-test.yml
-    needs: [build-daily, schema-check]
+    needs: [debos-on-push, schema-check]
     secrets: inherit
     with:
-      url: ${{ needs.build-daily.outputs.artifacts_url }}
+      url: ${{ needs.debos-on-push.outputs.artifacts_url }}

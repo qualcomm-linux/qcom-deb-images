@@ -15,16 +15,16 @@ permissions:
   pull-requests: write # lava-test.yml
 
 jobs:
-  build-daily:
+  debos-daily:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/debos.yml
 
-  test-daily:
+  lava-daily:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/lava-test.yml
-    needs: build-daily
+    needs: debos-daily
     secrets: inherit
     with:
-      url: ${{ needs.build-daily.outputs.artifacts_url }}
+      url: ${{ needs.debos-daily.outputs.artifacts_url }}
