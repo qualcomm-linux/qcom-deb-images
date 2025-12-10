@@ -20,18 +20,14 @@ env:
 jobs:
   submit-job:
     runs-on: ubuntu-latest
-    name: Submit ${{ matrix.name }}
+    name: Submit ${{ matrix.device_type }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - device_type: qcs6490-rb3gen2-vision-kit
-            lava_template: ci/lava/qcs6490-rb3gen2-vision-kit/boot.yaml
-            name: qcs6490-rb3gen2-vision-kit boot
             storage: ufs
           - device_type: qrb2210-rb1
-            lava_template: ci/lava/qrb2210-rb1/boot.yaml
-            name: qrb2210-rb1 boot
             storage: emmc
     steps:
       - name: Print trigger
@@ -44,9 +40,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update test definition ${{ matrix.name }}
+      - name: Update test definition ${{ matrix.device_type }}
         run: |
-          TEMPLATE="${{ matrix.lava_template }}"
           DEVICE_TYPE="${{ matrix.device_type }}"
           STORAGE="${{ matrix.storage }}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
@@ -70,16 +65,16 @@ jobs:
               -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
               -e "s|{{STORAGE}}|${STORAGE}|g" \
               -e "s|{{ROOTFS_IMAGE}}|${ROOTFS_IMAGE}|g" \
-              -i "$TEMPLATE"
-          cat "$TEMPLATE"
+              ci/lava/job-template.yaml |
+              tee "ci/lava/${DEVICE_TYPE}.yaml"
 
-      - name: Submit ${{ matrix.name }}
+      - name: Submit ${{ matrix.device_type }}
         timeout-minutes: 240
         uses: foundriesio/lava-action@v9
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ matrix.lava_template }}
+          job_definition: ci/lava/${{ matrix.device_type }}.yaml
           wait_for_job: true
           fail_action_on_failure: false
           save_result_as_artifact: true
