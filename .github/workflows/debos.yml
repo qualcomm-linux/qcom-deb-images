@@ -23,6 +23,9 @@ on:
       artifacts_url:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
+      boards_json:
+        description: "JSON with matrix of supported boards"
+        value: ${{ jobs.build-debos.outputs.boards_json }}
 
 # implicitely set all other permissions to none
 permissions:
@@ -36,6 +39,7 @@ jobs:
   build-debos:
     name: Build and upload debos recipes
     outputs:
+      boards_json: ${{ steps.stage_artifacts.outputs.boards_json }}
       url: ${{ steps.upload_artifacts_gcp.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
@@ -62,7 +66,7 @@ jobs:
 
       # mtools is needed for the flash recipe
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debos make mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+        run: apt -y install debos jq make mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
 
       - name: Setup local APT repo
         run: |
@@ -124,6 +128,7 @@ jobs:
               debos-recipes/qualcomm-linux-debian-flash.yaml
 
       - name: Stage debos artifacts for publishing
+        id: stage_artifacts
         run: |
           set -ux
           # create a directory for the current run
@@ -134,6 +139,23 @@ jobs:
           cp -av dtbs.tar.gz "${dir}"
           cp -av disk-ufs.img.gz "${dir}"
           cp -av disk-sdcard.img.gz "${dir}"
+
+          # generate a boards.json to convey the map of storage type and
+          # supported boards - e.g. for lab tests
+          emmc_boards="$(dirname flash_*/flash-emmc | sed s/flash_//)"
+          ufs_boards="$(dirname flash_*/flash-ufs | sed s/flash_//)"
+          {
+            for b in $emmc_boards; do printf '{"device_type":"%s","storage":"emmc"}\n' "$b"; done
+            for b in $ufs_boards; do printf '{"device_type":"%s","storage":"ufs"}\n' "$b"; done
+          } | jq -cs '.' >"${dir}/boards.json"
+          # provide this as an output variable
+          echo "Supported boards JSON: $(cat "${dir}/boards.json")"
+          {
+            echo "boards_json<<EOF"
+            cat "${dir}/boards.json"
+            echo "EOF"
+          } >>"$GITHUB_OUTPUT"
+
           # create tarballs with support for all UFS and all eMMC boards
           tar -cvzf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
@@ -143,6 +165,13 @@ jobs:
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               $(dirname flash_*/flash-emmc)
+
+      # needed for async workflows like test-pr.yml
+      - name: Upload boards.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: boards_json
+          path: debos-artifacts/boards.json
 
       # upload to a cloud storage space accessible by LAVA and developers
       - name: Upload private artifacts (GCP)

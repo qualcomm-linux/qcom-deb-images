@@ -3,6 +3,9 @@ name: LAVA test jobs
 on:
   workflow_call:
     inputs:
+      boards_json:
+        required: true
+        type: string
       url:
         required: true
         type: string
@@ -24,11 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - device_type: qcs6490-rb3gen2-vision-kit
-            storage: ufs
-          - device_type: qrb2210-rb1
-            storage: emmc
+        include: ${{ fromJSON(inputs.boards_json) }}
     steps:
       - name: Print trigger and build URL
         run: |

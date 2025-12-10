@@ -108,5 +108,6 @@ jobs:
     needs: debos-mainline-linux
     secrets: inherit
     with:
+      boards_json: ${{ needs.debos-mainline-linux.outputs.boards_json }}
       url: ${{ needs.debos-mainline-linux.outputs.artifacts_url }}
 

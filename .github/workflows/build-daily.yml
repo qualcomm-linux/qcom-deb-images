@@ -27,4 +27,5 @@ jobs:
     needs: debos-daily
     secrets: inherit
     with:
+      boards_json: ${{ needs.debos-daily.outputs.boards_json }}
       url: ${{ needs.debos-daily.outputs.artifacts_url }}
