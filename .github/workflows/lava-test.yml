@@ -73,7 +73,7 @@ jobs:
         uses: foundriesio/lava-action@v9
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
-          lava_url: 'lava.infra.foundries.io'
+          lava_url: lava.infra.foundries.io
           job_definition: ci/lava/${{ matrix.device_type }}.yaml
           wait_for_job: true
           fail_action_on_failure: false
@@ -99,7 +99,7 @@ jobs:
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: "${{ github.workspace }}/artifacts/**/*.xml"
+          files: ${{ github.workspace }}/artifacts/**/*.xml
 
       - name: Publish Test Job Details
         run: |
