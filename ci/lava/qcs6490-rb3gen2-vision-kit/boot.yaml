@@ -76,8 +76,6 @@ job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEM
 metadata:
   build-commit: '{{GITHUB_SHA}}'
 priority: 50
-tags:
-- cambridge-lab
 timeouts:
   job:
     minutes: 210
