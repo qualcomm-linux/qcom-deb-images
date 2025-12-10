@@ -18,52 +18,81 @@ permissions:
   pull-requests: write
 
 jobs:
-  retrieve-build-url:
+  retrieve-artifacts:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     outputs:
+      boards_json: ${{ steps.set-build-url.outputs.boards_json }}
       url: ${{ steps.set-build-url.outputs.url }}
     steps:
-      - name: 'Download build URL'
+      - name: Download build URL and boards JSON
+        id: download
         uses: actions/github-script@v6
         with:
           script: |
-            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               run_id: context.payload.workflow_run.id,
-            });
-            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "build_url"
-            })[0];
-            let download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
-            });
             const fs = require('fs');
             const path = require('path');
-            const temp = '${{ runner.temp }}/artifacts';
-            if (!fs.existsSync(temp)){
-              fs.mkdirSync(temp);
-            }
-            fs.writeFileSync(path.join(temp, 'build_url.zip'), Buffer.from(download.data));
 
-      - name: 'Setup build URL'
+            // list of artifact names we want to fetch
+            const wanted = ['boards_json', 'build_url'];
+            // create temp download directory
+            const tempDir = '${{ runner.temp }}/artifacts';
+            if (!fs.existsSync(tempDir)){
+              fs.mkdirSync(tempDir);
+            }
+
+            const { allArtifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+
+            const byName = new Map(data.artifacts.map(a => [a.name, a]));
+
+            // check we have all wanted artifacts or error out
+            const missing = wanted.filter(name => !byName.has(name));
+            if (missing.length) {
+              core.setFailed(`Missing required artifacts: ${missing.join(', ')}`);
+              return;
+            }
+
+            // downloads
+            await Promise.all(
+                wanted.map(async (name) => {
+                  const artifact = byName.get(name);
+                  const res = await github.rest.actions.downloadArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id,
+                    archive_format: 'zip',
+                  });
+                  const outPath = path.join(tempDir, `${name}.zip`);
+                  fs.writeFileSync(outPath, Buffer.from(res.data));
+                  core.info(`Downloaded ${name} as ${outPath}`);
+                })
+            );
+            core.setOutput('artifacts_dir', tempDir);
+
+      - name: Setup build URL and boards JSON
         id: set-build-url
         run: |
-          unzip "${{ runner.temp }}/artifacts/build_url.zip"
+          artifacts_dir="{{ steps.download.outputs.artifacts_dir }}"
+          unzip "${artifacts_dir}/boards_json.zip"
+          unzip "${artifacts_dir}/build_url.zip"
+          BOARDS_JSON=$(cat boards.json)
           BUILD_URL=$(cat build_url)
+          echo "Boards JSON: ${BOARDS_JSON}"
           echo "Build URL: ${BUILD_URL}"
+          echo "boards_json=${BOARDS_JSON}" >> $GITHUB_OUTPUT
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
 
   test:
     uses: ./.github/workflows/lava-test.yml
     secrets: inherit
-    needs: retrieve-build-url
+    needs: retrieve-artifacts
     with:
-      url: ${{ needs.retrieve-build-url.outputs.url }}
+      boards_json: ${{ needs.retrieve-artifacts.outputs.boards_json }}
+      url: ${{ needs.retrieve-artifacts.outputs.url }}
 
   publish-test-results:
     name: "Publish Tests Results"
