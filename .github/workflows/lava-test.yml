@@ -1,4 +1,4 @@
-name: Tests
+name: LAVA test jobs
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ env:
 jobs:
   submit-job:
     runs-on: ubuntu-latest
-    name: Submit ${{ matrix.device_type }}
+    name: LAVA tests for ${{ matrix.device_type }}
     strategy:
       fail-fast: false
       matrix:
@@ -30,7 +30,7 @@ jobs:
           - device_type: qrb2210-rb1
             storage: emmc
     steps:
-      - name: Print trigger
+      - name: Print trigger and build URL
         run: |
           echo "Triggered by ${{ github.event_name }}"
           echo "Build URL: $BUILD_URL"
@@ -40,7 +40,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update test definition ${{ matrix.device_type }}
+      - name: Gen job yaml ${{ matrix.device_type }}
         run: |
           DEVICE_TYPE="${{ matrix.device_type }}"
           STORAGE="${{ matrix.storage }}"
