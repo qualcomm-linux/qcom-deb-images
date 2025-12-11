@@ -102,7 +102,7 @@ To build flashable assets for all supported boards, follow these steps:
     #debos -t u_boot_rb1:u-boot/rb1-boot.img debos-recipes/qualcomm-linux-debian-flash.yaml
 
     # (optional) build only a subset of boards:
-    #debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
+    #debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
     ```
 
 1. enter Emergency Download Mode (see section below) and flash the resulting images with QDL
@@ -137,7 +137,7 @@ For the image recipe:
 
 For the flash recipe:
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format -- see below (NB: debos expects relative pathnames)
-- `target_boards`: comma-separated list of board names to build (default: `all`). Accepted values are the board names defined in the flash recipe, e.g. `qcs615-adp-air-sa6155p`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`, `qrb2210-rb1`.
+- `target_boards`: comma-separated list of board names to build (default: `all`). Accepted values are the board names defined in the flash recipe, e.g. `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`, `qrb2210-rb1`.
 
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
 
@@ -158,7 +158,7 @@ debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
 
 # build flash assets for a subset of boards
 # (see flash recipe for accepted board names)
-debos -t target_boards:qcs615-adp-air-sa6155p,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
+debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
 ```
 
 ### Flashing tips

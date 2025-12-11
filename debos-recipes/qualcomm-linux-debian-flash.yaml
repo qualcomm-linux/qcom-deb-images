@@ -15,7 +15,7 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8ed8d47982228e4fe21fdc670318fc083d8e7614.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8aed61b36ad793d021438452f3ebfce726c5629f.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
     unpack: true
@@ -23,9 +23,9 @@ actions:
 {{- $boards := list }}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
-    "name" "qcs615-adp-air-sa6155p"
+    "name" "qcs615-ride"
     "silicon_family" "qcs615"
-    "platform" "qcs615-adp-air/ufs"
+    "platform" "qcs615-ride/ufs"
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00096.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
@@ -36,8 +36,8 @@ actions:
     "cdt_download" (dict
         "description" "QCS615 Ride CDT"
         "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS615/cdt/ADP_AIR_SA6155P_V2.zip"
-        "name" "qcs615-adp-air_cdt"
-        "filename" "qcs615-adp-air_cdt.zip"
+        "name" "qcs615-ride_cdt"
+        "filename" "qcs615-ride_cdt.zip"
         "sha256sum" "37d99eb113e286400bce0d70aa12a74d05f93d01f045bf67e7a46b3c606c8fd0"
     )
     "cdt_filename" "cdt_adp_air_sa6155p.bin"
