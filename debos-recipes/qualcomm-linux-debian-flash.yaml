@@ -15,7 +15,7 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/abf334c24cb24140a8b5c4cc99b633a119244639.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8ed8d47982228e4fe21fdc670318fc083d8e7614.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
     unpack: true
@@ -113,6 +113,27 @@ actions:
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
 )}}
+{{- $boards = append $boards (dict
+    "name" "lemans-evk"
+    "silicon_family" "qcs9075"
+    "platform" "iq-9075-evk/ufs"
+    "boot_binaries_download" (dict
+        "description" "QCS9100 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
+        "name" "qcs9100_boot-binaries"
+        "filename" "qcs9100_boot-binaries.zip"
+        "sha256sum" "c201c9e966a706c9e76685ff4298f0940958c4d4877299eee1248ef26b809aa0"
+    )
+    "cdt_download" (dict
+        "description" "QCS9100 RB8 Core Kit CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS9100/cdt/rb8_core_kit.zip"
+        "name" "qcs9100-rb8-core-kit_cdt"
+        "filename" "qcs9100-rb8-core-kit_cdt.zip"
+        "sha256sum" "a252244f800d7c9e15883e12935af4113f9f2ecba6490e46cd9b943169f15bfa"
+    )
+    "cdt_filename" "cdt_rb8_core_kit.bin"
+    "dtb" "qcom/lemans-evk.dtb"
+)}}
 {{- end }}
 {{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
@@ -127,6 +148,7 @@ actions:
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
     )
     "u_boot_file" .u_boot_rb1
+    "dtb" "qcom/qrb2210-rb1.dtb"
 )}}
 {{- end }}
 
@@ -206,13 +228,13 @@ actions:
           skip_board=true
           echo "Skipping board {{ $board.name }}: not in target list"
       fi
-{{- if $board.dtb }}
-      # set skip_board if board has a dtb and dtb isn't present
+
+      # set skip_board if board dtb isn't present
       if ! grep -Fxq "{{ $board.dtb }}" "${dtbs_file}"; then
           skip_board=true
           echo "Skipping board {{ $board.name }}: dtb not available"
       fi
-{{- end }}
+
 
       # unpack boot binaries
       mkdir -v build/{{ $board.name }}_boot-binaries
@@ -294,14 +316,8 @@ actions:
           if [ -e "$contents" ]; then
               "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
                   -t "$contents" \
+                  -b "{{$buildid}}" \
                   -o contents.xml
-              # XXX insert build_id element before windows_root_path;
-              # this will be nicer to do when gen_contents.py supports
-              # setting this; see also:
-              # https://github.com/qualcomm-linux/qcom-ptool/pull/38
-              sed -i \
-                  "/windows_root_path/ i \t\t\t\t<build_id>{{$buildid}}</build_id>" \
-                  contents.xml
           fi
           # generate flashing files from qcom-partitions.xml
           "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
@@ -373,7 +389,6 @@ actions:
       fi
   {{- end }}
 
-  {{- if $board.dtb }}
       if [ "${skip_board}" = false ]; then
           # generate a dtb.bin FAT partition with just a single dtb for the
           # current board; long-term this should really be a set of dtbs and
@@ -394,7 +409,6 @@ actions:
           mcopy -vmp -i "${dtb_bin}" "build/{{ $board.dtb }}" \
               ::/combined-dtb.dtb
       fi
-  {{- end }}
 {{- end }}
 
       # cleanup
