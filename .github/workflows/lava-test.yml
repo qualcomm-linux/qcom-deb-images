@@ -27,7 +27,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # define dimensions of the matrix
+        device_type: []
+        storage: []
+        # actual list is taken from boards.json artifact
         include: ${{ fromJSON(inputs.boards_json) }}
+        exclude:
+          # only one board in hyd lab, not passing health checks and timing out
+          - device_type: qcs8300-ride
+            storage: ufs
     steps:
       - name: Print trigger and build URL
         run: |
