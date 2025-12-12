@@ -27,9 +27,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # define dimensions of the matrix
-        device_type: []
-        storage: []
         # actual list is taken from boards.json artifact
         include: ${{ fromJSON(inputs.boards_json) }}
         exclude:
