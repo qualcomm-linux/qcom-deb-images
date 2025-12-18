@@ -89,11 +89,17 @@ jobs:
       - name: Build rootfs with debos
         run: |
           set -ux
+          if [ "${{ inputs.mainline_kernel }}" = true -a "${{ inputs.kernelpackage }}" = auto ]; then
+              kernelpackage="$(find local-apt-repo/linux-deb-latest -type f -name 'linux-image-*' -not -name '*dbg*'|xargs basename|cut -f1 -d_)"
+          else
+              kernelpackage="${{ inputs.kernelpackage }}"
+          fi
+
           debos \
               -t overlays:'${{ inputs.overlays }}' \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackage:'${{ inputs.kernelpackage }}' \
+              -t kernelpackage:"$kernelpackage" \
               -t "buildid:${BUILD_ID}" \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml

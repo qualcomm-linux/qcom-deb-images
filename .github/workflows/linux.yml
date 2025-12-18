@@ -29,7 +29,7 @@ concurrency:
 jobs:
   build-linux-deb:
     # don't run cron from forks of the main repository or from other branches
-    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/fix-mainline-builds'
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
@@ -101,7 +101,7 @@ jobs:
     uses: ./.github/workflows/debos.yml
     with:
       mainline_kernel: true
-      kernelpackage: linux-image-6.19.0-rc1
+      kernelpackage: auto
 
   test-mainline-linux:
     uses: ./.github/workflows/lava-test.yml
