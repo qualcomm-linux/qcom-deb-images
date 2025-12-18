@@ -101,7 +101,7 @@ jobs:
     uses: ./.github/workflows/debos.yml
     with:
       mainline_kernel: true
-      kernelpackage: linux-image-6.18.0-g3f9f0252130e
+      kernelpackage: linux-image-6.19.0-rc1
 
   test-mainline-linux:
     uses: ./.github/workflows/lava-test.yml
