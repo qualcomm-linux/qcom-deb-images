@@ -90,6 +90,27 @@ actions:
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs8300-ride.dtb"
 )}}
+{{- $boards = append $boards (dict
+    "name" "monaco-evk"
+    "silicon_family" "qcs8300"
+    "platform" "iq-8275-evk/ufs"
+    "boot_binaries_download" (dict
+        "description" "QCS8300 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
+        "name" "qcs8300_boot-binaries"
+        "filename" "qcs8300_boot-binaries.zip"
+        "sha256sum" "463ffd7f20d243a5673ac49d744c8a35a3ab2067c3588be2741c2e6551f5a8f5"
+    )
+    "cdt_download" (dict
+        "description" "IQ-8275 EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-iq-8275-evk-pro-sku.zip"
+        "name" "iq8275-evk-pro_cdt"
+        "filename" "qcs8275-iq-8275-evk-pro-sku.zip"
+        "sha256sum" "cbe2009c8ef7dbacd716141bf01b8e1b26788c4a4f3145e60fe3b4a6b3aabc04"
+    )
+    "cdt_filename" "cdt_qcs8275_iq_8275_evk_pro_sku.bin"
+    "dtb" "qcom/monaco-evk.dtb"
+)}}
 {{- end }}
 {{- if eq $build_qcs9100 "true" }}
 {{- $boards = append $boards (dict
