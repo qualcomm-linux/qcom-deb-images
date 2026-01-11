@@ -70,9 +70,9 @@ To build flashable assets for all supported boards, follow these steps:
     scripts/build-u-boot-rb1.sh
     ```
 
-1. (optional) build a local Linux kernel deb from mainline with a recommended config fragment
+1. (optional) build a local Linux kernel deb from mainline with recommended config fragments
     ```bash
-    scripts/build-linux-deb.sh kernel-configs/qemu-boot.config kernel-configs/qcom-imsdk.config kernel-configs/systemd-boot.config
+    scripts/build-linux-deb.sh kernel-configs/*.config
     ```
 
 1. build tarballs of the root filesystem and DTBs
