@@ -63,8 +63,8 @@ jobs:
             # install build-dependencies; TODO: --no-install-recommends
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
-                debhelper-compat kmod python3 rsync coreutils
-            scripts/build-linux-deb.sh \
+                debhelper kmod python3 rsync coreutils
+            scripts/build-linux-deb.py \
                 kernel-configs/qemu-boot.config \
                 kernel-configs/qcom-imsdk.config \
                 kernel-configs/systemd-boot.config
