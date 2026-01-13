@@ -3,16 +3,15 @@ name: Build debos recipe
 on:
   workflow_call:
     inputs:
-      mainline_kernel:
-        description: Whether to use a mainline kernel deb
-        type: boolean
-        default: false
       overlays:
         description: List of overlays to use
         type: string
         default: qsc-deb-releases
       kernelpackage:
-        description: Name of kernel package to use
+        description: >
+          Kernel package to install from APT repositories (e.g.
+          linux-image-arm64) or name of a fileserver kernel package directory
+          (e.g. fileserver/mainline)
         type: string
         # the package name will be passed to APT which interprets the trailing
         # plus sign in the package name as a request to install the package, so
@@ -31,6 +30,7 @@ permissions:
 env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+  KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
 
 jobs:
   build-debos:
@@ -72,13 +72,16 @@ jobs:
           apt -y install --no-install-recommends apt-utils
           mkdir -v local-apt-repo
 
-          # optionally, copy mainline kernel debs
-          if [ "${{ inputs.mainline_kernel }}" = true ]; then
-              mkdir -v local-apt-repo/linux-deb-latest
-              # get mainline kernel from the fileserver space for downloads
-              cp -av /fileserver-downloads/qcom-deb-images/linux-deb-latest/*.deb \
-                  local-apt-repo/linux-deb-latest
-          fi
+          # optionally, copy kernel debs from fileserver
+          case "$KERNEL_PACKAGE" in
+            fileserver/*)
+              fileserver_dir="${KERNEL_PACKAGE#fileserver}"
+              mkdir -v local-apt-repo/kernel
+              # get kernel from the fileserver space for downloads
+              cp -av "/fileserver-downloads/qcom-deb-images/${fileserver_dir}/"*.deb \
+                  local-apt-repo/kernel
+            ;;
+          esac
 
           (
               cd local-apt-repo
@@ -89,17 +92,19 @@ jobs:
       - name: Build rootfs with debos
         run: |
           set -ux
-          if [ "${{ inputs.mainline_kernel }}" = true -a "${{ inputs.kernelpackage }}" = auto ]; then
-              kernelpackage="$(find local-apt-repo/linux-deb-latest -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_)"
-          else
-              kernelpackage="${{ inputs.kernelpackage }}"
-          fi
+          kernel_package="$KERNEL_PACKAGE"
+          # if kernel package is from fileserver, determine actual package name
+          case "$kernel_package" in
+            fileserver/*)
+              kernel_package="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_)"
+            ;;
+          esac
 
           debos \
               -t overlays:'${{ inputs.overlays }}' \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackage:"$kernelpackage" \
+              -t kernelpackage:"$kernel_package" \
               -t "buildid:${BUILD_ID}" \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml

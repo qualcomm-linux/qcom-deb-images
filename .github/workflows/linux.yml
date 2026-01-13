@@ -100,8 +100,7 @@ jobs:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     with:
-      mainline_kernel: true
-      kernelpackage: auto
+      kernelpackage: fileserver/linux-deb-latest
 
   test-mainline-linux:
     uses: ./.github/workflows/lava-test.yml
