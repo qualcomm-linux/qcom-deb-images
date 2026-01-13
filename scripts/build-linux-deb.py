@@ -86,6 +86,16 @@ def check_dependencies():
 def main():
     parser = argparse.ArgumentParser(description="Build Linux Deb")
     parser.add_argument(
+        "--repo",
+        default=GIT_REPO,
+        help=f"Git repository to clone (default: {GIT_REPO})",
+    )
+    parser.add_argument(
+        "--ref",
+        default=GIT_REF,
+        help=f"Git ref (branch/tag) to checkout (default: {GIT_REF})",
+    )
+    parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
@@ -96,15 +106,15 @@ def main():
 
     check_dependencies()
 
-    log_i(f"Cloning Linux ({GIT_REPO}:{GIT_REF})")
+    log_i(f"Cloning Linux ({args.repo}:{args.ref})")
     subprocess.run(
         [
             "git",
             "clone",
             "--depth=1",
             "--branch",
-            GIT_REPO,
-            GIT_REF,
+            args.ref,
+            args.repo,
             "linux",
         ],
         check=True,
