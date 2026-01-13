@@ -1,9 +1,13 @@
 name: Build Linux kernel deb and debos image
 
 on:
-  # run weekly on Monday at 8:30am
-  schedule:
-    - cron: '30 6 * * 1'
+  workflow_call:
+    inputs:
+      kernel_name:
+        description: 'Name of the kernel to build (default: mainline)'
+        required: false
+        type: string
+        default: 'mainline'
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -71,7 +75,12 @@ jobs:
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
                 debhelper kmod python3 rsync coreutils
-            scripts/build-linux-deb.py \
+            EXTRA_ARGS=""
+            if [ "$KERNEL_NAME" = "qcom-next" ]; then
+                # use qcom-next specific config fragment, and git repo + branch
+                EXTRA_ARGS="--qcom-next prune.config qcom.config"
+            fi
+            scripts/build-linux-deb.py $EXTRA_ARGS \
                 kernel-configs/qemu-boot.config \
                 kernel-configs/qcom-imsdk.config \
                 kernel-configs/systemd-boot.config
