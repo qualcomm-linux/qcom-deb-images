@@ -121,32 +121,34 @@ def main():
     )
 
     log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
-    local_config = Path("linux/kernel/configs/local.config")
-
-    if local_config.exists():
-        print(f"removed '{local_config}'")
-        local_config.unlink()
+    # directory to store local config fragments so they can be picked up by
+    # kbuild
+    local_conf_dir = Path("linux/kernel/configs")
+    local_conf_dir.mkdir(parents=True, exist_ok=True)
 
     config_targets = [BASE_CONFIG]
 
-    for fragment in args.fragments:
+    for i, fragment in enumerate(args.fragments):
         if Path(fragment).exists():
-            log_i(f"Adding config fragment to local.config: {fragment}")
+            # Create a unique name for the local fragment
+            local_frag_name = f"local_{i}.config"
+            dest_path = local_conf_dir / local_frag_name
 
-            # ensure parent dir exists (it should, inside cloned repo)
-            local_config.parent.mkdir(parents=True, exist_ok=True)
-
-            # append content of fragment to local.config
+            log_i(f"Copying local fragment {fragment} to {dest_path}")
             with open(fragment, "r", encoding="utf-8") as f_in:
                 content = f_in.read()
-
-            with open(local_config, "a", encoding="utf-8") as f_out:
+            with open(dest_path, "w", encoding="utf-8") as f_out:
                 f_out.write(content)
+
+            config_targets.append(local_frag_name)
         elif (Path("linux/arch/arm64/configs") / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
             config_targets.append(fragment)
         else:
-            fatal(f"Config fragment '{fragment}' not found locally or in repository (arch/arm64/configs/).")
+            fatal(
+                f"Config fragment '{fragment}' not found locally or in "
+                f"repository (arch/arm64/configs/)."
+            )
 
     nproc = subprocess.check_output(["nproc"], text=True).strip()
     make_base_command = [
@@ -156,9 +158,6 @@ def main():
         "CROSS_COMPILE=aarch64-linux-gnu-",
         "DEB_HOST_ARCH=arm64",
     ]
-
-    if Path("kernel/configs/local.config").exists():
-        config_targets.append("local.config")
 
     config_command = make_base_command + config_targets
     subprocess.run(config_command, check=True, cwd="linux")
