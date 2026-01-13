@@ -10,10 +10,71 @@ from pathlib import Path
 # git repo/ref to use
 GIT_REPO = "https://github.com/torvalds/linux"
 GIT_REF = "master"
+QCOM_NEXT_GIT_REPO = "https://github.com/qualcomm-linux/kernel"
+QCOM_NEXT_GIT_REF = "qcom-next"
 # base config to use
 BASE_CONFIG = "defconfig"
 # package set to build
 DEB_PKG_SET = "bindeb-pkg"
+
+
+def get_latest_qcom_next_tag(repo):
+    """
+    Find the latest qcom-next-...-date tag from the repository.
+    The date is expected to be the last component of the tag.
+    """
+    log_i(f"Fetching tags from {repo}...")
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", "--tags", "--refs", repo],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        fatal(f"Failed to fetch tags from {repo}: {e.stderr}")
+
+    latest_tag = None
+    latest_date = -1
+
+    for line in result.stdout.splitlines():
+        # output format: <hash>\trefs/tags/<tag>
+        parts = line.split("\t")
+        if len(parts) != 2:
+            continue
+        ref = parts[1]
+        if not ref.startswith("refs/tags/"):
+            continue
+        tag = ref[len("refs/tags/"):]
+
+        if not tag.startswith("qcom-next-"):
+            continue
+
+        # check for date at the end
+        tag_parts = tag.split("-")
+        date_str = tag_parts[-1]
+
+        if len(date_str) == 8 and date_str.isdigit():
+            try:
+                date_val = int(date_str)
+                if date_val > latest_date:
+                    latest_date = date_val
+                    latest_tag = tag
+                elif date_val == latest_date:
+                    # tie-breaker: prefer lexicographically larger tag
+                    # (usually newer version)
+                    if latest_tag is None or tag > latest_tag:
+                        latest_tag = tag
+            except ValueError:
+                pass
+
+    if latest_tag:
+        log_i(f"Found latest qcom-next tag: {latest_tag}")
+        return latest_tag
+
+    log_i("No suitable qcom-next tag found, falling back to default ref")
+    return QCOM_NEXT_GIT_REF
 
 
 def log_i(msg):
@@ -96,6 +157,11 @@ def main():
         help=f"Git ref (branch/tag) to checkout (default: {GIT_REF})",
     )
     parser.add_argument(
+        "--qcom-next",
+        action="store_true",
+        help="Use qcom-next repository and ref defaults",
+    )
+    parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
@@ -103,6 +169,12 @@ def main():
         help="Config fragments to merge",
     )
     args = parser.parse_args()
+
+    if args.qcom_next:
+        if args.repo == GIT_REPO:
+            args.repo = QCOM_NEXT_GIT_REPO
+        if args.ref == GIT_REF:
+            args.ref = get_latest_qcom_next_tag(args.repo)
 
     check_dependencies()
 
