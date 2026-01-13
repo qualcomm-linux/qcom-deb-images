@@ -127,18 +127,26 @@ def main():
         print(f"removed '{local_config}'")
         local_config.unlink()
 
+    config_targets = [BASE_CONFIG]
+
     for fragment in args.fragments:
-        log_i(f"Adding config fragment to local.config: {fragment}")
+        if Path(fragment).exists():
+            log_i(f"Adding config fragment to local.config: {fragment}")
 
-        # ensure parent dir exists (it should, inside cloned repo)
-        local_config.parent.mkdir(parents=True, exist_ok=True)
+            # ensure parent dir exists (it should, inside cloned repo)
+            local_config.parent.mkdir(parents=True, exist_ok=True)
 
-        # append content of fragment to local.config
-        with open(fragment, "r", encoding="utf-8") as f_in:
-            content = f_in.read()
+            # append content of fragment to local.config
+            with open(fragment, "r", encoding="utf-8") as f_in:
+                content = f_in.read()
 
-        with open(local_config, "a", encoding="utf-8") as f_out:
-            f_out.write(content)
+            with open(local_config, "a", encoding="utf-8") as f_out:
+                f_out.write(content)
+        elif (Path("linux/arch/arm64/configs") / fragment).exists():
+            log_i(f"Using config fragment from repo: {fragment}")
+            config_targets.append(fragment)
+        else:
+            fatal(f"Config fragment '{fragment}' not found locally or in repository (arch/arm64/configs/).")
 
     nproc = subprocess.check_output(["nproc"], text=True).strip()
     make_base_command = [
@@ -149,9 +157,10 @@ def main():
         "DEB_HOST_ARCH=arm64",
     ]
 
-    config_command = make_base_command + [BASE_CONFIG]
     if Path("kernel/configs/local.config").exists():
-        config_command.append("local.config")
+        config_targets.append("local.config")
+
+    config_command = make_base_command + config_targets
     subprocess.run(config_command, check=True, cwd="linux")
 
     log_i("Building Linux deb")
