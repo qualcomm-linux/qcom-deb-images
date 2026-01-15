@@ -1,11 +1,20 @@
 name: Build Linux kernel deb and debos image
 
 on:
-  # run weekly on Monday at 8:30am
-  schedule:
-    - cron: '30 6 * * 1'
+  workflow_call:
+    inputs:
+      kernel_name:
+        description: 'Name of the kernel to build (default: mainline)'
+        required: false
+        type: string
+        default: 'mainline'
   # allow manual runs
   workflow_dispatch:
+    inputs:
+      kernel_name:
+        description: 'Name of the kernel to build (default: mainline)'
+        required: false
+        type: string
 
 # implicitely set all other permissions to none
 permissions:
@@ -20,6 +29,8 @@ env:
   # github runs are only unique per repository and may also be re-run; create a
   # build id for the current run
   BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  # name of the kernel being built
+  KERNEL_NAME: ${{ inputs.kernel_name || 'mainline' }}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -63,8 +74,13 @@ jobs:
             # install build-dependencies; TODO: --no-install-recommends
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
-                debhelper-compat kmod python3 rsync coreutils
-            scripts/build-linux-deb.sh \
+                debhelper kmod python3 rsync coreutils
+            EXTRA_ARGS=""
+            if [ "$KERNEL_NAME" = "qcom-next" ]; then
+                # use qcom-next specific config fragment, and git repo + branch
+                EXTRA_ARGS="--qcom-next prune.config qcom.config"
+            fi
+            scripts/build-linux-deb.py $EXTRA_ARGS \
                 kernel-configs/qemu-boot.config \
                 kernel-configs/qcom-imsdk.config \
                 kernel-configs/systemd-boot.config
@@ -84,9 +100,10 @@ jobs:
           export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
-          # create or update linux-deb-latest symlink
+          # create or update symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
-          ln -fnsv "../${BUILD_ID}" /fileserver-downloads/qcom-deb-images/linux-deb-latest
+          ln -fnsv "../${BUILD_ID}" \
+              "/fileserver-downloads/qcom-deb-images/${KERNEL_NAME}"
           # perhaps help NFS sync
           sync
 
@@ -96,17 +113,15 @@ jobs:
         with:
           path: artifacts
 
-  debos-mainline-linux:
+  debos-linux-deb:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     with:
-      mainline_kernel: true
-      kernelpackage: auto
+      kernelpackage: fileserver/${{ inputs.kernel_name || 'mainline' }}
 
-  test-mainline-linux:
+  test-linux-deb:
     uses: ./.github/workflows/lava-test.yml
-    needs: debos-mainline-linux
+    needs: debos-linux-deb
     secrets: inherit
     with:
-      url: ${{ needs.debos-mainline-linux.outputs.artifacts_url }}
-
+      url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
