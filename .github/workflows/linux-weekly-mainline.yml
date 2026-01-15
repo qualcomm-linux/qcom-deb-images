@@ -4,6 +4,8 @@ on:
   # run weekly on Monday at 6:30am
   schedule:
     - cron: '30 6 * * 1'
+  # allow manual runs
+  workflow_dispatch:
 
 permissions:
   checks: write # linux.yml
