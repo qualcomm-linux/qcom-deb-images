@@ -42,7 +42,6 @@ actions:
     )
     "cdt_filename" "cdt_adp_air_sa6155p.bin"
     "dtb" "qcom/qcs615-ride.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcm6490 "true" }}
