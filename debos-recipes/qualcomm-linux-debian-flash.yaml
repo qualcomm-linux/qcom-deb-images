@@ -92,7 +92,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
     "silicon_family" "qcs8300"
-    "ptool_platforms" (list "iq-8275-evk/ufs")
+    "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
