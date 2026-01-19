@@ -109,10 +109,11 @@ To build flashable assets for all supported boards, follow these steps:
 1. enter Emergency Download Mode (see section below) and flash the resulting images with QDL
     ```bash
     # for RB3 Gen2 Vision Kit or UFS boards in general
-    cd flash_qcs6490-rb3gen2-vision-kit
+    cd flash_qcs6490-rb3gen2-vision-kit_ufs
     qdl --storage ufs prog_firehose_ddr.elf rawprogram[0-9].xml patch[0-9].xml
 
     # for RB1 or eMMC boards in general
+    cd flash_qrb2210-rb1_emmc
     qdl --allow-missing --storage emmc prog_firehose_ddr.elf rawprogram[0-9].xml patch[0-9].xml
     ```
 

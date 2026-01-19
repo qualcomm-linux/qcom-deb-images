@@ -149,11 +149,11 @@ jobs:
           tar -cvzf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
               disk-ufs.img2 \
-              $(dirname flash_*/flash-ufs)
+              flash_*_ufs
           tar -cvzf "${dir}"/flash-emmc.tar.gz \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
-              $(dirname flash_*/flash-emmc)
+              flash_*_emmc
 
       # upload to a cloud storage space accessible by LAVA and developers
       - name: Upload private artifacts (GCP)

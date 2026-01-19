@@ -15,7 +15,7 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8aed61b36ad793d021438452f3ebfce726c5629f.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/43424f96b12b357c3574d3bd8c9874b8156fde7c.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
     unpack: true
@@ -25,7 +25,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
     "silicon_family" "qcs615"
-    "platform" "qcs615-ride/ufs"
+    "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00096.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
@@ -42,14 +42,13 @@ actions:
     )
     "cdt_filename" "cdt_adp_air_sa6155p.bin"
     "dtb" "qcom/qcs615-ride.dtb"
-    "disk_image_type" "ufs"
 )}}
 {{- end }}
 {{- if eq $build_qcm6490 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
     "silicon_family" "qcm6490"
-    "platform" "qcs6490-rb3gen2/ufs"
+    "ptool_platforms" (list "qcs6490-rb3gen2/ufs")
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip"
@@ -72,7 +71,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs8300-ride"
     "silicon_family" "qcs8300"
-    "platform" "qcs8300-ride-sx/ufs"
+    "ptool_platforms" (list "qcs8300-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
@@ -93,7 +92,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
     "silicon_family" "qcs8300"
-    "platform" "iq-8275-evk/ufs"
+    "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
@@ -116,7 +115,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qcs9100-ride-r3"
     "silicon_family" "qcs9100"
-    "platform" "qcs9100-ride-sx/ufs"
+    "ptool_platforms" (list "qcs9100-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
@@ -137,7 +136,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "lemans-evk"
     "silicon_family" "qcs9075"
-    "platform" "iq-9075-evk/ufs"
+    "ptool_platforms" (list "iq-9075-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
@@ -160,7 +159,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "silicon_family" "qcm2290"
-    "platform" "qrb2210-rb1/emmc"
+    "ptool_platforms" (list "qrb2210-rb1/emmc")
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
         "url" "https://releases.linaro.org/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
@@ -240,7 +239,6 @@ actions:
 
 {{- range $board := $boards }}
       ### board: {{ $board.name }}
-      ### platform: {{ $board.platform }}
       ### silicon family: {{ $board.silicon_family }}
 
       # set skip_board if board isn't listed
@@ -265,12 +263,23 @@ actions:
       mv build/{{ $board.name }}_boot-binaries/unpack/*/* build/{{ $board.name }}_boot-binaries
       rmdir -v build/{{ $board.name }}_boot-binaries/unpack/* build/{{ $board.name }}_boot-binaries/unpack
 
+  {{- if $board.cdt_download }}
+      if [ "${skip_board}" = false ]; then
+          # unpack board CDT
+          unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
+              -d build/{{ $board.name }}_cdt
+      fi
+  {{- end }}
+
+{{- range $platform := $board.ptool_platforms }}
+      ### platform: {{ $platform }}
+
       # generate ptool files - various XML files for flashing, GPT data etc.
-      mkdir -vp build/ptool/{{ $board.platform }}
+      mkdir -vp build/ptool/{{ $platform }}
       (
-          cd build/ptool/{{ $board.platform }}
-          conf="${QCOM_PTOOL}/platforms/{{ $board.platform }}/partitions.conf"
-          contents="${QCOM_PTOOL}/platforms/{{ $board.platform }}/contents.xml.in"
+          cd build/ptool/{{ $platform }}
+          conf="${QCOM_PTOOL}/platforms/{{ $platform }}/partitions.conf"
+          contents="${QCOM_PTOOL}/platforms/{{ $platform }}/contents.xml.in"
           disk_type="unknown"
           # make a copy of partitions.conf; infer storage type from lines
           # like:
@@ -298,16 +307,15 @@ actions:
                   disk_type="$(echo "$line" | sed -n 's/.*--type=\([^ ]*\).*/\1/p')"
                   case $disk_type in
                     "emmc")
-                      touch flash-emmc
                       esp="../disk-sdcard.img1"
                       rootfs="../disk-sdcard.img2"
                       ;;
                     "ufs")
-                      touch flash-ufs
                       esp="../disk-ufs.img1"
                       rootfs="../disk-ufs.img2"
                       ;;
                   esac
+                  echo "$disk_type" >disk_type
                   ;;
                 # read partitions
                 "--partition "*)
@@ -345,19 +353,20 @@ actions:
       )
 
       if [ "${skip_board}" = false ]; then
+          disk_type=$(cat build/ptool/{{ $platform }}/disk_type)
           # create board-specific flash directory
-          flash_dir="${ARTIFACTDIR}/flash_{{ $board.name }}"
+          flash_dir="${ARTIFACTDIR}/flash_{{ $board.name }}_${disk_type}"
           rm -rf "${flash_dir}"
           mkdir -v "${flash_dir}"
           # copy platform partition files
           cp --preserve=mode,timestamps -v \
-              build/ptool/{{ $board.platform }}/* "${flash_dir}"
+              build/ptool/{{ $platform }}/* "${flash_dir}"
           # adjust paths in contents.xml to use board-specific flash_* subdir
           if [ -e "${flash_dir}/contents.xml" ]; then
               # one set of backslashes for shell quoting, another one for sed
               # parsing
-              windows_path=".\\\\flash_{{ $board.name }}\\\\"
-              linux_path="./flash_{{ $board.name }}/"
+              windows_path=".\\\\flash_{{ $board.name }}_${disk_type}\\\\"
+              linux_path="./flash_{{ $board.name }}_${disk_type}/"
               sed -i \
                   -e "s:<windows_root_path>.*:<windows_root_path>${windows_path}</windows_root_path>:" \
                   -e "s:<linux_root_path>.*:<linux_root_path>${linux_path}</linux_root_path>:" \
@@ -387,6 +396,9 @@ actions:
                   -or -name '*.mbn' \
               \) \
               -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
+
+          # remove the temporary disk_type file from the flash dir
+          rm -f "${flash_dir}/disk_type"
       fi
   {{- if $board.u_boot_file }}
       if [ "${skip_board}" = false ]; then
@@ -400,9 +412,6 @@ actions:
 
   {{- if $board.cdt_download }}
       if [ "${skip_board}" = false ]; then
-          # unpack board CDT
-          unzip "${ROOTDIR}/../{{ $board.cdt_download.filename }}" \
-              -d build/{{ $board.name }}_cdt
           # copy just the CDT data; no partition or flashing files
           cp --preserve=mode,timestamps -v \
               build/{{ $board.name }}_cdt/{{ $board.cdt_filename }} \
@@ -430,6 +439,7 @@ actions:
           mcopy -vmp -i "${dtb_bin}" "build/{{ $board.dtb }}" \
               ::/combined-dtb.dtb
       fi
+{{- end }}
 {{- end }}
 
       # cleanup

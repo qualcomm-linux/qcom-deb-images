@@ -14,7 +14,7 @@ actions:
         - echo "OVERLAY=overlay.tar.gz" >> $IMAGE_PATH/flash.settings
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
         - echo "ROOTFS_IMAGE=disk-ufs.img2" >> $IMAGE_PATH/flash.settings
-        - echo "DEVICE_TYPE=debian-qcs6490-rb3gen2-vision-kit" >> $IMAGE_PATH/flash.settings
+        - echo "DEVICE_TYPE=debian-qcs6490-rb3gen2-vision-kit_ufs" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
       minutes: 200
