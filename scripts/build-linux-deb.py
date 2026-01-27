@@ -166,6 +166,14 @@ def main():
         help="Use qcom-next repository and ref defaults",
     )
     parser.add_argument(
+        "--local-dir",
+        type=str,
+        default=None,
+        help=("Path to an existing Linux kernel source tree;"
+              " if not set, the repo will be cloned into ./linux"),
+    )
+
+    parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
@@ -203,24 +211,31 @@ def main():
 
     check_dependencies()
 
-    log_i(f"Cloning Linux ({args.repo}:{args.ref})")
-    subprocess.run(
-        [
-            "git",
-            "clone",
-            "--depth=1",
-            "--branch",
-            args.ref,
-            args.repo,
-            "linux",
-        ],
-        check=True,
-    )
+    if args.local_dir:
+        linux_dir = Path(args.local_dir)
+        if not linux_dir.exists():
+            fatal(f"Provided --local-dir '{linux_dir}' does not exist")
+        log_i(f"Using existing kernel source at {linux_dir}")
+    else:
+        linux_dir = Path("linux")
+        log_i(f"Cloning Linux ({args.repo}:{args.ref}) into {linux_dir}")
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "--branch",
+                args.ref,
+                args.repo,
+                str(linux_dir),
+            ],
+            check=True,
+        )
 
     log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
     # directory to store local config fragments so they can be picked up by
     # kbuild
-    local_conf_dir = Path("linux/kernel/configs")
+    local_conf_dir = linux_dir / "kernel" / "configs"
     local_conf_dir.mkdir(parents=True, exist_ok=True)
 
     config_targets = []
@@ -238,7 +253,7 @@ def main():
                 f_out.write(content)
 
             config_targets.append(f"kernel/configs/{local_frag_name}")
-        elif (Path("linux/arch/arm64/configs") / fragment).exists():
+        elif (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
             config_targets.append(f"arch/arm64/configs/{fragment}")
         else:
@@ -257,7 +272,8 @@ def main():
     ]
 
     # Create base defconfig first
-    subprocess.run(make_base_command + [BASE_CONFIG], check=True, cwd="linux")
+    subprocess.run(make_base_command + [BASE_CONFIG], check=True,
+                   cwd=linux_dir)
 
     # Merge config fragments using merge_config.sh for proper dependency
     # handling
@@ -282,7 +298,7 @@ def main():
 
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
-    subprocess.run(build_command, check=True, cwd="linux")
+    subprocess.run(build_command, check=True, cwd=linux_dir)
 
 
 if __name__ == "__main__":
