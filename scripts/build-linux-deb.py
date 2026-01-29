@@ -162,6 +162,13 @@ def main():
         help="Use qcom-next repository and ref defaults",
     )
     parser.add_argument(
+        "--kernel-src-path",
+        type=str,
+        default=None,
+        help="Path to an existing Linux kernel source tree; if not set, the repo will be cloned into ./linux",
+    )
+
+    parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
@@ -178,24 +185,31 @@ def main():
 
     check_dependencies()
 
-    log_i(f"Cloning Linux ({args.repo}:{args.ref})")
-    subprocess.run(
-        [
-            "git",
-            "clone",
-            "--depth=1",
-            "--branch",
-            args.ref,
-            args.repo,
-            "linux",
-        ],
-        check=True,
-    )
+    if args.kernel_src_path:
+        src_path = Path(args.kernel_src_path)
+        if not src_path.exists():
+            fatal(f"Provided --src-path '{src_path}' does not exist")
+        log_i(f"Using existing kernel source at {src_path}")
+    else:
+        src_path = Path("linux")
+        log_i(f"Cloning Linux ({args.repo}:{args.ref}) into {src_path}")
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "--branch",
+                args.ref,
+                args.repo,
+                str(src_path),
+            ],
+            check=True,
+        )
 
     log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
     # directory to store local config fragments so they can be picked up by
     # kbuild
-    local_conf_dir = Path("linux/kernel/configs")
+    local_conf_dir = src_path / "kernel" / "configs"
     local_conf_dir.mkdir(parents=True, exist_ok=True)
 
     config_targets = [BASE_CONFIG]
@@ -213,7 +227,7 @@ def main():
                 f_out.write(content)
 
             config_targets.append(local_frag_name)
-        elif (Path("linux/arch/arm64/configs") / fragment).exists():
+        elif (src_path / "arch" / "arm64" / "configs" / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
             config_targets.append(fragment)
         else:
@@ -232,11 +246,11 @@ def main():
     ]
 
     config_command = make_base_command + config_targets
-    subprocess.run(config_command, check=True, cwd="linux")
+    subprocess.run(config_command, check=True, cwd=src_path)
 
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
-    subprocess.run(build_command, check=True, cwd="linux")
+    subprocess.run(build_command, check=True, cwd=src_path)
 
 
 if __name__ == "__main__":
