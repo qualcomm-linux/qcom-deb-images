@@ -162,7 +162,7 @@ actions:
     "ptool_platforms" (list "qrb2210-rb1/emmc")
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
-        "url" "https://releases.linaro.org/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
+        "url" "https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
         "name" "qrb2210-rb1_rescue-image"
         "filename" "qrb2210-rb1_rescue-image.zip"
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
