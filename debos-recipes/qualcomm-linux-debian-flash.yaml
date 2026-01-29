@@ -171,6 +171,19 @@ actions:
     "dtb" "qcom/qrb2210-rb1.dtb"
 )}}
 {{- end }}
+{{- $boards = append $boards (dict
+    "name" "qrb2210-arduino-imola"
+    "silicon_family" "qcm2290"
+    "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
+    "boot_binaries_download" (dict
+        "description" "UNO Q boot binaries"
+        "url" "https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip"
+        "name" "qrb2210-arduino-imola_boot-binaries"
+        "filename" "qrb2210-arduino-imola_boot-binaries.zip"
+        "sha256sum" "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
+    )
+    "dtb" "qcom/qrb2210-arduino-imola.dtb"
+)}}
 
 {{- range $board := $boards }}
   - action: download
