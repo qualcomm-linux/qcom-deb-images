@@ -76,7 +76,10 @@ jobs:
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
                 debhelper kmod python3 rsync coreutils
             EXTRA_ARGS=""
-            if [ "$KERNEL_NAME" = "qcom-next" ]; then
+            if [ "$KERNEL_NAME" = "linux-next" ]; then
+                # use linux-next specific git repo + branch
+                EXTRA_ARGS="--linux-next"
+            elif [ "$KERNEL_NAME" = "qcom-next" ]; then
                 # use qcom-next specific config fragment, and git repo + branch
                 EXTRA_ARGS="--qcom-next prune.config qcom.config"
             fi
