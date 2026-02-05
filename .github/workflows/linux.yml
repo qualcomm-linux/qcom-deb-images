@@ -34,7 +34,7 @@ env:
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.kernel_name || 'mainline' }}
   cancel-in-progress: true
 
 jobs:
