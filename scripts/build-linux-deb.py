@@ -10,6 +10,10 @@ from pathlib import Path
 # git repo/ref to use
 GIT_REPO = "https://github.com/torvalds/linux"
 GIT_REF = "master"
+LINUX_NEXT_GIT_REPO = (
+    "https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git"
+)
+LINUX_NEXT_GIT_REF = "master"
 QCOM_NEXT_GIT_REPO = "https://github.com/qualcomm-linux/kernel"
 QCOM_NEXT_GIT_REF = "qcom-next"
 # base config to use
@@ -18,9 +22,9 @@ BASE_CONFIG = "defconfig"
 DEB_PKG_SET = "bindeb-pkg"
 
 
-def get_latest_qcom_next_tag(repo):
+def get_latest_dated_tag(repo, prefix):
     """
-    Find the latest qcom-next-...-date tag from the repository.
+    Find the latest prefix-...-date tag from the repository.
     The date is expected to be the last component of the tag.
     """
     log_i(f"Fetching tags from {repo}...")
@@ -48,7 +52,7 @@ def get_latest_qcom_next_tag(repo):
             continue
         tag = ref[len("refs/tags/"):]
 
-        if not tag.startswith("qcom-next-"):
+        if not tag.startswith(prefix):
             continue
 
         # check for date at the end
@@ -69,12 +73,7 @@ def get_latest_qcom_next_tag(repo):
             except ValueError:
                 pass
 
-    if latest_tag:
-        log_i(f"Found latest qcom-next tag: {latest_tag}")
-        return latest_tag
-
-    log_i("No suitable qcom-next tag found, falling back to default ref")
-    return QCOM_NEXT_GIT_REF
+    return latest_tag
 
 
 def log_i(msg):
@@ -157,6 +156,11 @@ def main():
         help=f"Git ref (branch/tag) to checkout (default: {GIT_REF})",
     )
     parser.add_argument(
+        "--linux-next",
+        action="store_true",
+        help="Use linux-next repository and ref defaults",
+    )
+    parser.add_argument(
         "--qcom-next",
         action="store_true",
         help="Use qcom-next repository and ref defaults",
@@ -170,11 +174,28 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.qcom_next:
+    # default settings for next trees
+    ref_prefix = None
+    if args.linux_next:
+        if args.repo == GIT_REPO:
+            args.repo = LINUX_NEXT_GIT_REPO
+        if args.ref == GIT_REF:
+            args.ref = LINUX_NEXT_GIT_REF
+            ref_prefix = "next-"
+    elif args.qcom_next:
         if args.repo == GIT_REPO:
             args.repo = QCOM_NEXT_GIT_REPO
         if args.ref == GIT_REF:
-            args.ref = get_latest_qcom_next_tag(args.repo)
+            args.ref = QCOM_NEXT_GIT_REF
+            ref_prefix = "qcom-next-"
+
+    if ref_prefix:
+        found_tag = get_latest_dated_tag(args.repo, ref_prefix)
+        if found_tag:
+            log_i(f"Found latest tag: {found_tag}")
+            args.ref = found_tag
+        else:
+            log_i("No suitable tag found, falling back to default ref")
 
     check_dependencies()
 

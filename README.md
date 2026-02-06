@@ -3,6 +3,7 @@
 [![build on push status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-on-push.yml?label=build%20on%20push)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml)
 [![daily build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily.yml?label=daily%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml)
 [![daily qcom-next build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-qcom-next.yml?label=daily%20qcom-next%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-qcom-next.yml)
+[![daily linux-next build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-linux-next.yml?label=daily%20linux-next%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-linux-next.yml)
 [![weekly mainline build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-weekly-mainline.yml?label=weekly%20mainline%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-weekly-mainline.yml)
 
 A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline-centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
@@ -74,6 +75,9 @@ To build flashable assets for all supported boards, follow these steps:
 1. (optional) build a local Linux kernel deb from mainline with a recommended config fragment
     ```bash
     scripts/build-linux-deb.py kernel-configs/qemu-boot.config kernel-configs/qcom-imsdk.config kernel-configs/systemd-boot.config
+
+    # or from linux-next:
+    scripts/build-linux-deb.py --linux-next kernel-configs/qemu-boot.config kernel-configs/qcom-imsdk.config kernel-configs/systemd-boot.config
     ```
 
 1. build tarballs of the root filesystem and DTBs
