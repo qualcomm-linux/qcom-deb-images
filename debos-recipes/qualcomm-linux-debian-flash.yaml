@@ -28,10 +28,10 @@ actions:
     "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00096.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
         "name" "qcs615_boot-binaries"
         "filename" "qcs615_boot-binaries.zip"
-        "sha256sum" "4500b904d8195e89dd59c0d196e934b88c4737c57b5be20c60f156b8b73e9ddb"
+        "sha256sum" "a5cd09352d760699ca79d76b28a20f6519db8d2c3b121074c15235d01f7e3a76"
     )
     "cdt_download" (dict
         "description" "QCS615 Ride CDT"
@@ -51,10 +51,10 @@ actions:
     "ptool_platforms" (list "qcs6490-rb3gen2/ufs")
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip"
         "name" "qcm6490_boot-binaries"
         "filename" "qcm6490_boot-binaries.zip"
-        "sha256sum" "9c100d7b184ecf0ab9c4be71a8bb7c243fdc79a64380ca3025024dd2b14c5078"
+        "sha256sum" "3bfc7748493e4ac8d8ad77db5c132b5301195ce02d377c62171332a81901f552"
     )
     "cdt_download" (dict
         "description" "RB3 Gen2 Vision Kit CDT"
@@ -74,10 +74,10 @@ actions:
     "ptool_platforms" (list "qcs8300-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
         "name" "qcs8300_boot-binaries"
         "filename" "qcs8300_boot-binaries.zip"
-        "sha256sum" "463ffd7f20d243a5673ac49d744c8a35a3ab2067c3588be2741c2e6551f5a8f5"
+        "sha256sum" "2067015d9a96d7e009ffec3a42bb7f88a659eb96c6b9e6f9df849af222a8f0e3"
     )
     "cdt_download" (dict
         "description" "QCS8300 Ride SX EVK CDT"
@@ -95,10 +95,10 @@ actions:
     "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
         "name" "qcs8300_boot-binaries"
         "filename" "qcs8300_boot-binaries.zip"
-        "sha256sum" "463ffd7f20d243a5673ac49d744c8a35a3ab2067c3588be2741c2e6551f5a8f5"
+        "sha256sum" "2067015d9a96d7e009ffec3a42bb7f88a659eb96c6b9e6f9df849af222a8f0e3"
     )
     "cdt_download" (dict
         "description" "IQ-8275 EVK CDT"
@@ -118,10 +118,10 @@ actions:
     "ptool_platforms" (list "qcs9100-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
         "name" "qcs9100_boot-binaries"
         "filename" "qcs9100_boot-binaries.zip"
-        "sha256sum" "c201c9e966a706c9e76685ff4298f0940958c4d4877299eee1248ef26b809aa0"
+        "sha256sum" "963d54a9e9a3ef29c6933b3d71faa035b72df07cc36f42c14c39ed5f47878026"
     )
     "cdt_download" (dict
         "description" "QCS9100 Ride Rev3 EVK CDT"
@@ -139,10 +139,10 @@ actions:
     "ptool_platforms" (list "iq-9075-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00095.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00108.0/qcs9100-le-1-0/common/build/ufs/bin/QCS9100_bootbinaries.zip"
         "name" "qcs9100_boot-binaries"
         "filename" "qcs9100_boot-binaries.zip"
-        "sha256sum" "c201c9e966a706c9e76685ff4298f0940958c4d4877299eee1248ef26b809aa0"
+        "sha256sum" "6f1e31e51521f644791638c80ac9feb19b7170eb8e65f8f0c28559cc8a6bc264"
     )
     "cdt_download" (dict
         "description" "QCS9100 RB8 Core Kit CDT"
