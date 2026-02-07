@@ -390,6 +390,7 @@ actions:
                   -name LICENSE \
                   -or -name Qualcomm-Technologies-Inc.-Proprietary \
                   -or -name 'prog_*' \
+                  -or -name 'boot.img' \
                   -or -name '*.bin' \
                   -or -name '*.elf' \
                   -or -name '*.fv' \
