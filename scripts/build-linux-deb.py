@@ -219,7 +219,7 @@ def main():
     local_conf_dir = Path("linux/kernel/configs")
     local_conf_dir.mkdir(parents=True, exist_ok=True)
 
-    config_targets = [BASE_CONFIG]
+    config_targets = []
 
     for i, fragment in enumerate(args.fragments):
         if Path(fragment).exists():
@@ -233,10 +233,10 @@ def main():
             with open(dest_path, "w", encoding="utf-8") as f_out:
                 f_out.write(content)
 
-            config_targets.append(local_frag_name)
+            config_targets.append(f"kernel/configs/{local_frag_name}")
         elif (Path("linux/arch/arm64/configs") / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
-            config_targets.append(fragment)
+            config_targets.append(f"arch/arm64/configs/{fragment}")
         else:
             fatal(
                 f"Config fragment '{fragment}' not found locally or in "
@@ -252,8 +252,29 @@ def main():
         "DEB_HOST_ARCH=arm64",
     ]
 
-    config_command = make_base_command + config_targets
-    subprocess.run(config_command, check=True, cwd="linux")
+    # Create base defconfig first
+    subprocess.run(make_base_command + [BASE_CONFIG], check=True, cwd="linux")
+
+    # Merge config fragments using merge_config.sh for proper dependency
+    # handling
+    if config_targets:
+        merge_command = [
+            "scripts/kconfig/merge_config.sh", "-m", "-r", ".config"
+        ]
+        merge_command.extend(config_targets)
+        subprocess.run(
+            merge_command,
+            check=True,
+            cwd="linux",
+            env={"ARCH": "arm64", **subprocess.os.environ}
+        )
+
+        # Finalize config with olddefconfig
+        subprocess.run(
+            make_base_command + ["olddefconfig"],
+            check=True,
+            cwd="linux"
+        )
 
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
