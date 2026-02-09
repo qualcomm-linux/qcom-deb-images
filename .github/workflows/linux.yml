@@ -86,7 +86,8 @@ jobs:
             scripts/build-linux-deb.py $EXTRA_ARGS \
                 kernel-configs/qemu-boot.config \
                 kernel-configs/qcom-imsdk.config \
-                kernel-configs/systemd-boot.config
+                kernel-configs/systemd-boot.config \
+                kernel-configs/usb-test-devices.config
 
       - name: Stage artifacts for upload
         run: |
