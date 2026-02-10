@@ -198,6 +198,12 @@ To enter EDL mode:
 
 NB: It's also possible to run qdl from the host while the board is not connected, then start the board directly in EDL mode.
 
+### Login
+
+Once the image has booted, you can log in as the `debian` user, with the
+default `debian` password. The image should then ask you to change this default
+password to a safe one.
+
 ## Development
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
