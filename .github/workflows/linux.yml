@@ -82,6 +82,9 @@ jobs:
             elif [ "$KERNEL_NAME" = "qcom-next" ]; then
                 # use qcom-next specific config fragment, and git repo + branch
                 EXTRA_ARGS="--qcom-next prune.config qcom.config"
+            elif [ "$KERNEL_NAME" = "monza" ]; then
+                # use monza specific git repo + branch
+                EXTRA_ARGS="--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza"
             fi
             scripts/build-linux-deb.py `ls kernel-configs/*.config | sort` \
                 $EXTRA_ARGS
