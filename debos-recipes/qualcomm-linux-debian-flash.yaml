@@ -339,7 +339,7 @@ actions:
                     efi) filename="$esp";;
                     rootfs) filename="$rootfs";;
                     {{- if $board.cdt_download }}
-                    cdt) filename={{ $board.cdt_filename }};;
+                    cdt) filename="$(basename {{ $board.cdt_filename }})";;
                     {{- end }}
                   esac
                   # override/set filename
