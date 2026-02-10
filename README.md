@@ -41,10 +41,6 @@ sudo fwupdtool install u-boot.cab
 # It will ask for a reboot for the UEFI firmware capsule update to happen
 ```
 
-## Branches
-
-main: Primary development branch. Contributors should develop submissions based on this branch, and submit pull requests to this branch.
-
 ## Requirements
 
 [debos](https://github.com/go-debos/debos) is required to build the debos recipes. Recent debos packages should be available in Debian and Ubuntu repositories; there are [debos installation instructions](https://github.com/go-debos/debos?tab=readme-ov-file#installation-from-source-under-debian) on the project's page, notably for Docker images and to build debos from source. Make sure to use at least version 1.1.5 which supports setting the sector size.
