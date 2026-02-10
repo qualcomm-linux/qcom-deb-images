@@ -110,6 +110,27 @@ actions:
     "cdt_filename" "cdt_qcs8275_iq_8275_evk_pro_sku.bin"
     "dtb" "qcom/monaco-evk.dtb"
 )}}
+{{- $boards = append $boards (dict
+    "name" "monaco-arduino-monza"
+    "silicon_family" "qcs8300"
+    "ptool_platforms" (list "qcs8275-monza/emmc")
+    "boot_binaries_download" (dict
+        "description" "QCS8300 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs8300-le-1-0/common/build/ufs/bin/QCS8300_bootbinaries.zip"
+        "name" "qcs8300_boot-binaries"
+        "filename" "qcs8300_boot-binaries.zip"
+        "sha256sum" "2067015d9a96d7e009ffec3a42bb7f88a659eb96c6b9e6f9df849af222a8f0e3"
+    )
+    "cdt_download" (dict
+        "description" "Monza CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-Monza.zip"
+        "name" "qcs8275-monza_cdt"
+        "filename" "qcs8275-monza.zip"
+        "sha256sum" "66fea8aaab60c1961641ca5bb5dcee06fa9eff6da91a112abdb618dece8a2d76"
+    )
+    "cdt_filename" "qcs8275-Monza/qcs8275-Monza.bin"
+    "dtb" "qcom/monaco-arduino-monza.dtb"
+)}}
 {{- end }}
 {{- if eq $build_qcs9100 "true" }}
 {{- $boards = append $boards (dict
