@@ -86,8 +86,8 @@ jobs:
                 # use monza specific git repo + branch
                 EXTRA_ARGS="--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza"
             fi
-            scripts/build-linux-deb.py `ls kernel-configs/*.config | sort` \
-                $EXTRA_ARGS
+            scripts/build-linux-deb.py $EXTRA_ARGS \
+                `ls kernel-configs/*.config | sort` \
 
       - name: Stage artifacts for upload
         run: |
