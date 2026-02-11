@@ -28,10 +28,10 @@ actions:
     "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00114.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00116.0/qcs615-le-1-0/common/build/common/bin/QCS615_bootbinaries.zip"
         "name" "qcs615_boot-binaries"
         "filename" "qcs615_boot-binaries.zip"
-        "sha256sum" "a5cd09352d760699ca79d76b28a20f6519db8d2c3b121074c15235d01f7e3a76"
+        "sha256sum" "e9552e73ebde1a814fd4452540826d3cf4f25d70a98ab508a7afe860b1fb24a9"
     )
     "cdt_download" (dict
         "description" "QCS615 Ride CDT"
