@@ -1,4 +1,5 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
+{{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
@@ -252,6 +253,40 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
+{{- if eq $gnomedesktop "true" }}
+  - action: apt
+    description: Install Gnome desktop
+    recommends: false
+    packages:
+      - plymouth-label- # we probably don't need a boot splash
+      # from task-gnome-desktop
+      - gnome-core
+      # from task-desktop
+      - desktop-base
+      - xdg-utils
+      - fonts-symbola
+      - avahi-daemon
+      - libnss-mdns
+      # browser
+      - chromium
+      # bluetooth settings
+      - blueman
+      # audio: wireplumber for session integration, pipewire-pulse for chromium
+      - pavucontrol
+      - pipewire-pulse
+      - wireplumber
+      # camera: mostly supported through pipewire, but pull the qcam app
+      # and cam CLI tool from libcamera-tools; also install libcamera
+      # gstreamer plugins for for gstreamer based apps; ideally, cam and
+      # qcam would be packaged separately as to allow pulling the CLI
+      # version outside of the desktop list. libcamera-v4l2 provides a
+      # LD_PRELOAD library for compatiblity with apps relying on v4l2
+      # (similar to pipewire and pulse situation)
+      - gstreamer1.0-libcamera
+      - libcamera-tools
+      - libcamera-v4l2
+{{- end }}
+
   - action: run
     description: Set default locale
     chroot: true
@@ -274,6 +309,8 @@ actions:
       echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
 {{- if eq $xfcedesktop "true" }}
       echo "VARIANT_ID=xfce" >>/etc/buildinfo
+{{- else if eq $gnomedesktop "true" }}
+      echo "VARIANT_ID=gnome" >>/etc/buildinfo
 {{- else }}
       echo "VARIANT_ID=console" >>/etc/buildinfo
 {{- end }}

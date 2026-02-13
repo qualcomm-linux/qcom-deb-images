@@ -135,6 +135,7 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/
 A few options are provided in the debos recipes; for the root filesystem recipe:
 - `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
 - `xfcedesktop`: install an Xfce desktop environment; default: console only environment
+- `gnomedesktop`: install a Gnome desktop environment; default: console only environment
 
 For the image recipe:
 - `dtb`: override the firmware provided device tree with one from the Linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
