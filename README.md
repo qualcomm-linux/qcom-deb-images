@@ -12,47 +12,40 @@ Initially, this repository provides [debos](https://github.com/go-debos/debos) r
 
 We are also working towards providing ready-to-use, pre-built images – stay tuned!
 
-## Firmware updates
-
-On standard Linux distros like Debian, firmware updates are generally delivered via Linux Vendor Firmware Service ([LVFS](https://fwupd.org/)). The OEM/ODM vendors usually upload latest firmware releases on LVFS (refer [here](https://lvfs.readthedocs.io/en/latest/upload.html)) as cabinet (.cab) firmware archive files containing at least one metadata (.metainfo.xml) file describing the firmware update. On the device, fwupd is installed which provides a system-activated daemon listening on D-Bus for installing any firmware updates.
-
-### Firmware delivery
-
-On a Desktop system, it's usually GNOME Software which monitors LVFS for any firmware updates and pushes to fwupd if any. On a headless system like most embedded devices, the fwupdmgr command-line tool can be used to monitor LVFS for firmware updates as follows:
-
-```bash
-# Download latest metadata from LVFS
-fwupdmgr refresh
-
-# Fetch device specific firmware updates from LVFS
-fwupdmgr get-updates
-
-# Install firmware updates
-fwupdmgr update
-```
-
-### Firmware on devices supported by Qualcomm Linux
-
-The firmware on Qualcomm devices is expected to support UEFI UpdateCapsule plugin for fwupd daemon. However, currently firmware for Qualcomm devices is not available in LVFS which is a work in progress as of now. In order to play with UEFI firmware capsule updates, one can use fwupdtool to locally update firmware like on RB1 as follows:
-
-```bash
-# Transfer U-Boot firmware cabinet archive built by scripts/build-u-boot-rb1.sh to RB1
-sudo fwupdtool install u-boot.cab
-# It will ask for a reboot for the UEFI firmware capsule update to happen
-```
-
 ## Requirements
 
-[debos](https://github.com/go-debos/debos) is required to build the debos recipes. Recent debos packages should be available in Debian and Ubuntu repositories; there are [debos installation instructions](https://github.com/go-debos/debos?tab=readme-ov-file#installation-from-source-under-debian) on the project's page, notably for Docker images and to build debos from source. Make sure to use at least version 1.1.5 which supports setting the sector size.
+[debos](https://github.com/go-debos/debos) is required to build the debos
+recipes. Recent debos packages should be available in Debian and Ubuntu
+repositories; there are [debos installation
+instructions](https://github.com/go-debos/debos?tab=readme-ov-file#installation-from-source-under-debian)
+on the project's page, notably for Docker images and to build debos from
+source. Make sure to use at least version 1.1.5 which supports setting the
+sector size.
 
-[qdl](https://github.com/linux-msm/qdl) is typically used for flashing. While recent versions are available in Debian and Ubuntu, make sure to use at least version 2.1 as it contains important fixes.
+[qdl](https://github.com/linux-msm/qdl) is typically used for flashing. While
+recent versions are available in Debian and Ubuntu, make sure to use at least
+version 2.1 as it contains important fixes.
 
-### Optional requirements
+## Steps
 
-Building U-Boot for the RB1 requires the following build-dependencies:
+### (optional) Build and flash U-Boot
+
+U-Boot is needed for the RB1 board. If you are not targeting this board, you
+can go to the next section.
+
+Building U-Boot for the RB1 requires the following extra build-dependencies:
+
 ```bash
 apt -y install git crossbuild-essential-arm64 make bison flex bc libssl-dev gnutls-dev xxd coreutils gzip mkbootimg
 ```
+
+To build U-Boot for the RB1, run:
+
+```bash
+scripts/build-u-boot-rb1.sh
+```
+
+### (optional) Build custom kernel
 
 Building a Linux kernel deb requires the following build-dependencies:
 ```bash
@@ -63,14 +56,9 @@ Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
 enable arm64 as a foreign architecture first by running
 `dpkg --add-architecture arm64 && apt update`.
 
-## Usage
+### Build the image
 
 To build flashable assets for all supported boards, follow these steps:
-
-1. (optional) build U-Boot for the RB1
-    ```bash
-    scripts/build-u-boot-rb1.sh
-    ```
 
 1. (optional) build a local Linux kernel deb from mainline with recommended config fragments
     ```bash
@@ -121,7 +109,7 @@ To build flashable assets for all supported boards, follow these steps:
     qdl --allow-missing --storage emmc prog_firehose_ddr.elf rawprogram[0-9].xml patch[0-9].xml
     ```
 
-### Debos tips
+#### Debos tips
 
 By default, debos will try to pick a fast build backend. It will prefer to use its KVM backend (`-b kvm`) when available, and otherwise a UML environment (`-b uml`). If none of these work, a solid backend is QEMU (`-b qemu`). Because the target images are arm64, building under QEMU can be really slow, especially when building from another architecture such as amd64.
 
@@ -130,7 +118,7 @@ To build large images, the debos resource defaults might not be sufficient. Cons
 debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
-### Options for debos recipes
+#### Options for debos recipes
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
 - `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
@@ -167,7 +155,7 @@ debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
 debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
 ```
 
-### Flashing tips
+### Flash the image
 
 The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
 
@@ -184,7 +172,7 @@ qdl --storage ufs prog_firehose_ddr.elf rawprogram-ufs.xml
 ```
 Make sure to use `prog_firehose_ddr.elf` for the target platform, such as this [version from the QCM6490 boot binaries](https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00058.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip) or this [version from the RB1 rescue image](https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip).
 
-### Emergency Download Mode (EDL)
+#### Emergency Download Mode (EDL)
 
 In EDL mode, the board will receive a flashing program over its USB type-C cable, and that program will receive data to flash on the internal storage. This is a lower level mode than fastboot which is implemented by a higher-level bootloader.
 
@@ -198,7 +186,9 @@ To enter EDL mode:
 
 NB: It's also possible to run qdl from the host while the board is not connected, then start the board directly in EDL mode.
 
-### Login
+### Boot the image
+
+#### Login
 
 Once the image has booted, you can log in as the `debian` user, with the
 default `debian` password. The image should then ask you to change this default
