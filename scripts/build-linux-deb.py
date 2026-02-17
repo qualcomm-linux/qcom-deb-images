@@ -172,7 +172,11 @@ def main():
         nargs="*",
         help="Config fragments to merge",
     )
-    args = parser.parse_args()
+
+    # Use parse_known_args to allow fragments before and after flags
+    args, unknown = parser.parse_known_args()
+    # Combine positional fragments with unknown args (fragments after flags)
+    args.fragments = args.fragments + unknown
 
     # default settings for next trees
     ref_prefix = None
