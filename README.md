@@ -84,8 +84,8 @@ To build flashable assets for all supported boards, follow these steps:
     ```bash
     debos debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
-    # (optional) if you've built a local kernel, copy it to local-debs/ and run
-    # this instead:
+    # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
+    # and run this instead:
     #debos -t localdebs:local-debs/ debos-recipes/qualcomm-linux-debian-rootfs.yaml
     ```
 
