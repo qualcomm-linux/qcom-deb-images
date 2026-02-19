@@ -6,11 +6,23 @@
 [![daily linux-next build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-linux-next.yml?label=daily%20linux-next%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-linux-next.yml)
 [![weekly mainline build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-weekly-mainline.yml?label=weekly%20mainline%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-weekly-mainline.yml)
 
-A collection of recipes to build Qualcomm Linux images for deb based operating systems. The current focus of this project is to provide mainline-centric images for Qualcomm® IoT platforms as to demonstrate the state of upstream open source software, help developers getting started, and support continuous development and continuous testing efforts.
+A collection of recipes to build Qualcomm Linux images for deb based
+operating systems.
 
-Initially, this repository provides [debos](https://github.com/go-debos/debos) recipes based on Debian trixie for boards such as the Qualcomm RB3 Gen 2.
+The main goal of this project is to provide mainline-centric images for
+Qualcomm® IoT platforms as to demonstrate the state of upstream open source
+software, help developers getting started, and support continuous development
+and testing efforts.
 
-We are also working towards providing ready-to-use, pre-built images – stay tuned!
+Initially, this repository provides [debos](https://github.com/go-debos/debos)
+recipes based on Debian trixie for boards such as:
+
+- [Qualcomm RB1](https://docs.qualcomm.com/doc/87-61720-1/87-61720-1_REV_A_QUALCOMM_ROBOTICS_RB1_PLATFORM__QUALCOMM_QRB2210__PRODUCT_BRIEF.pdf) (QRB2210)
+- [Qualcomm RB3 Gen 2](https://docs.qualcomm.com/doc/87-74789-1/87-74789-1_REV_A_Qualcomm_RB3_Gen_2_Development_Kit_Product_Brief.pdf) (QCS6490)
+- ...and more!
+
+We are also working towards providing ready-to-use, pre-built images – stay
+tuned!
 
 ## Requirements
 
