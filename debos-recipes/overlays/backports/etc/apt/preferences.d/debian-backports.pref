@@ -1,6 +1,6 @@
 # for binary packages built from these source packages, score the version from
 # Debian backports higher as to get hardware enabled or better hardware support
 
-Package: src:alsa-ucm-conf:any src:firmware-free:any src:firmware-nonfree:any src:linux:any src:linux-signed-arm64:any src:mesa:any
+Package: src:alsa-ucm-conf:any src:firmware-free:any src:firmware-nonfree:any src:linux:any src:linux-signed-arm64:any src:mesa:any src:u-boot-efi-dtb
 Pin: release n=trixie-backports
 Pin-Priority: 900
