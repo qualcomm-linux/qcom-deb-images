@@ -140,6 +140,8 @@ jobs:
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
+          # compress output files before staging them
+          gzip --keep rootfs.tar rootfs.tar.gz
           # copy output files
           cp -av rootfs.tar.gz "${dir}"
           cp -av dtbs.tar.gz "${dir}"
@@ -172,7 +174,7 @@ jobs:
           path: debos-artifacts
 
       - name: Unpack rootfs to generate SBOM
-        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar.gz
+        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
 
       # Syft is not packaged in Debian; it's available as a binary tarball or
       # as container image from upstream; it's available on arm64 and x86

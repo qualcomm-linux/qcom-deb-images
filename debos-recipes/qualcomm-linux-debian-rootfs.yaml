@@ -365,8 +365,8 @@ actions:
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar.gz
-    compression: gz
+    file: rootfs.tar
+    compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
