@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
-# SPDX-License-Identifier: MIT
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
 import os
 import sys
