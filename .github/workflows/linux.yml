@@ -85,6 +85,9 @@ jobs:
             elif [ "$KERNEL_NAME" = "monza" ]; then
                 # use monza specific git repo + branch
                 EXTRA_ARGS="--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza"
+            elif [ "$KERNEL_NAME" = "glymur" ]; then
+                # use glymur specific git repo + branch
+                EXTRA_ARGS="--repo https://git.codelinaro.org/clo/linux-kernel/kernel-qcom.git --ref next-20260204-glymur"
             fi
             scripts/build-linux-deb.py $EXTRA_ARGS \
                 `ls kernel-configs/*.config | sort` \
