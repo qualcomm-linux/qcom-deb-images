@@ -1,0 +1,23 @@
+name: Daily glymur linux build
+
+on:
+  # run daily at 10:30am
+  schedule:
+    - cron: '30 10 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+permissions:
+  checks: write # linux.yml
+  contents: read # linux.yml
+  packages: read # linux.yml
+  pull-requests: write # linux.yml
+
+jobs:
+  build:
+    # don't run cron from forks of the main repository or from other branches
+    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/linux.yml
+    with:
+      kernel_name: glymur
+    secrets: inherit
