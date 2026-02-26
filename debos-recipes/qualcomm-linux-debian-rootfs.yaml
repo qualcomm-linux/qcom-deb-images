@@ -319,7 +319,7 @@ actions:
 
   - action: run
     description: Install local debs from /root/
-    chroot: yes
+    chroot: true
     command: |
       set -eux
       apt -y install /root/*.deb
