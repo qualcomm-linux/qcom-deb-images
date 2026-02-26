@@ -102,7 +102,7 @@ jobs:
 
           debos \
               -t overlays:'${{ inputs.overlays }}' \
-              -t xfcedesktop:true \
+              -t gnomedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:"$kernel_package" \
               -t "buildid:${BUILD_ID}" \
@@ -118,10 +118,10 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+          debos -b qemu --scratchsize 6GiB -t imagetype:ufs \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
-          debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+          debos -b qemu --scratchsize 6GiB -t imagetype:sdcard \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
 

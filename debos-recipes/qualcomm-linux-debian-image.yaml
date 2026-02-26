@@ -1,5 +1,5 @@
 {{- $dtb := or .dtb "firmware" }}
-{{- $imagesize := or .imagesize "4.5GiB" }}
+{{- $imagesize := or .imagesize "5.5GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
 
