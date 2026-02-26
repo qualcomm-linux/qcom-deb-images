@@ -123,12 +123,12 @@ actions:
     )
     "cdt_download" (dict
         "description" "Monza CDT"
-        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-Monza.zip"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-Monza_v1.zip"
         "name" "qcs8275-monza_cdt"
         "filename" "qcs8275-monza.zip"
-        "sha256sum" "66fea8aaab60c1961641ca5bb5dcee06fa9eff6da91a112abdb618dece8a2d76"
+        "sha256sum" "8484beb2ac1ff74a129c586f6d5331536765975dbabfb0600509f11010ec1c41"
     )
-    "cdt_filename" "qcs8275-Monza/qcs8275-Monza.bin"
+    "cdt_filename" "cdt_qcs8275-Monza.bin"
     "dtb" "qcom/monaco-arduino-monza.dtb"
 )}}
 {{- end }}
