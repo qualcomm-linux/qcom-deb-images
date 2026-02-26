@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: ''
+      build_linux_deb_extra_args:
+        description: Extra arguments to pass to build-linux-deb.py
+        required: false
+        type: string
+        default: ''
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -22,6 +27,10 @@ on:
         type: string
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
+        required: false
+        type: string
+      build_linux_deb_extra_args:
+        description: Extra arguments to pass to build-linux-deb.py
         required: false
         type: string
 
@@ -40,6 +49,8 @@ env:
   BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
   # name of the kernel being built
   KERNEL_NAME: ${{ inputs.kernel_name || 'mainline' }}
+  # extra args to pass to build-linux-deb.py
+  BUILD_LINUX_DEB_EXTRA_ARGS: ${{ inputs.build_linux_deb_extra_args }}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -99,6 +110,7 @@ jobs:
                 EXTRA_ARGS="--repo https://git.codelinaro.org/clo/linux-kernel/kernel-qcom.git --ref next-20260204-glymur"
             fi
             scripts/build-linux-deb.py $EXTRA_ARGS \
+                ${BUILD_LINUX_DEB_EXTRA_ARGS} \
                 `ls kernel-configs/*.config | sort` \
 
       - name: Stage artifacts for upload
