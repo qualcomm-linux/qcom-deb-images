@@ -20,4 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: monza
+      build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza'
     secrets: inherit

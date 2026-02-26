@@ -20,4 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: qcom-next
+      build_linux_deb_extra_args: '--qcom-next prune.config qcom.config'
     secrets: inherit

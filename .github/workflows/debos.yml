@@ -17,6 +17,10 @@ on:
         # plus sign in the package name as a request to install the package, so
         # use two plus signs
         default: linux-image-6.16.7-qcom1++
+      debos_extra_args:
+        description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
+        type: string
+        default: ''
 
     outputs:
       artifacts_url:
@@ -31,6 +35,7 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
+  DEBOS_EXTRA_ARGS: ${{ inputs.debos_extra_args }}
 
 jobs:
   build-debos:
@@ -106,6 +111,7 @@ jobs:
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:"$kernel_package" \
               -t "buildid:${BUILD_ID}" \
+              ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
@@ -119,9 +125,11 @@ jobs:
           # whole build is done from memory and the out of memory killer
           # gets triggered
           debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+              ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
           debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+              ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
 
@@ -131,6 +139,7 @@ jobs:
           debos \
               -t u_boot_rb1:rb1-boot.img \
               -t "buildid:${BUILD_ID}" \
+              ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-flash.yaml
 
