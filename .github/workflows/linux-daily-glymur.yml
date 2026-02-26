@@ -20,4 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: glymur
+      debos_extra_args: '-t dtb:qcom/glymur-crd.dtb'
     secrets: inherit
