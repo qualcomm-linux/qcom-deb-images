@@ -8,11 +8,20 @@ on:
         required: false
         type: string
         default: 'mainline'
+      debos_extra_args:
+        description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
+        required: false
+        type: string
+        default: ''
   # allow manual runs
   workflow_dispatch:
     inputs:
       kernel_name:
         description: 'Name of the kernel to build (default: mainline)'
+        required: false
+        type: string
+      debos_extra_args:
+        description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         required: false
         type: string
 
@@ -125,6 +134,7 @@ jobs:
     uses: ./.github/workflows/debos.yml
     with:
       kernelpackage: fileserver/${{ inputs.kernel_name || 'mainline' }}
+      debos_extra_args: ${{ inputs.debos_extra_args }}
 
   test-linux-deb:
     uses: ./.github/workflows/lava-test.yml
