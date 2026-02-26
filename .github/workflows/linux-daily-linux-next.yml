@@ -20,4 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: linux-next
+      build_linux_deb_extra_args: '--linux-next'
     secrets: inherit

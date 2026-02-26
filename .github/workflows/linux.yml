@@ -95,22 +95,7 @@ jobs:
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
                 libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
                 debhelper kmod python3 rsync coreutils
-            EXTRA_ARGS=""
-            if [ "$KERNEL_NAME" = "linux-next" ]; then
-                # use linux-next specific git repo + branch
-                EXTRA_ARGS="--linux-next"
-            elif [ "$KERNEL_NAME" = "qcom-next" ]; then
-                # use qcom-next specific config fragment, and git repo + branch
-                EXTRA_ARGS="--qcom-next prune.config qcom.config"
-            elif [ "$KERNEL_NAME" = "monza" ]; then
-                # use monza specific git repo + branch
-                EXTRA_ARGS="--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza"
-            elif [ "$KERNEL_NAME" = "glymur" ]; then
-                # use glymur specific git repo + branch
-                EXTRA_ARGS="--repo https://git.codelinaro.org/clo/linux-kernel/kernel-qcom.git --ref next-20260204-glymur"
-            fi
-            scripts/build-linux-deb.py $EXTRA_ARGS \
-                ${BUILD_LINUX_DEB_EXTRA_ARGS} \
+            scripts/build-linux-deb.py ${BUILD_LINUX_DEB_EXTRA_ARGS} \
                 `ls kernel-configs/*.config | sort` \
 
       - name: Stage artifacts for upload

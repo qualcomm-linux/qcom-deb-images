@@ -20,5 +20,6 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: glymur
+      build_linux_deb_extra_args: '--repo https://git.codelinaro.org/clo/linux-kernel/kernel-qcom.git --ref next-20260204-glymur'
       debos_extra_args: '-t dtb:qcom/glymur-crd.dtb'
     secrets: inherit
