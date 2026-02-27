@@ -173,6 +173,8 @@ actions:
       - debugcc
       - device-tree-compiler
       - docker.io
+      # force link speed; useful when autoneg is broken
+      - ethtool
       - i2c-tools
       - locales
       - mesa-opencl-icd
