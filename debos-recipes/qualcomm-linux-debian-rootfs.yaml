@@ -70,8 +70,8 @@ actions:
       # remove old style, incomplete sources, superseded in apt-sources overlay
       rm -vf /etc/apt/sources.list
       # APT update and upgrade to pickup changes from overlays
-      apt -y update
-      apt -y full-upgrade
+      apt-get -y update
+      apt-get -y full-upgrade
 
   - action: apt
     description: Install foundational packages
@@ -321,7 +321,7 @@ actions:
     chroot: true
     command: |
       set -eux
-      apt -y install /root/*.deb
+      apt-get -y install /root/*.deb
       # no need to keep these
       rm -vf /root/*.deb
 {{- end }}
@@ -341,7 +341,7 @@ actions:
     command: |
       set -eux
       rm -v /etc/apt/sources.list.d/apt-local-repo.sources
-      apt update
+      apt-get update
 {{- end }}
 
   - action: run
