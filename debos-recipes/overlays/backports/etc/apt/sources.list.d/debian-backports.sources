@@ -1,6 +1,6 @@
 # Debian backports
 Types: deb
-URIs: http://deb.debian.org/debian
+URIs: https://deb.debian.org/debian
 Suites: trixie-backports
 Components: main contrib non-free non-free-firmware
 Enabled: yes
