@@ -7,7 +7,7 @@
 architecture: arm64
 
 actions:
-  - action: debootstrap
+  - action: mmdebstrap
     description: Bootstrap initial filesystem
     # NB: not currently configurable
     suite: trixie
@@ -16,8 +16,10 @@ actions:
       - contrib
       - non-free
       - non-free-firmware
-    mirror: http://deb.debian.org/debian
+    mirrors: ['http://deb.debian.org/debian']
     variant: minbase
+    # ca-certificates required in early bootstrap for possible https apt overlays later
+    include: [ca-certificates]
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
@@ -67,9 +69,6 @@ actions:
       set -eux
       # remove old style, incomplete sources, superseded in apt-sources overlay
       rm -vf /etc/apt/sources.list
-      # install ca-certificates early to make sure https APT sources are
-      # properly picked up
-      apt -y install ca-certificates
       # APT update and upgrade to pickup changes from overlays
       apt -y update
       apt -y full-upgrade

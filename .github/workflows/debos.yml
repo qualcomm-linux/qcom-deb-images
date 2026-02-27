@@ -67,7 +67,7 @@ jobs:
 
       # mtools is needed for the flash recipe
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debos make mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+        run: apt -y install debian-archive-keyring debos make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
 
       - name: Setup local APT repo
         run: |
