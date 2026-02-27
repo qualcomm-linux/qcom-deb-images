@@ -87,6 +87,8 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
+      # fastrpc support. fastrpc-tests pulls in the required stack
+      - fastrpc-tests
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
@@ -134,7 +136,7 @@ actions:
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,audio,render,sudo,users,video debian
+          --groups adm,audio,fastrpc,render,sudo,users,video debian
       # set password to "debian"
       echo debian:debian | chpasswd
       # password must be changed on first login
