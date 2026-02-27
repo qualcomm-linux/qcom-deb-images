@@ -1,0 +1,8 @@
+disk-sdcard.img*
+disk-ufs.img*
+dtbs.tar.gz
+*.deb
+*.buildinfo
+*.changes
+rootfs.tar*
+fake-scratch.img.*
