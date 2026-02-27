@@ -98,6 +98,10 @@ actions:
       - network-manager
       # standard networking files (/etc/hosts, /etc/services etc.)
       - netbase
+      # OP-TEE packages and xtest to enable regression testing
+      - optee-client-dev
+      - optee-test-qemu
+      - tee-supplicant
       # audio
       - pipewire
       # Qualcomm Remote Filesystem Service; needed for WiFi on
