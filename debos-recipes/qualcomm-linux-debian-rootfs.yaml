@@ -173,6 +173,8 @@ actions:
       - debugcc
       - device-tree-compiler
       - docker.io
+      # used to debug ethernet speed auto-neg issues
+      - ethtool
       - i2c-tools
       - locales
       - mesa-opencl-icd
