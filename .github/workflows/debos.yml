@@ -175,7 +175,7 @@ jobs:
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v3
+        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
         with:
           s3_bucket: qcom-prd-gh-artifacts
           # should be the default in that action, or ought to reuse BUILD_ID
