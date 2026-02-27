@@ -2,6 +2,7 @@
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
+{{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
 
 architecture: arm64
@@ -52,8 +53,8 @@ actions:
     description: Add Debian backports APT configuration
     source: overlays/backports
 
-{{- if .overlays }}
-{{- range $overlay := split "," .overlays }}
+{{- if $overlays }}
+{{- range $overlay := split "," $overlays }}
   - action: overlay
     description: Apply overlay {{$overlay}}
     source: overlays/{{$overlay}}
