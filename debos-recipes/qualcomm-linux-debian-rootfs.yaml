@@ -365,6 +365,9 @@ actions:
           -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
           .
 
+  - action: recipe
+    recipe: examples/overlayfs-tools.yaml
+
   - action: pack
     description: Create root filesystem tarball
     file: rootfs.tar

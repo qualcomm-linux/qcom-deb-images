@@ -1,0 +1,52 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+set -eux
+
+OVERLAY_IMG="/overlay.img"
+OVERLAY_DIR="/overlay"
+UPPER_DIR="/overlay/upper"
+MERGED_DIR="/overlay/merged"
+WORK_DIR="/overlay/work"
+LOWER_DIR="/"
+BINDMOUNTS="/dev /dev/pts /proc /run /sys"
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+cleanup() {
+    for fs in $(echo ${BINDMOUNTS} | rev); do
+        umount "${MERGED_DIR}/${fs}" || true
+    done
+    umount "${MERGED_DIR}" || true
+    umount "${OVERLAY_DIR}" || true
+    rmdir -v "${OVERLAY_DIR}" || true
+}
+
+trap cleanup EXIT
+
+if ! [ -e "${OVERLAY_IMG}" ]; then
+    die "Overlay ${OVERLAY_IMG} not found"
+fi
+
+if [ -d "${OVERLAY_DIR}" ]; then
+    die "Overlay tree already present; cleanup with umount ${MERGED_DIR} ${OVERLAY_DIR} && rmdir ${OVERLAY_DIR}"
+fi
+
+mkdir -v "${OVERLAY_DIR}"
+mount -o loop "${OVERLAY_IMG}" "${OVERLAY_DIR}"
+mount -t overlay \
+    overlay \
+    "-olowerdir=${LOWER_DIR},upperdir=${UPPER_DIR},workdir=${WORK_DIR}" \
+    "${MERGED_DIR}"
+
+for fs in $BINDMOUNTS; do
+    mount --bind "${fs}" "${MERGED_DIR}/${fs}"
+done
+
+echo "Running $* in merged chroot" >&2
+chroot "${MERGED_DIR}" "$@"
+
