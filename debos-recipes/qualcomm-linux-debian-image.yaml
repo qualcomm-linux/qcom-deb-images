@@ -93,7 +93,7 @@ actions:
       latest_kernel="$(
           linux-version list | linux-version sort --reverse | head -1)"
       dtb_path="/usr/lib/linux-image-${latest_kernel}"
-      cp -RT "$dtb_path" "/boot/efi/dtb"
+      cp -RTL "$dtb_path" "/boot/efi/dtb"
 
   - action: run
     description: Create task to grow root filesystem on first boot
