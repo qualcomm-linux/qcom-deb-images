@@ -21,6 +21,11 @@ on:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
         default: ''
+      # useful if for some reason the kernel/image can't start in QEMU
+      skip_qemu_tests:
+        description: Skip QEMU tests
+        type: boolean
+        default: false
 
     outputs:
       artifacts_url:
@@ -245,6 +250,7 @@ jobs:
           name: build_url
           path: build_url
       - name: Invoke test runner
+        if: ${{ !inputs.skip_qemu_tests }}
         run: |
            # This is currently a clone of Makefile's "test" target to avoid any
            # unexpected interactions with triggering depending build targets.

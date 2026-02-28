@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: ''
+      skip_qemu_tests:
+        description: Skip QEMU tests
+        required: false
+        type: boolean
+        default: false
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -132,6 +137,7 @@ jobs:
     with:
       kernelpackage: fileserver/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
+      skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
   test-linux-deb:
     uses: ./.github/workflows/lava-test.yml
