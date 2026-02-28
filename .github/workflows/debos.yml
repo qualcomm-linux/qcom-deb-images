@@ -124,11 +124,11 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          debos -b qemu --scratchsize 4GiB -t imagetype:ufs \
+          debos -b qemu --scratchsize 6GiB -t imagetype:ufs \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
-          debos -b qemu --scratchsize 4GiB -t imagetype:sdcard \
+          debos -b qemu --scratchsize 5GiB -t imagetype:sdcard \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml

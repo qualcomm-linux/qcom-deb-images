@@ -127,7 +127,7 @@ By default, debos will try to pick a fast build backend. It will prefer to use i
 
 To build large images, the debos resource defaults might not be sufficient. Consider raising the default debos memory and scratchsize settings. This should provide a good set of minimum defaults:
 ```bash
-debos --fakemachine-backend qemu --memory 1GiB --scratchsize 4GiB debos-recipes/qualcomm-linux-debian-image.yaml
+debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 #### Options for debos recipes
@@ -140,7 +140,7 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 For the image recipe:
 - `dtb`: override the firmware provided device tree with one from the Linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named disk-ufs.img and use 4096-byte sectors and SD card images are named disk-sdcard.img and use 512-byte sectors
-- `imagesize`: set the output disk image size; default: `4GiB`
+- `imagesize`: set the output disk image size; default: `6GiB`
 
 For the flash recipe:
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format -- see below (NB: debos expects relative pathnames)
