@@ -29,7 +29,7 @@ actions:
       overlay:
         url: downloads://overlay.tar.gz
     timeout:
-      minutes: 5
+      minutes: 20
     to: flasher
 - boot:
     auto_login:
