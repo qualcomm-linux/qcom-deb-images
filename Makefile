@@ -29,3 +29,9 @@ test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
+.PHONY: clean
+clean:
+	rm -f disk-ufs.img*
+	rm -f disk-sdcard.img*
+	rm -f rootfs.tar*
+	rm -f dtbs.tar.gz
