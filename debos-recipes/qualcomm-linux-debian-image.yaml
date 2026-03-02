@@ -136,10 +136,5 @@ actions:
                   bs="${sector_size}" skip="${start}" count="${sectors}"
           done
 
-  - action: run
-    description: Add compressed image file
-    postprocess: true
-    command: gzip -v -f -k "${ARTIFACTDIR}/{{ $image }}"
-
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause

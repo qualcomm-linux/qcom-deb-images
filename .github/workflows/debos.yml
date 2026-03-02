@@ -156,6 +156,8 @@ jobs:
           mkdir -v "${dir}"
           # compress output files before staging them
           gzip --keep rootfs.tar rootfs.tar.gz
+          gzip --keep disk-ufs.img
+          gzip --keep disk-sdcard.img
           # copy output files
           cp -av rootfs.tar.gz "${dir}"
           cp -av dtbs.tar.gz "${dir}"
