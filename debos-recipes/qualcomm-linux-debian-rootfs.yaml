@@ -5,6 +5,11 @@
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
 
+{{- $variantid := "console" }}
+{{- if eq $xfcedesktop "true" }}
+{{- $variantid = "xfce" }}
+{{- end }}
+
 architecture: arm64
 
 actions:
@@ -271,18 +276,14 @@ actions:
 
 {{- if ne $buildid "" }}
   - action: run
-    description: Set build ID and flavor in /etc/buildinfo
+    description: Set build and variant ID in /etc/buildinfo
     chroot: true
     command: |
       set -eux
       touch /etc/buildinfo
       chmod 644 /etc/buildinfo
       echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
-{{- if eq $xfcedesktop "true" }}
-      echo "VARIANT_ID=xfce" >>/etc/buildinfo
-{{- else }}
-      echo "VARIANT_ID=console" >>/etc/buildinfo
-{{- end }}
+      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
 {{- end }}
 
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
