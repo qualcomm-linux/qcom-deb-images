@@ -133,7 +133,7 @@ jobs:
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
-          debos -b qemu --scratchsize 5GiB -t imagetype:sdcard \
+          debos -b qemu --scratchsize 6GiB -t imagetype:sdcard \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
