@@ -155,7 +155,7 @@ jobs:
           dir="debos-artifacts"
           mkdir -v "${dir}"
           # compress output files before staging them
-          gzip --keep rootfs.tar rootfs.tar.gz
+          gzip --keep rootfs.tar
           gzip --keep disk-ufs.img
           gzip --keep disk-sdcard.img
           # copy output files
