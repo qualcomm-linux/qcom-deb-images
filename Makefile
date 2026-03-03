@@ -47,15 +47,15 @@ http_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::http::Proxy)
 export http_proxy
 
 .PHONY: all
-all: disk-ufs.img.gz disk-sdcard.img.gz
+all: disk-ufs.img disk-sdcard.img
 
 rootfs.tar: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS_CMD) $<
 
-disk-ufs.img disk-ufs.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
+disk-ufs.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS_CMD) $<
 
-disk-sdcard.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
+disk-sdcard.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS_CMD) -t imagetype:sdcard $<
 
 .PHONY: test
