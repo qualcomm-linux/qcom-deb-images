@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+machines:
+  Arduino Monza:
+    DSP_LIBRARY_PATH: qcs8300/Qualcomm/QCS8300-RIDE/dsp
