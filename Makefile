@@ -12,6 +12,7 @@ DEBOS := debos $(DEBOS_OPTS)
 http_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::http::Proxy)
 export http_proxy
 
+.PHONY: all
 all: disk-ufs.img.gz disk-sdcard.img.gz
 
 rootfs.tar: debos-recipes/qualcomm-linux-debian-rootfs.yaml
@@ -23,8 +24,14 @@ disk-ufs.img disk-ufs.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml roo
 disk-sdcard.img.gz: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS) -t imagetype:sdcard $<
 
+.PHONY: test
 test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
-.PHONY: all test
+.PHONY: clean
+clean:
+	rm -f disk-ufs.img*
+	rm -f disk-sdcard.img*
+	rm -f rootfs.tar*
+	rm -f dtbs.tar.gz
