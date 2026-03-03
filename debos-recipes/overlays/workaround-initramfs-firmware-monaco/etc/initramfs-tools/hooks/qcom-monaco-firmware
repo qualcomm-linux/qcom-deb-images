@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+
+# Workaround for https://github.com/qualcomm-linux/qcom-deb-images/issues/258
+# Add monaco-specific firmware files to initramfs so they are available before
+# the root filesystem is mounted. This is required for proper hardware
+# initialization during early boot.
+
+PREREQ=""
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# shellcheck source=/dev/null
+. /usr/share/initramfs-tools/hook-functions
+# Begin real processing below this line
+
+# Add monaco-specific firmware files
+# These files are required for DSP and other hardware initialization
+for fw in \
+	/lib/firmware/qcom/qcs8300/adsp.mbn \
+	/lib/firmware/qcom/qcs8300/cdsp0.mbn \
+	/lib/firmware/qcom/qcs8300/gpdsp0.mbn \
+	/lib/firmware/qcom/qcs8300/qupv3fw.elf
+do
+	if [ ! -f "$fw" ]; then
+		echo "ERROR: Required firmware file not found: $fw" >&2
+		exit 1
+	fi
+	copy_file firmware "$fw"
+done

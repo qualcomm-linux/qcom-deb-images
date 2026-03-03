@@ -25,5 +25,7 @@ jobs:
       # updated hexagon-dsp-binaries with Monza support is integrated; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/298 and
       # https://github.com/linux-msm/hexagon-dsp-binaries/pull/59
-      debos_extra_args: '-t overlays:qsc-deb-releases,workaround-hexagon-dsp-binaries-monza'
+      # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
+      debos_extra_args: '-t overlays:qsc-deb-releases,workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
     secrets: inherit
