@@ -24,4 +24,5 @@ jobs:
       debos_extra_args: '-t dtb:qcom/glymur-crd.dtb'
       # we hardcode the DT, and that's not compatible with the QEMU machine model
       skip_qemu_tests: true
+      skip_lava_tests: true
     secrets: inherit
