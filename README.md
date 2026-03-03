@@ -68,17 +68,18 @@ Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
 enable arm64 as a foreign architecture first by running
 `dpkg --add-architecture arm64 && apt update`.
 
+Then, you can build a local Linux kernel deb from mainline with recommended config fragments:
+
+```bash
+scripts/build-linux-deb.py kernel-configs/*.config
+
+# or from linux-next:
+scripts/build-linux-deb.py --linux-next kernel-configs/*.config
+```
+
 ### Build the image
 
 To build flashable assets for all supported boards, follow these steps:
-
-1. (optional) build a local Linux kernel deb from mainline with recommended config fragments
-    ```bash
-    scripts/build-linux-deb.py kernel-configs/*.config
-
-    # or from linux-next:
-    scripts/build-linux-deb.py --linux-next kernel-configs/*.config
-    ```
 
 1. build tarballs of the root filesystem and DTBs
     ```bash
