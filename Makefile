@@ -65,7 +65,7 @@ test: disk-ufs.img
 
 .PHONY: clean
 clean:
-	rm -f disk-ufs.img*
-	rm -f disk-sdcard.img*
-	rm -f rootfs.tar*
+	rm -f disk-ufs.img1 disk-ufs.img2 disk-ufs.img
+	rm -f disk-sdcard.img1 disk-sdcard.img2 disk-sdcard.img
+	rm -f rootfs.tar
 	rm -f dtbs.tar.gz
