@@ -4,7 +4,7 @@
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) --memory 1GiB --scratchsize 4GiB
+DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) --memory 1GiB --scratchsize 6GiB
 DEBOS := debos $(DEBOS_OPTS)
 
 # Use http_proxy from the environment, or apt's http_proxy if set, to speed up
