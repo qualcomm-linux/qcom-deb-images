@@ -50,6 +50,18 @@ actions:
     mountpoints:
       - mountpoint: /boot/efi/
         partition: esp
+        options:
+          - nosuid
+          - nodev
+          - noexec
+          - relatime
+          - nosymfollow
+          - fmask=0177
+          - dmask=0077
+          - codepage=437
+          - iocharset=iso8859-1
+          - shortname=mixed
+          - errors=remount-ro
       - mountpoint: /
         partition: root
 
