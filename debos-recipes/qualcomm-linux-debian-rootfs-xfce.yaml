@@ -1,0 +1,81 @@
+{{- $localdebs := or .localdebs "none" }}
+{{- $aptlocalrepo := or .aptlocalrepo "none" }}
+{{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
+{{- $overlays := or .overlays "qsc-deb-releases" }}
+{{- $buildid := or .buildid "" }}
+
+architecture: arm64
+
+actions:
+  - action: recipe
+    recipe: qualcomm-linux-debian-rootfs-common.yaml
+    description: build common rootfs
+    variables:
+      localdebs: {{$localdebs}}
+      aptlocalrepo: {{$aptlocalrepo}}
+      kernelpackage: {{$kernelpackage}}
+      overlays: {{$overlays}}
+      buildid: {{$buildid}}
+      variantid: xfce
+      xfcedesktop: true
+
+  # this should ideally be task-xfce-desktop, but this pulls too many apps;
+  # instead, curate from the Depends and Recommends of task-xfce-desktop and
+  # task-desktop recursively; also, disable Recommends
+  - action: apt
+    description: Install Xfce desktop
+    recommends: false
+    packages:
+      # preempt these dependencies as to avoid pulling all backends
+      - xserver-xorg-input-libinput
+      - xserver-xorg-video-fbdev
+      - xserver-xorg-input-all-
+      - xserver-xorg-video-all-
+      - xserver-xorg
+      - plymouth-label- # we probably don't need a boot splash
+      # nm-connection-editor below depends on polkit-1-auth-agent, and APT
+      # picks up ukui-polkit as a random Provides; select mate-polkit instead
+      - mate-polkit
+      # from task-xfce-desktop
+      - xfce4
+      - lightdm
+      - light-locker
+      - xfce4-terminal
+      - tango-icon-theme
+      - network-manager-applet
+      - nm-connection-editor
+      - synaptic
+      # from task-desktop
+      - desktop-base
+      - xdg-utils
+      - fonts-symbola
+      - avahi-daemon
+      - libnss-mdns
+      # browser
+      - chromium
+      # bluetooth settings
+      - blueman
+      # audio: wireplumber for session integration, pipewire-pulse for chromium
+      # and xfce4-pulseaudio-plugin, and pavucontrol as referenced from the
+      # xfce pulse panel applet
+      - pavucontrol
+      - pipewire-pulse
+      - wireplumber
+      # camera: mostly supported through pipewire, but pull the qcam app
+      # and cam CLI tool from libcamera-tools; also install libcamera
+      # gstreamer plugins for for gstreamer based apps; ideally, cam and
+      # qcam would be packaged separately as to allow pulling the CLI
+      # version outside of the desktop list. libcamera-v4l2 provides a
+      # LD_PRELOAD library for compatiblity with apps relying on v4l2
+      # (similar to pipewire and pulse situation)
+      - gstreamer1.0-libcamera
+      - libcamera-tools
+      - libcamera-v4l2
+
+  - action: pack
+    description: Create root filesystem tarball
+    file: rootfs.tar
+    compression: none
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

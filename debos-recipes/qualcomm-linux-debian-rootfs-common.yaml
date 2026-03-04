@@ -1,0 +1,314 @@
+{{- $localdebs := or .localdebs "none" }}
+{{- $aptlocalrepo := or .aptlocalrepo "none" }}
+{{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
+{{- $overlays := or .overlays "qsc-deb-releases" }}
+{{- $buildid := or .buildid "" }}
+{{- $variantid := or .variantid "console" }}
+
+architecture: arm64
+
+actions:
+  - action: mmdebstrap
+    description: Bootstrap initial filesystem
+    # NB: not currently configurable
+    suite: trixie
+    components:
+      - main
+      - contrib
+      - non-free
+      - non-free-firmware
+    mirrors: ['http://deb.debian.org/debian']
+    variant: minbase
+    # ca-certificates required in early bootstrap for possible https apt overlays later
+    include: [ca-certificates]
+
+{{- if ne $aptlocalrepo "none" }}
+  - action: run
+    description: Setup bind mount of local APT repository
+    chroot: false
+    command: |
+      set -eux
+      mkdir -v "${ROOTDIR}/media/apt-local-repo"
+      mount --bind {{$aptlocalrepo}} "${ROOTDIR}/media/apt-local-repo"
+
+  - action: run
+    description: Setup APT sources for local APT repository
+    chroot: true
+    command: |
+      set -eux
+      cat >/etc/apt/sources.list.d/apt-local-repo.sources <<EOF
+      Types: deb
+      URIs: file:///media/apt-local-repo
+      Suites: /
+      Trusted: true
+      EOF
+{{- end }}
+
+  # after debootstrap, only a basic etc/apt/sources.list is created; add more
+  # modern etc/apt/sources.list.d/debian.sources; sources.list is removed after
+  # applying all overlays, and followed by an APT update and full-upgrade
+  - action: overlay
+    description: Create Debian APT sources
+    source: overlays/apt-sources
+
+  - action: overlay
+    description: Add Debian backports APT configuration
+    source: overlays/backports
+
+{{- if $overlays }}
+{{- range $overlay := split "," $overlays }}
+  - action: overlay
+    description: Apply overlay {{$overlay}}
+    source: overlays/{{$overlay}}
+{{- end }}
+{{- end }}
+
+  - action: run
+    description: Remove old APT sources and upgrade packages
+    chroot: true
+    command: |
+      set -eux
+      # remove old style, incomplete sources, superseded in apt-sources overlay
+      rm -vf /etc/apt/sources.list
+      # APT update and upgrade to pickup changes from overlays
+      apt-get -y update
+      apt-get -y full-upgrade
+
+  - action: apt
+    description: Install foundational packages
+    recommends: true
+    packages:
+      # Android Debug Bridge (daemon)
+      - adbd
+      # bluetooth
+      - bluez
+      # vfat tools, notably fsck.fat for the ESP
+      - dosfstools
+      # ext4 tools, notably e2fsck for the root filesystem
+      - e2fsprogs
+      # fastrpc support. fastrpc-tests pulls in the required stack
+      - fastrpc-tests
+      # fwupd tools, enable OTA EFI firmware capsule updates
+      - fwupd
+      # defaults to "systemd-sysv"; perhaps not needed
+      - init
+      # Bluetooth audio support in PipeWire
+      - libspa-0.2-bluetooth
+      # libcamera support in PipeWire
+      - libspa-0.2-libcamera
+      # Ethernet, Wi-Fi, WWAN; built-in DHCP client
+      - network-manager
+      # standard networking files (/etc/hosts, /etc/services etc.)
+      - netbase
+      # audio
+      - pipewire
+      # Qualcomm Remote Filesystem Service; needed for WiFi on
+      # some ath10k devices such as on RB1
+      - rmtfs
+      # TFTP server implementation for the QRTR protocol; needed for WiFi on
+      # some ath10k devices such as on RB1
+      - tqftpserv
+      # dynamic device nodes handling
+      - udev
+      # database of radio emission regulations; needed for WiFi
+      - wireless-regdb
+      # WPA / WPA2 / WPA3 client support
+      - wpasupplicant
+
+  - action: run
+    description: Set hostname to "debian"
+    chroot: true
+    command: |
+      set -eux
+      echo debian >/etc/hostname
+      # /etc/hosts is created by netbase
+      sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
+
+  - action: run
+    description: Add a "debian" user, add it to sudoers and various groups
+    chroot: true
+    command: |
+      set -eux
+      # pre-emptively create a sudo group if sudo isn't installed
+      getent group sudo >/dev/null 2>&1 || groupadd --system sudo
+      # some useful groups for desktop scenarios, but also to run payloads
+      # from the serial console, over SSH, or in containers - where the desktop
+      # session has not updated ACLs to the device nodes
+      useradd --create-home --shell /bin/bash --user-group \
+          --groups adm,audio,fastrpc,render,sudo,users,video debian
+      # set password to "debian"
+      echo debian:debian | chpasswd
+      # password must be changed on first login
+      chage --lastday 0 debian
+      # add to sudoers
+      mkdir -v --mode 755 --parents /etc/sudoers.d
+      # subshell to override umask
+      (
+        umask 226
+        echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
+      )
+
+  # NB: Recommends pull in way too many packages, and we don't need to follow
+  # Recommends reaching outside of this Priority level
+  - action: apt
+    description: Install packages of priority "important" (only from Debian)
+    recommends: false
+    packages:
+      - ?origin(Debian) ?priority(important)
+
+  # NB: Recommends pull in way too many packages, and we don't need to follow
+  # Recommends reaching outside of this Priority level
+  - action: apt
+    description: Install packages of priority "standard" (only from Debian)
+    recommends: false
+    packages:
+      - ?origin(Debian) ?priority(standard)
+
+  # TODO remove Priority: standard packages from this list?
+  - action: apt
+    description: Install a comfortable package set
+    recommends: true
+    packages:
+      - alsa-utils
+      - clinfo
+      # used to debug clock issues
+      - debugcc
+      - device-tree-compiler
+      - docker.io
+      # used to debug ethernet speed auto-neg issues
+      - ethtool
+      - i2c-tools
+      - locales
+      - mesa-opencl-icd
+      - mesa-utils-bin
+      # convenience networking commands (arp, ifconfig, route etc.)
+      - net-tools
+      - openssh-client
+      # lspci
+      - pciutils
+      - rfkill
+      - sudo
+      # lsusb
+      - usbutils
+      # media-ctl
+      - v4l-utils
+      - vim
+      - vulkan-tools
+      - wget
+
+  - action: run
+    description: Add default user to docker group
+    chroot: true
+    command: |
+      set -eux
+      usermod -a -G docker debian
+
+  - action: run
+    description: Set default locale
+    chroot: true
+    command: |
+      set -eux
+      if which locale-gen >/dev/null 2>&1; then
+          echo en_US.UTF-8 UTF-8 >>/etc/locale.gen
+          locale-gen en_US.UTF-8 UTF-8
+          update-locale LANG=en_US.UTF-8
+      fi
+
+{{- if ne $buildid "" }}
+  - action: run
+    description: Set build and variant ID in /etc/buildinfo
+    chroot: true
+    command: |
+      set -eux
+      touch /etc/buildinfo
+      chmod 644 /etc/buildinfo
+      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
+      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
+{{- end }}
+
+  # usually these packages are pulled by Pre-Depends/Depends/Recommends of
+  # Debian's linux-image, but kernel packages generated with the upstream
+  # deb-pkg target don't have these dependencies, so install these before
+  # installing kernels; this is a separate step because of the Pre-Depends
+  - action: apt
+    description: Install kernel dependencies
+    recommends: true
+    packages:
+      - apparmor
+      - initramfs-tools
+      - kmod
+      - linux-base
+
+  - action: apt
+    description: Install kernel and firmware packages
+    recommends: true
+    packages:
+      - firmware-atheros
+      - firmware-qcom-soc
+      - {{$kernelpackage}}
+
+  # this is currently needed on boards such as RB1 which are using Android
+  # bootloader to check the boot count of the boot_a/boot_b partitions
+  - action: apt
+    description: Support boards chainloading from Android bootloader
+    recommends: true
+    packages:
+      # marks the current Android boot partition as booted successfully
+      - qbootctl
+
+{{- if ne $localdebs "none" }}
+  - action: overlay
+    description: Overlay local debs directory {{ $localdebs }} to /root/
+    source: {{ $localdebs }}
+    destination: /root/
+
+  - action: run
+    description: Install local debs from /root/
+    chroot: true
+    command: |
+      set -eux
+      apt-get -y install /root/*.deb
+      # no need to keep these
+      rm -vf /root/*.deb
+{{- end }}
+
+{{- if ne $aptlocalrepo "none" }}
+  - action: run
+    description: Remove bind mount of local APT repository
+    chroot: false
+    command: |
+      set -eux
+      umount "${ROOTDIR}/media/apt-local-repo"
+      rmdir -v "${ROOTDIR}/media/apt-local-repo"
+
+  - action: run
+    description: APT update without local APT repository
+    chroot: true
+    command: |
+      set -eux
+      rm -v /etc/apt/sources.list.d/apt-local-repo.sources
+      apt-get update
+{{- end }}
+
+  - action: run
+    description: Create DTBs tarball
+    chroot: false
+    command: |
+      set -eux
+      # find the highest kernel version installed; kernels are backwards
+      # compatible with older dtbs, so it would make sense to take dtbs from
+      # the oldest available kernel as to allow all kernels to boot, but if
+      # this image has pulled a more recent kernel, it's probably to gain
+      # support for new hardware which would happen through new or updated dtbs
+      # only in that new kernel, so use the latest dtbs
+      latest_kernel="$(
+          ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      # transform pathnames to strip the leading ./
+      tar \
+          -C "${latest_kernel}" \
+          --transform='s|^\./||' \
+          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          .
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

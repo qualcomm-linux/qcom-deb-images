@@ -135,7 +135,6 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
 - `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
-- `xfcedesktop`: install an Xfce desktop environment; default: console only environment
 - `overlays`: a `,`-separated list of rootfs overlays to add from `debos-recipes/overlays/`. Defaults to `qsc-deb-releases` to add our overlay apt repository that contains some package delta that isn't fully upstreamed and backported to trixie in Debian yet.
 
 For the image recipe:
@@ -155,7 +154,7 @@ Deprecated flash options:
 Here are some example invocations:
 ```bash
 # build the root filesystem with Xfce
-debos -t xfcedesktop:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos -debos-recipes/qualcomm-linux-debian-rootfs-xfce.yaml
 
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
