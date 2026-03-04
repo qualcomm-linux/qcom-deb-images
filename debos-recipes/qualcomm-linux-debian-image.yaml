@@ -50,6 +50,24 @@ actions:
     mountpoints:
       - mountpoint: /boot/efi/
         partition: esp
+        # Copy options from what systemd does when mounting a discoverable EFI partition:
+        # https://github.com/qualcomm-linux/qcom-deb-images/pull/309
+        #
+        # Restrict fmask/dmask to prevent user access to /boot/efi/loader/random-seed
+        # used by systemd-boot:
+        # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
+        options:
+          - nosuid
+          - nodev
+          - noexec
+          - relatime
+          - nosymfollow
+          - fmask=0177
+          - dmask=0077
+          - codepage=437
+          - iocharset=iso8859-1
+          - shortname=mixed
+          - errors=remount-ro
       - mountpoint: /
         partition: root
 
