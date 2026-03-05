@@ -3,7 +3,7 @@ actions:
     images:
       image:
         headers:
-          Authentication: Q_S3_TOKEN
+          Authorization: Q_S3_TOKEN
         url: "{{BUILD_DOWNLOAD_URL}}/flash-ufs.tar.gz"
     postprocess:
       docker:
