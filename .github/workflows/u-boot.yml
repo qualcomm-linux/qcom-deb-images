@@ -91,7 +91,7 @@ jobs:
           sync
 
       - name: Upload private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@v1
+        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
         id: upload_artifacts
         with:
           path: artifacts

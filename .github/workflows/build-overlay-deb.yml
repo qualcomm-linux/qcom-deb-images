@@ -92,7 +92,7 @@ jobs:
               --config "$CONFIG" --output-dir upload
 
       - name: Upload as private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@v1
+        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
         with:
           path: upload
 
