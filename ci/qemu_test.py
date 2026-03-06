@@ -82,3 +82,10 @@ def test_password_reset_required(vm):
     vm.expect_exact("Retype new password:")
     vm.send("new password\r\n")
     vm.expect_exact("debian@debian:~$")
+
+    # The /boot/efi/loader/random-seed file should not be readable to users
+    # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
+    vm.send("journalctl | grep 'is world accessible, which is a security hole' || echo not found\r\n")
+    # Need to match twice because of the serial echo of the command above
+    vm.expect_exact("not found")
+    vm.expect_exact("not found")
