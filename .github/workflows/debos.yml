@@ -178,10 +178,10 @@ jobs:
         uses: qualcomm-linux/upload-private-artifact-action@aws-v4
         id: upload_artifacts_s3
         with:
-          s3_bucket: qcom-prd-gh-artifacts
-          # should be the default in that action, or ought to reuse BUILD_ID
-          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
           path: debos-artifacts
+          # these should be the defaults; or ought to reuse BUILD_ID
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Unpack rootfs to generate SBOM
         run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
