@@ -285,7 +285,7 @@ def main():
         subprocess.run(
             merge_command,
             check=True,
-            cwd="linux",
+            cwd=str(linux_dir),
             env={"ARCH": "arm64", **subprocess.os.environ}
         )
 
@@ -293,7 +293,7 @@ def main():
         subprocess.run(
             make_base_command + ["olddefconfig"],
             check=True,
-            cwd="linux"
+            cwd=str(linux_dir)
         )
 
     log_i("Building Linux deb")
