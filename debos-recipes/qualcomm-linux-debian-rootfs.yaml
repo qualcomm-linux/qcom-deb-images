@@ -21,14 +21,26 @@ actions:
     description: Bootstrap initial filesystem
     suite: {{ $suite }}
     components:
+{{ if eq $distro "ubuntu" }}
+      - main
+      - universe
+      - restricted
+      - multiverse
+    mirrors: ['http://ports.ubuntu.com/ubuntu-ports']
+{{ else }}
       - main
       - contrib
       - non-free
       - non-free-firmware
     mirrors: ['http://deb.debian.org/debian']
+{{ end }}
     variant: minbase
     # ca-certificates required in early bootstrap for possible https apt overlays later
+{{ if eq $distro "ubuntu" }}
+    include: [ca-certificates, ubuntu-keyring]
+{{ else }}
     include: [ca-certificates]
+{{ end }}
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
