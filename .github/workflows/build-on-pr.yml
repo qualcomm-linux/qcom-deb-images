@@ -25,9 +25,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
+        include:
+          - distro: debian
+            suite: trixie
+          - distro: debian
+            suite: forky
+          - distro: ubuntu
+            suite: noble
+          - distro: ubuntu
+            suite: resolute
     uses: ./.github/workflows/debos.yml
     with:
       suite: ${{ matrix.suite }}
+      distro: ${{ matrix.distro }}
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
