@@ -13,6 +13,10 @@ permissions:
 
 jobs:
   build-daily:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml

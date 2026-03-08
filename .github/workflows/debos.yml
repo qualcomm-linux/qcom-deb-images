@@ -3,6 +3,10 @@ name: Build debos recipe
 on:
   workflow_call:
     inputs:
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
       overlays:
         description: List of overlays to use
         type: string
@@ -40,11 +44,11 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
-  DEBOS_EXTRA_ARGS: ${{ inputs.debos_extra_args }}
+  DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes
+    name: Build and upload debos recipes (${{ inputs.suite }})
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
