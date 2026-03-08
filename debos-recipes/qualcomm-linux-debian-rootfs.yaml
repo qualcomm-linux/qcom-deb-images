@@ -448,12 +448,19 @@ actions:
       - kmod
       - linux-base
 
+{{ if eq $distro "debian" }}
   - action: apt
-    description: Install kernel and firmware packages
+    description: Install firmware packages (Debian only)
     recommends: true
     packages:
       - firmware-atheros
       - firmware-qcom-soc
+{{ end }}
+
+  - action: apt
+    description: Install kernel package
+    recommends: true
+    packages:
       - {{$kernelpackage}}
 
   # this is currently needed on boards such as RB1 which are using Android
