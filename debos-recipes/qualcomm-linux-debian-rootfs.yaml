@@ -139,6 +139,35 @@ actions:
 {{- end }}
 {{- end }}
 
+  # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
+  # .sources and .pref files dynamically to use the correct $suite-overlay
+  - action: run
+    description: Create qsc-deb-releases APT sources for {{ $suite }}-overlay
+    chroot: true
+    command: |
+      set -eux
+      # only generate if the keyring was installed by the overlay
+      if [ -f /etc/apt/keyrings/qsc-deb-releases.asc ]; then
+        cat >/etc/apt/sources.list.d/qsc-deb-releases.sources <<EOF
+      # QArtifactory qsc-deb-releases repository
+      # NB: publishing Sources indices for deb-src isn't supported by Artifactory,
+      # but sources are published with other packages files
+      Types: deb
+      URIs: https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases
+      Suites: {{ $suite }}-overlay
+      Components: main
+      Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
+      Enabled: yes
+      EOF
+        cat >/etc/apt/preferences.d/qsc-deb-releases.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # {{ $suite }}-overlay higher than versions from Debian for compliance
+      Package: src:pipewire:any
+      Pin: release n={{ $suite }}-overlay
+      Pin-Priority: 950
+      EOF
+      fi
+
   - action: run
     description: Remove old APT sources and upgrade packages
     chroot: true
