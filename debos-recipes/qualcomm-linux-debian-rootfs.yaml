@@ -154,7 +154,9 @@ actions:
 {{- end }}
 
   # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
-  # .sources and .pref files dynamically to use the correct $suite-overlay
+  # .sources and .pref files dynamically to use the correct $suite-overlay.
+  # The .sources is initially created with Enabled: no, and only enabled after
+  # verifying the suite exists in the repository (wget probe of Release file).
   - action: run
     description: Create qsc-deb-releases APT sources for {{ $suite }}-overlay
     chroot: true
@@ -171,7 +173,7 @@ actions:
       Suites: {{ $suite }}-overlay
       Components: main
       Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
-      Enabled: yes
+      Enabled: no
       EOF
         cat >/etc/apt/preferences.d/qsc-deb-releases.pref <<EOF
       # for binary packages built from these source packages, score the version from
@@ -180,6 +182,13 @@ actions:
       Pin: release n={{ $suite }}-overlay
       Pin-Priority: 950
       EOF
+        # verify the overlay suite exists before enabling it
+        if wget -q --spider \
+            "https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases/dists/{{ $suite }}-overlay/Release"; then
+          sed -i 's/^Enabled: no$/Enabled: yes/' /etc/apt/sources.list.d/qsc-deb-releases.sources
+        else
+          echo "WARNING: {{ $suite }}-overlay not found in qsc-deb-releases, leaving disabled"
+        fi
       fi
 
   - action: run
