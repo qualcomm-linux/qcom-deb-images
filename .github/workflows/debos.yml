@@ -58,7 +58,7 @@ jobs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: public.ecr.aws/${{ inputs.distro }}/${{ inputs.distro }}:${{ inputs.suite }}
+      image: public.ecr.aws/debian/debian:trixie
       volumes:
         - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
@@ -80,14 +80,11 @@ jobs:
         run: cp -av "/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest/rb1-boot.img" .
 
       # mtools is needed for the flash recipe
+      # mmdebstrap bootstraps rootfs for the target distro/suite from a
+      # Debian trixie build environment; debos is not installable on Ubuntu
+      # noble and doesn't work on forky or resolute
       - name: Install debos and dependencies of the recipes and local tests
-        run: |
-          set -ux
-          keyring=debian-archive-keyring
-          if [ "${{ inputs.distro }}" = "ubuntu" ]; then
-            keyring=ubuntu-keyring
-          fi
-          apt -y install "$keyring" debos make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+        run: apt -y install debian-archive-keyring debos make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
 
       - name: Setup local APT repo
         run: |
