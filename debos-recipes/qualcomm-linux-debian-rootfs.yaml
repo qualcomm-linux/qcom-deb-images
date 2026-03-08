@@ -214,8 +214,10 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-      # fastrpc support. fastrpc-tests pulls in the required stack
-      - fastrpc-tests
+{{ if ne $suite "noble" }}
+      # fastrpc support; not available in Ubuntu noble
+      - fastrpc-support
+{{ end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
@@ -242,6 +244,15 @@ actions:
       - wireless-regdb
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
+
+{{ if eq $suite "trixie" }}
+  # fastrpc-tests is only available in trixie-overlay
+  - action: apt
+    description: Install fastrpc-tests (trixie only)
+    recommends: true
+    packages:
+      - fastrpc-tests
+{{ end }}
 
   - action: run
     description: Set hostname to "{{ $hostname }}"
@@ -277,20 +288,32 @@ actions:
       )
 
   # NB: Recommends pull in way too many packages, and we don't need to follow
-  # Recommends reaching outside of this Priority level
+  # Recommends reaching outside of each Priority level
+{{ if eq $distro "debian" }}
   - action: apt
     description: Install packages of priority "important" (only from Debian)
     recommends: false
     packages:
       - ?origin(Debian) ?priority(important)
 
-  # NB: Recommends pull in way too many packages, and we don't need to follow
-  # Recommends reaching outside of this Priority level
   - action: apt
     description: Install packages of priority "standard" (only from Debian)
     recommends: false
     packages:
       - ?origin(Debian) ?priority(standard)
+{{ else if eq $distro "ubuntu" }}
+  - action: apt
+    description: Install packages of priority "important" (from Ubuntu)
+    recommends: false
+    packages:
+      - ?origin(Ubuntu) ?priority(important)
+
+  - action: apt
+    description: Install packages of priority "standard" (from Ubuntu)
+    recommends: false
+    packages:
+      - ?origin(Ubuntu) ?priority(standard)
+{{ end }}
 
   # TODO remove Priority: standard packages from this list?
   - action: apt
@@ -299,8 +322,10 @@ actions:
     packages:
       - alsa-utils
       - clinfo
-      # used to debug clock issues
+{{ if ne $suite "noble" }}
+      # used to debug clock issues; not available in Ubuntu noble
       - debugcc
+{{ end }}
       - device-tree-compiler
       - docker.io
       # used to debug ethernet speed auto-neg issues
