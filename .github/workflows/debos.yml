@@ -3,6 +3,14 @@ name: Build debos recipe
 on:
   workflow_call:
     inputs:
+      suite:
+        description: Distribution suite (e.g. trixie, forky, noble)
+        type: string
+        default: trixie
+      distro:
+        description: Distribution (debian or ubuntu)
+        type: string
+        default: debian
       overlays:
         description: List of overlays to use
         type: string
@@ -41,15 +49,16 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
   DEBOS_EXTRA_ARGS: ${{ inputs.debos_extra_args }}
+  DEBOS_DISTRO_ARGS: -t suite:${{ inputs.suite }} -t distro:${{ inputs.distro }}
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes
+    name: Build and upload debos recipes (${{ inputs.distro }} ${{ inputs.suite }})
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: public.ecr.aws/debian/debian:trixie
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       volumes:
         - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
       options: --privileged
@@ -116,6 +125,7 @@ jobs:
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:"$kernel_package" \
               -t "buildid:${BUILD_ID}" \
+              ${DEBOS_DISTRO_ARGS} \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
@@ -130,10 +140,12 @@ jobs:
           # whole build is done from memory and the out of memory killer
           # gets triggered
           debos -b qemu --scratchsize 6GiB -t imagetype:ufs \
+              ${DEBOS_DISTRO_ARGS} \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
           debos -b qemu --scratchsize 6GiB -t imagetype:sdcard \
+              ${DEBOS_DISTRO_ARGS} \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-image.yaml
@@ -144,6 +156,7 @@ jobs:
           debos \
               -t u_boot_rb1:rb1-boot.img \
               -t "buildid:${BUILD_ID}" \
+              ${DEBOS_DISTRO_ARGS} \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-flash.yaml
