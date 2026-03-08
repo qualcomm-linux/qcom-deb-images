@@ -51,11 +51,60 @@ actions:
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
-  # modern etc/apt/sources.list.d/debian.sources; sources.list is removed after
+  # modern etc/apt/sources.list.d/ .sources; sources.list is removed after
   # applying all overlays, and followed by an APT update and full-upgrade
-  - action: overlay
-    description: Create Debian APT sources
-    source: overlays/apt-sources
+  - action: run
+    description: Create APT sources for {{ $distro }} {{ $suite }}
+    chroot: true
+    command: |
+      set -eux
+{{ if eq $distro "debian" }}
+      cat >/etc/apt/sources.list.d/debian.sources <<EOF
+      # Debian archive
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      # Debian stable updates
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}-updates
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      # Debian security updates
+      Types: deb
+      URIs: http://deb.debian.org/debian-security/
+      Suites: {{ $suite }}-security
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+{{ else if eq $distro "ubuntu" }}
+      cat >/etc/apt/sources.list.d/ubuntu.sources <<EOF
+      # Ubuntu archive
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      # Ubuntu updates
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}-updates
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      # Ubuntu security updates
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}-security
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      EOF
+{{ end }}
 
   - action: overlay
     description: Add Debian backports APT configuration
