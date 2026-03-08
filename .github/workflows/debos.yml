@@ -81,7 +81,7 @@ jobs:
       # Debian trixie build environment; debos is not installable on Ubuntu
       # noble and doesn't work on forky or resolute
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm
+        run: apt -y install debian-archive-keyring debos make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm ubuntu-keyring
 
       - name: Setup local APT repo
         run: |
