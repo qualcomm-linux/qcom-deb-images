@@ -276,8 +276,13 @@ actions:
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
+      groups="adm,audio,render,sudo,users,video"
+      # fastrpc group only exists when fastrpc-support is installed (Debian)
+      if getent group fastrpc >/dev/null 2>&1; then
+        groups="${groups},fastrpc"
+      fi
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,audio,fastrpc,render,sudo,users,video {{ $username }}
+          --groups "$groups" {{ $username }}
       # set password to "{{ $username }}"
       echo {{ $username }}:{{ $username }} | chpasswd
       # password must be changed on first login
