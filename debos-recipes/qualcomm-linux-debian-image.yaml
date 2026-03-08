@@ -92,7 +92,13 @@ actions:
       # DTBs; do this once here
       latest_kernel="$(
           linux-version list | linux-version sort --reverse | head -1)"
-      dtb_path="/usr/lib/linux-image-${latest_kernel}"
+      # Debian: DTBs are under /usr/lib/linux-image-<version>/
+      # Ubuntu: DTBs are under /lib/firmware/<version>/device-tree/
+      if [ -d "/usr/lib/linux-image-${latest_kernel}" ]; then
+        dtb_path="/usr/lib/linux-image-${latest_kernel}"
+      else
+        dtb_path="/lib/firmware/${latest_kernel}/device-tree"
+      fi
       cp -LRT "$dtb_path" "/boot/efi/dtb"
 
   - action: run
