@@ -168,14 +168,6 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-      # fastrpc support. fastrpc-tests pulls in the required stack
-{{- if ne $overlays "none" }}
-{{- range $overlay := split "," $overlays }}
-{{- if eq $overlay "qsc-deb-releases" }}
-      - fastrpc-tests
-{{- end }}
-{{- end }}
-{{- end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
@@ -202,6 +194,22 @@ actions:
       - wireless-regdb
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
+
+{{- if eq $suite "trixie" }}
+{{- if ne $overlays "none" }}
+{{- range $overlay := split "," $overlays }}
+{{- if eq $overlay "qsc-deb-releases" }}
+  # fastrpc-tests is only available in trixie-overlay
+  - action: apt
+    description: Install fastrpc-tests (trixie only)
+    recommends: true
+    packages:
+      # fastrpc support. fastrpc-tests pulls in the required stack
+      - fastrpc-tests
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
 
   - action: run
     description: Set hostname to "debian"
