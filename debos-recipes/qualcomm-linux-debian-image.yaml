@@ -2,6 +2,7 @@
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
+{{- $suite := or .suite "trixie" }}
 
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
@@ -68,6 +69,7 @@ actions:
       # Depends on grub packages
       - shim-signed-
 
+{{- if ne $suite "noble" }}
   # this is to provide an updated copy of DTBs from the OS to U-Boot, notably
   # on RB1
   - action: run
@@ -100,6 +102,7 @@ actions:
         dtb_path="/lib/firmware/${latest_kernel}/device-tree"
       fi
       cp -LRT "$dtb_path" "/boot/efi/dtb"
+{{- end }}
 
   - action: run
     description: Create task to grow root filesystem on first boot
