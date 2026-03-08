@@ -388,8 +388,13 @@ actions:
       - light-locker
       - xfce4-terminal
       - tango-icon-theme
+{{ if eq $suite "noble" }}
+      # on Ubuntu noble, applet and connection editor are in network-manager-gnome
+      - network-manager-gnome
+{{ else }}
       - network-manager-applet
       - nm-connection-editor
+{{ end }}
       - synaptic
       # from task-desktop
       - desktop-base
