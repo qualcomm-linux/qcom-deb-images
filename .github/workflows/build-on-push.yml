@@ -12,13 +12,27 @@ permissions:
   pull-requests: write # lava-test.yml
 
 jobs:
-  build-daily:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: debian
+            suite: trixie
+          - distro: debian
+            suite: forky
+          - distro: ubuntu
+            suite: noble
+          - distro: ubuntu
+            suite: resolute
+    with:
+      suite: ${{ matrix.suite }}
     uses: ./.github/workflows/debos.yml
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
   test:
     uses: ./.github/workflows/lava-test.yml
-    needs: [build-daily, schema-check]
+    needs: [build, schema-check]
     secrets: inherit
     with:
-      url: ${{ needs.build-daily.outputs.artifacts_url }}
+      url: ${{ needs.build.outputs.artifacts_url }}
