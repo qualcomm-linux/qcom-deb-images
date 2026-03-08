@@ -46,17 +46,22 @@ endif
 http_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::http::Proxy)
 export http_proxy
 
+# Distribution and suite selection
+SUITE ?= trixie
+DISTRO ?= debian
+DEBOS_VARS := -t suite:$(SUITE) -t distro:$(DISTRO)
+
 .PHONY: all
 all: disk-ufs.img disk-sdcard.img
 
 rootfs.tar: debos-recipes/qualcomm-linux-debian-rootfs.yaml
-	$(DEBOS_CMD) $<
+	$(DEBOS_CMD) $(DEBOS_VARS) $<
 
 disk-ufs.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) $<
+	$(DEBOS_CMD) $(DEBOS_VARS) $<
 
 disk-sdcard.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) -t imagetype:sdcard $<
+	$(DEBOS_CMD) $(DEBOS_VARS) -t imagetype:sdcard $<
 
 .PHONY: test
 test: disk-ufs.img
