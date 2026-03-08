@@ -36,10 +36,11 @@ actions:
 {{ end }}
     variant: minbase
     # ca-certificates required in early bootstrap for possible https apt overlays later
+    # wget is needed to probe overlay suite availability later in the build
 {{ if eq $distro "ubuntu" }}
-    include: [ca-certificates, ubuntu-keyring]
+    include: [ca-certificates, ubuntu-keyring, wget]
 {{ else }}
-    include: [ca-certificates]
+    include: [ca-certificates, wget]
 {{ end }}
 
 {{- if ne $aptlocalrepo "none" }}
