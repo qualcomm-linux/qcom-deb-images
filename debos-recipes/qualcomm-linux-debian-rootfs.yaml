@@ -4,6 +4,8 @@
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
+{{- $suite := or .suite "trixie" }}
+{{- $distro := or .distro "debian" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -15,8 +17,7 @@ architecture: arm64
 actions:
   - action: mmdebstrap
     description: Bootstrap initial filesystem
-    # NB: not currently configurable
-    suite: trixie
+    suite: {{ $suite }}
     components:
       - main
       - contrib
