@@ -529,11 +529,17 @@ actions:
       # this image has pulled a more recent kernel, it's probably to gain
       # support for new hardware which would happen through new or updated dtbs
       # only in that new kernel, so use the latest dtbs
-      latest_kernel="$(
-          ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      #
+      # Debian: DTBs are under /usr/lib/linux-image-<version>/
+      # Ubuntu: DTBs are under /lib/firmware/<version>/device-tree/
+      if ls -d "$ROOTDIR"/usr/lib/linux-image-* >/dev/null 2>&1; then
+        dtb_dir="$(ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      else
+        dtb_dir="$(ls -d "$ROOTDIR"/lib/firmware/*/device-tree | sort -V | tail -1)"
+      fi
       # transform pathnames to strip the leading ./
       tar \
-          -C "${latest_kernel}" \
+          -C "${dtb_dir}" \
           --transform='s|^\./||' \
           -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
           .
