@@ -207,8 +207,10 @@ actions:
     description: Install foundational packages
     recommends: true
     packages:
-      # Android Debug Bridge (daemon)
+{{ if ne $suite "noble" }}
+      # Android Debug Bridge (daemon); not available in Ubuntu noble
       - adbd
+{{ end }}
       # bluetooth
       - bluez
       # vfat tools, notably fsck.fat for the ESP
