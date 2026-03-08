@@ -217,8 +217,8 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-{{ if ne $suite "noble" }}
-      # fastrpc support; not available in Ubuntu noble
+{{ if eq $distro "debian" }}
+      # fastrpc support; not available in Ubuntu noble nor in resolute
       - fastrpc-support
 {{ end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
