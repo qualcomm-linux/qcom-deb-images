@@ -106,9 +106,30 @@ actions:
       EOF
 {{ end }}
 
-  - action: overlay
-    description: Add Debian backports APT configuration
-    source: overlays/backports
+{{ if eq $distro "debian" }}
+  - action: run
+    description: Add Debian {{ $suite }}-backports APT configuration
+    chroot: true
+    command: |
+      set -eux
+      cat >/etc/apt/sources.list.d/debian-backports.sources <<EOF
+      # Debian backports
+      Types: deb
+      URIs: http://deb.debian.org/debian
+      Suites: {{ $suite }}-backports
+      Components: main contrib non-free non-free-firmware
+      Enabled: yes
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+      cat >/etc/apt/preferences.d/debian-backports.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # Debian backports higher as to get hardware enabled or better hardware support
+
+      Package: src:alsa-ucm-conf:any src:firmware-free:any src:firmware-nonfree:any src:linux:any src:linux-signed-arm64:any src:mesa:any src:u-boot-efi-dtb
+      Pin: release n={{ $suite }}-backports
+      Pin-Priority: 900
+      EOF
+{{ end }}
 
 {{- if $overlays }}
 {{- range $overlay := split "," $overlays }}
