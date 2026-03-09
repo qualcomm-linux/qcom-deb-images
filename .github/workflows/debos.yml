@@ -232,11 +232,10 @@ jobs:
         run: |
           set -ux
           prefix="${{ inputs.distro }}-${{ inputs.suite }}"
-          gzip rootfs-sbom.*
           dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.*.gz; do
-              cp -av "$f" "sboms/${prefix}-${f}"
+          for f in rootfs-sbom.*; do
+              gzip -c "$f" >"${dir}/${prefix}-${f}.gz"
           done
 
       - name: Upload SBOMs as private artifacts
