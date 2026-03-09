@@ -6,8 +6,8 @@
 {{- $buildid := or .buildid "" }}
 {{- $suite := or .suite "trixie" }}
 {{- $distro := or .distro "debian" }}
-{{- $username := or .username $distro }}
-{{- $hostname := or .hostname $distro }}
+{{- $username := or .username "qcom" }}
+{{- $hostname := or .hostname "qcom" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
