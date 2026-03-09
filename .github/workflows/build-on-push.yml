@@ -12,13 +12,36 @@ permissions:
   pull-requests: write # lava-test.yml
 
 jobs:
-  build-daily:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: debian
+            suite: trixie
+            # the package name will be passed to APT which interprets the
+            # trailing plus sign in the package name as a request to install
+            # the package, so use two plus signs
+            kernelpackage: linux-image-6.16.7-qcom1++
+          - distro: debian
+            suite: forky
+            kernelpackage: linux-image-arm64
+          - distro: ubuntu
+            suite: noble
+            kernelpackage: linux-image-qcom
+          - distro: ubuntu
+            suite: resolute
+            kernelpackage: linux-image-generic
+    with:
+      suite: ${{ matrix.suite }}
+      distro: ${{ matrix.distro }}
+      kernelpackage: ${{ matrix.kernelpackage }}
     uses: ./.github/workflows/debos.yml
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
   test:
     uses: ./.github/workflows/lava-test.yml
-    needs: [build-daily, schema-check]
+    needs: [build, schema-check]
     secrets: inherit
     with:
-      url: ${{ needs.build-daily.outputs.artifacts_url }}
+      url: ${{ needs.build.outputs.artifacts_url }}

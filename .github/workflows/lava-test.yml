@@ -6,6 +6,14 @@ on:
       url:
         required: true
         type: string
+      distro:
+        description: Distribution (debian or ubuntu)
+        type: string
+        default: debian
+      suite:
+        description: Distribution suite (e.g. trixie, forky, noble)
+        type: string
+        default: trixie
 
 # implicitely set all other permissions to none
 permissions:
@@ -17,6 +25,8 @@ permissions:
 env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
+  DISTRO: ${{ inputs.distro }}
+  SUITE: ${{ inputs.suite }}
 
 jobs:
   prepare-job-list:
@@ -83,6 +93,8 @@ jobs:
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
+              -e "s|{{DISTRO}}|${DISTRO}|g" \
+              -e "s|{{SUITE}}|${SUITE}|g" \
               -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
               -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \

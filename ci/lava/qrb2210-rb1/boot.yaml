@@ -4,7 +4,7 @@ actions:
       image:
         headers:
           Authorization: Q_S3_TOKEN
-        url: "{{BUILD_DOWNLOAD_URL}}/flash-emmc.tar.gz"
+        url: "{{BUILD_DOWNLOAD_URL}}/{{DISTRO}}-{{SUITE}}-flash-emmc.tar.gz"
     postprocess:
       docker:
         image: ghcr.io/foundriesio/lava-lmp-sign:main
@@ -34,18 +34,18 @@ actions:
 - boot:
     auto_login:
       login_prompt: 'login:'
-      username: debian
+      username: qcom
       password_prompt: 'Password'
-      password: debian
+      password: qcom
       login_commands:
-      - "debian"
+      - "qcom"
       - "new password"
       - "new password"
       - sudo su
     method: minimal
     prompts:
-    - root@debian
-    - debian@debian
+    - root@qcom
+    - qcom@qcom
     - "Current password"
     - "New password"
     - "Retype new password"

@@ -152,3 +152,5 @@ jobs:
     secrets: inherit
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      distro: debian
+      suite: trixie

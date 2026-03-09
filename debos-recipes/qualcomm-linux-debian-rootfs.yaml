@@ -4,6 +4,10 @@
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
+{{- $suite := or .suite "trixie" }}
+{{- $distro := or .distro "debian" }}
+{{- $username := or .username "qcom" }}
+{{- $hostname := or .hostname "qcom" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -15,17 +19,29 @@ architecture: arm64
 actions:
   - action: mmdebstrap
     description: Bootstrap initial filesystem
-    # NB: not currently configurable
-    suite: trixie
+    suite: {{ $suite }}
     components:
+{{ if eq $distro "ubuntu" }}
+      - main
+      - universe
+      - restricted
+      - multiverse
+    mirrors: ['http://ports.ubuntu.com/ubuntu-ports']
+{{ else }}
       - main
       - contrib
       - non-free
       - non-free-firmware
     mirrors: ['http://deb.debian.org/debian']
+{{ end }}
     variant: minbase
     # ca-certificates required in early bootstrap for possible https apt overlays later
-    include: [ca-certificates]
+    # wget is needed to probe overlay suite availability later in the build
+{{ if eq $distro "ubuntu" }}
+    include: [ca-certificates, ubuntu-keyring, wget]
+{{ else }}
+    include: [ca-certificates, wget]
+{{ end }}
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
@@ -50,15 +66,85 @@ actions:
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
-  # modern etc/apt/sources.list.d/debian.sources; sources.list is removed after
+  # modern etc/apt/sources.list.d/ .sources; sources.list is removed after
   # applying all overlays, and followed by an APT update and full-upgrade
-  - action: overlay
-    description: Create Debian APT sources
-    source: overlays/apt-sources
+  - action: run
+    description: Create APT sources for {{ $distro }} {{ $suite }}
+    chroot: true
+    command: |
+      set -eux
+{{ if eq $distro "debian" }}
+      cat >/etc/apt/sources.list.d/debian.sources <<EOF
+      # Debian archive
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
-  - action: overlay
-    description: Add Debian backports APT configuration
-    source: overlays/backports
+      # Debian stable updates
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}-updates
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      # Debian security updates
+      Types: deb
+      URIs: http://deb.debian.org/debian-security/
+      Suites: {{ $suite }}-security
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+{{ else if eq $distro "ubuntu" }}
+      cat >/etc/apt/sources.list.d/ubuntu.sources <<EOF
+      # Ubuntu archive
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      # Ubuntu updates
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}-updates
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      # Ubuntu security updates
+      Types: deb
+      URIs: http://ports.ubuntu.com/ubuntu-ports/
+      Suites: {{ $suite }}-security
+      Components: main universe restricted multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      EOF
+{{ end }}
+
+{{ if eq $distro "debian" }}
+  - action: run
+    description: Add Debian {{ $suite }}-backports APT configuration
+    chroot: true
+    command: |
+      set -eux
+      cat >/etc/apt/sources.list.d/debian-backports.sources <<EOF
+      # Debian backports
+      Types: deb
+      URIs: http://deb.debian.org/debian
+      Suites: {{ $suite }}-backports
+      Components: main contrib non-free non-free-firmware
+      Enabled: yes
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+      cat >/etc/apt/preferences.d/debian-backports.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # Debian backports higher as to get hardware enabled or better hardware support
+
+      Package: src:alsa-ucm-conf:any src:firmware-free:any src:firmware-nonfree:any src:linux:any src:linux-signed-arm64:any src:mesa:any src:u-boot-efi-dtb
+      Pin: release n={{ $suite }}-backports
+      Pin-Priority: 900
+      EOF
+{{ end }}
 
 {{- if $overlays }}
 {{- range $overlay := split "," $overlays }}
@@ -67,6 +153,44 @@ actions:
     source: overlays/{{$overlay}}
 {{- end }}
 {{- end }}
+
+  # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
+  # .sources and .pref files dynamically to use the correct $suite-overlay.
+  # The .sources is initially created with Enabled: no, and only enabled after
+  # verifying the suite exists in the repository (wget probe of Release file).
+  - action: run
+    description: Create qsc-deb-releases APT sources for {{ $suite }}-overlay
+    chroot: true
+    command: |
+      set -eux
+      # only generate if the keyring was installed by the overlay
+      if [ -f /etc/apt/keyrings/qsc-deb-releases.asc ]; then
+        cat >/etc/apt/sources.list.d/qsc-deb-releases.sources <<EOF
+      # QArtifactory qsc-deb-releases repository
+      # NB: publishing Sources indices for deb-src isn't supported by Artifactory,
+      # but sources are published with other packages files
+      Types: deb
+      URIs: https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases
+      Suites: {{ $suite }}-overlay
+      Components: main
+      Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
+      Enabled: no
+      EOF
+        cat >/etc/apt/preferences.d/qsc-deb-releases.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # {{ $suite }}-overlay higher than versions from Debian for compliance
+      Package: src:pipewire:any
+      Pin: release n={{ $suite }}-overlay
+      Pin-Priority: 950
+      EOF
+        # verify the overlay suite exists before enabling it
+        if wget -q --spider \
+            "https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases/dists/{{ $suite }}-overlay/Release"; then
+          sed -i 's/^Enabled: no$/Enabled: yes/' /etc/apt/sources.list.d/qsc-deb-releases.sources
+        else
+          echo "WARNING: {{ $suite }}-overlay not found in qsc-deb-releases, leaving disabled"
+        fi
+      fi
 
   - action: run
     description: Remove old APT sources and upgrade packages
@@ -83,16 +207,20 @@ actions:
     description: Install foundational packages
     recommends: true
     packages:
-      # Android Debug Bridge (daemon)
+{{ if ne $suite "noble" }}
+      # Android Debug Bridge (daemon); not available in Ubuntu noble
       - adbd
+{{ end }}
       # bluetooth
       - bluez
       # vfat tools, notably fsck.fat for the ESP
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-      # fastrpc support. fastrpc-tests pulls in the required stack
-      - fastrpc-tests
+{{ if eq $distro "debian" }}
+      # fastrpc support; not available in Ubuntu noble nor in resolute
+      - fastrpc-support
+{{ end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
@@ -120,17 +248,26 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
+{{ if eq $suite "trixie" }}
+  # fastrpc-tests is only available in trixie-overlay
+  - action: apt
+    description: Install fastrpc-tests (trixie only)
+    recommends: true
+    packages:
+      - fastrpc-tests
+{{ end }}
+
   - action: run
-    description: Set hostname to "debian"
+    description: Set hostname to "{{ $hostname }}"
     chroot: true
     command: |
       set -eux
-      echo debian >/etc/hostname
+      echo {{ $hostname }} >/etc/hostname
       # /etc/hosts is created by netbase
-      sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
+      sed -i "1s/^/127.0.1.1\t{{ $hostname }}\n/" /etc/hosts
 
   - action: run
-    description: Add a "debian" user, add it to sudoers and various groups
+    description: Add a "{{ $username }}" user, add it to sudoers and various groups
     chroot: true
     command: |
       set -eux
@@ -139,35 +276,52 @@ actions:
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
+      groups="adm,audio,render,sudo,users,video"
+      # fastrpc group only exists when fastrpc-support is installed (Debian)
+      if getent group fastrpc >/dev/null 2>&1; then
+        groups="${groups},fastrpc"
+      fi
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,audio,fastrpc,render,sudo,users,video debian
-      # set password to "debian"
-      echo debian:debian | chpasswd
+          --groups "$groups" {{ $username }}
+      # set password to "{{ $username }}"
+      echo {{ $username }}:{{ $username }} | chpasswd
       # password must be changed on first login
-      chage --lastday 0 debian
+      chage --lastday 0 {{ $username }}
       # add to sudoers
       mkdir -v --mode 755 --parents /etc/sudoers.d
       # subshell to override umask
       (
         umask 226
-        echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
+        echo "{{ $username }} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
       )
 
   # NB: Recommends pull in way too many packages, and we don't need to follow
-  # Recommends reaching outside of this Priority level
+  # Recommends reaching outside of each Priority level
+{{ if eq $distro "debian" }}
   - action: apt
     description: Install packages of priority "important" (only from Debian)
     recommends: false
     packages:
       - ?origin(Debian) ?priority(important)
 
-  # NB: Recommends pull in way too many packages, and we don't need to follow
-  # Recommends reaching outside of this Priority level
   - action: apt
     description: Install packages of priority "standard" (only from Debian)
     recommends: false
     packages:
       - ?origin(Debian) ?priority(standard)
+{{ else if eq $distro "ubuntu" }}
+  - action: apt
+    description: Install packages of priority "important" (from Ubuntu)
+    recommends: false
+    packages:
+      - ?origin(Ubuntu) ?priority(important)
+
+  - action: apt
+    description: Install packages of priority "standard" (from Ubuntu)
+    recommends: false
+    packages:
+      - ?origin(Ubuntu) ?priority(standard)
+{{ end }}
 
   # TODO remove Priority: standard packages from this list?
   - action: apt
@@ -176,8 +330,10 @@ actions:
     packages:
       - alsa-utils
       - clinfo
-      # used to debug clock issues
+{{ if ne $suite "noble" }}
+      # used to debug clock issues; not available in Ubuntu noble
       - debugcc
+{{ end }}
       - device-tree-compiler
       - docker.io
       # used to debug ethernet speed auto-neg issues
@@ -206,7 +362,7 @@ actions:
     chroot: true
     command: |
       set -eux
-      usermod -a -G docker debian
+      usermod -a -G docker {{ $username }}
 
 {{- if eq $xfcedesktop "true" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
@@ -232,8 +388,13 @@ actions:
       - light-locker
       - xfce4-terminal
       - tango-icon-theme
+{{ if eq $suite "noble" }}
+      # on Ubuntu noble, applet and connection editor are in network-manager-gnome
+      - network-manager-gnome
+{{ else }}
       - network-manager-applet
       - nm-connection-editor
+{{ end }}
       - synaptic
       # from task-desktop
       - desktop-base
@@ -270,7 +431,7 @@ actions:
       set -eux
       if which locale-gen >/dev/null 2>&1; then
           echo en_US.UTF-8 UTF-8 >>/etc/locale.gen
-          locale-gen en_US.UTF-8 UTF-8
+          locale-gen
           update-locale LANG=en_US.UTF-8
       fi
 
@@ -299,12 +460,19 @@ actions:
       - kmod
       - linux-base
 
+{{ if eq $distro "debian" }}
   - action: apt
-    description: Install kernel and firmware packages
+    description: Install firmware packages (Debian only)
     recommends: true
     packages:
       - firmware-atheros
       - firmware-qcom-soc
+{{ end }}
+
+  - action: apt
+    description: Install kernel package
+    recommends: true
+    packages:
       - {{$kernelpackage}}
 
   # this is currently needed on boards such as RB1 which are using Android
@@ -361,11 +529,17 @@ actions:
       # this image has pulled a more recent kernel, it's probably to gain
       # support for new hardware which would happen through new or updated dtbs
       # only in that new kernel, so use the latest dtbs
-      latest_kernel="$(
-          ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      #
+      # Debian: DTBs are under /usr/lib/linux-image-<version>/
+      # Ubuntu: DTBs are under /lib/firmware/<version>/device-tree/
+      if ls -d "$ROOTDIR"/usr/lib/linux-image-* >/dev/null 2>&1; then
+        dtb_dir="$(ls -d "$ROOTDIR"/usr/lib/linux-image-* | sort -V | tail -1)"
+      else
+        dtb_dir="$(ls -d "$ROOTDIR"/lib/firmware/*/device-tree | sort -V | tail -1)"
+      fi
       # transform pathnames to strip the leading ./
       tar \
-          -C "${latest_kernel}" \
+          -C "${dtb_dir}" \
           --transform='s|^\./||' \
           -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
           .
