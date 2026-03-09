@@ -167,15 +167,11 @@ jobs:
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
-          # compress output files before staging them
-          gzip --keep rootfs.tar
-          gzip --keep disk-ufs.img
-          gzip --keep disk-sdcard.img
-          # copy output files
-          cp -av rootfs.tar.gz "${dir}"
+          # compress output files into the staging directory
+          gzip -c rootfs.tar >"${dir}/rootfs.tar.gz"
+          gzip -c disk-ufs.img >"${dir}/disk-ufs.img.gz"
+          gzip -c disk-sdcard.img >"${dir}/disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}"
-          cp -av disk-ufs.img.gz "${dir}"
-          cp -av disk-sdcard.img.gz "${dir}"
           # create tarballs with support for all UFS and all eMMC boards
           tar -cvzf "${dir}"/flash-ufs.tar.gz \
               disk-ufs.img1 \
