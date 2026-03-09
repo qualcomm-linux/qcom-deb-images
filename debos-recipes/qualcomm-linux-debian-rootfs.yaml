@@ -4,6 +4,8 @@
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
+{{- $username := or .username "qcom" }}
+{{- $hostname := or .hostname "qcom" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -121,16 +123,16 @@ actions:
       - wpasupplicant
 
   - action: run
-    description: Set hostname to "debian"
+    description: Set hostname to "{{ $hostname }}"
     chroot: true
     command: |
       set -eux
-      echo debian >/etc/hostname
+      echo {{ $hostname }} >/etc/hostname
       # /etc/hosts is created by netbase
-      sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
+      sed -i "1s/^/127.0.1.1\t{{ $hostname }}\n/" /etc/hosts
 
   - action: run
-    description: Add a "debian" user, add it to sudoers and various groups
+    description: Add a "{{ $username }}" user, add it to sudoers and various groups
     chroot: true
     command: |
       set -eux
@@ -140,17 +142,17 @@ actions:
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,audio,fastrpc,render,sudo,users,video debian
-      # set password to "debian"
-      echo debian:debian | chpasswd
+          --groups adm,audio,fastrpc,render,sudo,users,video {{ $username }}
+      # set password to "{{ $username }}"
+      echo {{ $username }}:{{ $username }} | chpasswd
       # password must be changed on first login
-      chage --lastday 0 debian
+      chage --lastday 0 {{ $username }}
       # add to sudoers
       mkdir -v --mode 755 --parents /etc/sudoers.d
       # subshell to override umask
       (
         umask 226
-        echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
+        echo "{{ $username }} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
       )
 
   # NB: Recommends pull in way too many packages, and we don't need to follow
@@ -206,7 +208,7 @@ actions:
     chroot: true
     command: |
       set -eux
-      usermod -a -G docker debian
+      usermod -a -G docker {{ $username }}
 
 {{- if eq $xfcedesktop "true" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;

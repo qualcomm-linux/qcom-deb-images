@@ -199,8 +199,8 @@ NB: It's also possible to run qdl from the host while the board is not connected
 
 #### Login
 
-Once the image has booted, you can log in as the `debian` user, with the
-default `debian` password. The image should then ask you to change this default
+Once the image has booted, you can log in as the `qcom` user, with the
+default `qcom` password. The image should then ask you to change this default
 password to a safe one.
 
 ## Development
