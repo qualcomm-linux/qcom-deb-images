@@ -164,20 +164,21 @@ jobs:
       - name: Stage debos artifacts for publishing
         run: |
           set -ux
+          prefix="${{ inputs.distro }}-${{ inputs.suite }}"
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
-          # compress output files into the staging directory
-          gzip -c rootfs.tar >"${dir}/rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}"
+          # compress output files directly into the staging directory
+          gzip -c rootfs.tar >"${dir}/${prefix}-rootfs.tar.gz"
+          gzip -c disk-ufs.img >"${dir}/${prefix}-disk-ufs.img.gz"
+          gzip -c disk-sdcard.img >"${dir}/${prefix}-disk-sdcard.img.gz"
+          cp -av dtbs.tar.gz "${dir}/${prefix}-dtbs.tar.gz"
           # create tarballs with support for all UFS and all eMMC boards
-          tar -cvzf "${dir}"/flash-ufs.tar.gz \
+          tar -cvzf "${dir}/${prefix}-flash-ufs.tar.gz" \
               disk-ufs.img1 \
               disk-ufs.img2 \
               flash_*_ufs
-          tar -cvzf "${dir}"/flash-emmc.tar.gz \
+          tar -cvzf "${dir}/${prefix}-flash-emmc.tar.gz" \
               disk-sdcard.img1 \
               disk-sdcard.img2 \
               flash_*_emmc
@@ -230,10 +231,13 @@ jobs:
       - name: Stage SBOMs for publishing
         run: |
           set -ux
+          prefix="${{ inputs.distro }}-${{ inputs.suite }}"
           gzip rootfs-sbom.*
           dir="sboms"
           mkdir -v sboms
-          cp -av rootfs-sbom.*.gz sboms
+          for f in rootfs-sbom.*.gz; do
+              cp -av "$f" "sboms/${prefix}-${f}"
+          done
 
       - name: Upload SBOMs as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@aws-v4
