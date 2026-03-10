@@ -7,7 +7,9 @@
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) --memory 1GiB --scratchsize 6GiB
+EXTRA_DEBOS_OPTS ?=
+DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) \
+	--memory 1GiB --scratchsize 6GiB $(EXTRA_DEBOS_OPTS)
 
 # Container support: auto-detect if debos is available, otherwise use container
 USE_CONTAINER ?= auto
