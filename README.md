@@ -83,21 +83,21 @@ To build flashable assets for all supported boards, follow these steps:
 
 1. build tarballs of the root filesystem and DTBs
     ```bash
-    debos debos-recipes/qualcomm-linux-debian-rootfs.yaml
+    make rootfs.tar
 
     # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
     # and run this instead:
-    #debos -t localdebs:local-debs/ debos-recipes/qualcomm-linux-debian-rootfs.yaml
+    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/" make rootfs.tar
     ```
 
 1. build disk and filesystem images from the root filesystem tarball
     ```bash
     # the default is to build a UFS image
-    debos debos-recipes/qualcomm-linux-debian-image.yaml
+    make disk-ufs.img
 
     # (optional) if you want SD card images or support for eMMC boards, run
     # this as well:
-    debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
+    make disk-sdcard.img
     ```
 
 1. build flashable assets from downloaded boot binaries, the DTBs, and pointing at the UFS/SD card disk images
@@ -153,6 +153,7 @@ Deprecated flash options:
 - `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
+
 ```bash
 # build the root filesystem with Xfce
 debos -t xfcedesktop:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
@@ -168,6 +169,10 @@ debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
 # (see flash recipe for accepted board names)
 debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
 ```
+
+Note that these manual invocations may fail because the debos defaults, like
+scratchsize, are too small for some recipes. We encourage you to stick to the
+existing Makefile targets instead.
 
 ### Flash the image
 
