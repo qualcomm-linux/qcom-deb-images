@@ -14,31 +14,31 @@ USE_CONTAINER ?= auto
 CONTAINER_IMAGE ?= ghcr.io/go-debos/debos:latest
 
 ifeq ($(USE_CONTAINER),auto)
-    ifdef GITHUB_ACTIONS
-        # Disable container in GitHub Actions
-        USE_CONTAINER := no
-    else
-        # Local development: enable container if debos not installed
-        USE_CONTAINER := $(shell command -v debos >/dev/null 2>&1 && echo no || echo yes)
-    endif
+	ifdef GITHUB_ACTIONS
+		# Disable container in GitHub Actions
+		USE_CONTAINER := no
+	else
+		# Local development: enable container if debos not installed
+		USE_CONTAINER := $(shell command -v debos >/dev/null 2>&1 && echo no || echo yes)
+	endif
 endif
 
 ifeq ($(USE_CONTAINER),yes)
-    # Only pass --device /dev/kvm if KVM is available on the host
-    KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm)
-    # Working directory as seen from inside the container
-    DEBOS_WORKDIR := /recipes
-    DEBOS_CMD := docker run --rm --interactive --tty \
-        $(KVM_DEVICE) \
-        --user $(shell id -u) --workdir $(DEBOS_WORKDIR) \
-        --mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
-        --security-opt label=disable \
-        $(CONTAINER_IMAGE) \
-        $(DEBOS_OPTS)
+	# Only pass --device /dev/kvm if KVM is available on the host
+	KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm)
+	# Working directory as seen from inside the container
+	DEBOS_WORKDIR := /recipes
+	DEBOS_CMD := docker run --rm --interactive --tty \
+		$(KVM_DEVICE) \
+		--user $(shell id -u) --workdir $(DEBOS_WORKDIR) \
+		--mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
+		--security-opt label=disable \
+		$(CONTAINER_IMAGE) \
+		$(DEBOS_OPTS)
 else
-    # Working directory for native debos
-    DEBOS_WORKDIR := $(CURDIR)
-    DEBOS_CMD := debos $(DEBOS_OPTS)
+	# Working directory for native debos
+	DEBOS_WORKDIR := $(CURDIR)
+	DEBOS_CMD := debos $(DEBOS_OPTS)
 endif
 
 # Use http_proxy from the environment, or apt's http_proxy if set, to speed up
