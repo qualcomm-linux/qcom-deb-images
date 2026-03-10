@@ -9,7 +9,7 @@
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
 EXTRA_DEBOS_OPTS ?=
 DEBOS_OPTS := --fakemachine-backend $(FAKEMACHINE_BACKEND) \
-	--memory 1GiB --scratchsize 6GiB $(EXTRA_DEBOS_OPTS)
+	--memory 4GiB --scratchsize 6GiB $(EXTRA_DEBOS_OPTS)
 
 # Container support: auto-detect if debos is available, otherwise use container
 USE_CONTAINER ?= auto
