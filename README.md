@@ -173,13 +173,8 @@ debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qual
 
 The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
 
-For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl). Create a `rawprogram-ufs.xml` file as follows:
-```xml
-<?xml version="1.0" ?>
-<data>
-  <program SECTOR_SIZE_IN_BYTES="4096" file_sector_offset="0" filename="disk-ufs.img" label="image" num_partition_sectors="0" partofsingleimage="false" physical_partition_number="0" start_sector="0"/>
-</data>
-```
+For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
+
 Put the board in "emergency download mode" (EDL; see next section) and run:
 ```bash
 qdl --storage ufs prog_firehose_ddr.elf rawprogram-ufs.xml
