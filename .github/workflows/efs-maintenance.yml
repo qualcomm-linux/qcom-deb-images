@@ -1,0 +1,108 @@
+# EFS is Amazon Elastic File System; it's a NFS share that is mounted
+# under /efs on the IT provided self-hosted GitHub runners running on
+# AWS. It's private to Qualcomm and not accessible directly by Qualcomm
+# engineers, only by Qualcomm IT and from our GitHub runners.
+#
+# The convention for our QLI EFS is:
+# /efs/qli: storage for all QLI projects
+#     /meta-qcom: storage for meta-qcom and potentially companion projects
+#         (meta-qcom-distro for instance); this is typically used to keep
+#         sstate caches to speed up builds
+#     /qcom-deb-images: storage for qcom-deb-images and potentially companion
+#         projects (could be used by aiml-container-test for instance)
+#         /22988421776-1: artifacts from a particular build; build ids are
+#             typically ${{ github.run_id }}-${{ github.run_attempt }}
+#     /u-boot-rb1-latest => symlink to artifacts directory for the last
+#         successful u-boot workflow build
+#     /mainline, /linux-next, /qcom-next...: symlinks to the artifacts
+#         directory for the last successful workflow build of the various
+#         linux kernel workflows for different projects
+#
+# This workflow allows various maintenance activities such as transitions from
+# one directory to another and periodic removal of old artifacts; it's meant
+# to be called manually when needed, and as a cron.
+name: EFS Maintenance
+
+on:
+  # run every Monday at 5:00am UTC, before the other Monday workflows (u-boot
+  # and linux-weekly-mainline at 6:30am, linux-daily-monza at 5:30am)
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_new_location:
+        description: 'Create new EFS location (/efs/qli/qcom-deb-images)'
+        type: boolean
+        default: false
+      cleanup_old_location:
+        description: 'Remove old EFS data (/efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images)'
+        type: boolean
+        default: false
+      age_cleanup:
+        description: 'Remove build artifacts older than max_age_days'
+        type: boolean
+        default: false
+      max_age_days:
+        description: 'Maximum age in days for build artifacts (used with age_cleanup)'
+        type: string
+        default: '30'
+
+# implicitely set all other permissions to none
+permissions:
+  contents: read
+
+env:
+  EFS_NEW_PATH: /efs/qli/qcom-deb-images
+  EFS_OLD_PATH: /efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images
+
+jobs:
+  efs-maintenance:
+    name: EFS maintenance
+    # don't run from forks of the main repository
+    if: github.repository == 'qualcomm-linux/qcom-deb-images'
+    runs-on: [self-hosted, qcom-u2404, amd64]
+    steps:
+      - name: Create new EFS location
+        if: ${{ inputs.create_new_location }}
+        run: |
+          set -ux
+          mkdir -vp "${EFS_NEW_PATH}"
+
+      - name: Clean up old EFS location
+        if: ${{ inputs.cleanup_old_location }}
+        run: |
+          set -ux
+          rm -rfv "${EFS_OLD_PATH}"
+
+      - name: Age-based cleanup of build artifacts
+        if: ${{ inputs.age_cleanup || github.event_name == 'schedule' }}
+        run: |
+          set -ux
+          max_age_days="${{ inputs.max_age_days }}"
+
+          if [ ! -d "${EFS_NEW_PATH}" ]; then
+            echo "New EFS directory ${EFS_NEW_PATH} does not exist, skipping"
+            exit 0
+          fi
+
+          # resolve absolute paths of all symlink targets to determine which
+          # active build directories to keep
+          active=$(find "${EFS_NEW_PATH}" -maxdepth 1 -type l \
+                   | xargs -r readlink -f | sort -u)
+          echo "Active symlink targets:"
+          echo "${active:-<none>}"
+
+          # walk build directories one level deep under qualcomm-linux/,
+          # removing those older than max_age_days that are not currently
+          # referenced by a symlink
+          find "${EFS_NEW_PATH}" \
+              -maxdepth 1 -mindepth 1 -type d \
+              -mtime "+${max_age_days}" \
+          | while IFS= read -r dir; do
+            if echo "${active}" | grep -qxF "$(readlink -f "${dir}")"; then
+              echo "Keeping ${dir}: still referenced by a symlink"
+            else
+              echo "Removing old build: ${dir}"
+              rm -rfv "${dir}"
+            fi
+          done
