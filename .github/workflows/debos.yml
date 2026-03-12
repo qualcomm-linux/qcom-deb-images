@@ -10,8 +10,8 @@ on:
       kernelpackage:
         description: >
           Kernel package to install from APT repositories (e.g.
-          linux-image-arm64) or name of a fileserver kernel package directory
-          (e.g. fileserver/mainline)
+          linux-image-arm64) or name of a EFS kernel package directory
+          (e.g. efs/mainline)
         type: string
         # the package name will be passed to APT which interprets the trailing
         # plus sign in the package name as a request to install the package, so
@@ -82,13 +82,12 @@ jobs:
           apt -y install --no-install-recommends apt-utils
           mkdir -v local-apt-repo
 
-          # optionally, copy kernel debs from fileserver
+          # optionally, copy kernel debs from EFS
           case "$KERNEL_PACKAGE" in
-            fileserver/*)
+            efs/*)
               mkdir -v local-apt-repo/kernel
-              # get kernel from the fileserver space for downloads
-              cp -av "/efs/${KERNEL_PACKAGE#fileserver}/"*.deb \
-                  local-apt-repo/kernel
+              # get kernel from EFS
+              cp -av "/efs/${KERNEL_PACKAGE#efs/}/"*.deb local-apt-repo/kernel
             ;;
           esac
 
@@ -102,9 +101,9 @@ jobs:
         run: |
           set -ux
           kernel_package="$KERNEL_PACKAGE"
-          # if kernel package is from fileserver, determine actual package name
+          # if kernel package is from EFS, determine actual package name
           case "$kernel_package" in
-            fileserver/*)
+            efs/*)
               kernel_package="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_)"
             ;;
           esac
