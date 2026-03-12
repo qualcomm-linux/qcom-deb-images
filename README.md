@@ -9,6 +9,8 @@
 A collection of recipes to build Qualcomm Linux images for deb based
 operating systems.
 
+⚠️ Username and password are now "qcom"
+
 The main goal of this project is to provide mainline-centric images for
 Qualcomm® IoT platforms as to demonstrate the state of upstream open source
 software, help developers getting started, and support continuous development
@@ -199,8 +201,8 @@ NB: It's also possible to run qdl from the host while the board is not connected
 
 #### Login
 
-Once the image has booted, you can log in as the `debian` user, with the
-default `debian` password. The image should then ask you to change this default
+Once the image has booted, you can log in as the `qcom` user, with the
+default `qcom` password. The image should then ask you to change this default
 password to a safe one.
 
 ## Development
