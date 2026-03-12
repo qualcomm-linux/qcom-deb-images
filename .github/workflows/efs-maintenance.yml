@@ -24,6 +24,9 @@
 name: EFS Maintenance
 
 on:
+  # run every Monday at 5:00am UTC, before the other workflows
+  schedule:
+    - cron: '0 5 * * 1'
   workflow_dispatch:
     inputs:
       create_new_location:
@@ -71,7 +74,7 @@ jobs:
           rm -rfv "${EFS_OLD_PATH}"
 
       - name: Age-based cleanup of build artifacts
-        if: ${{ inputs.age_cleanup }}
+        if: ${{ inputs.age_cleanup || github.event_name == 'schedule' }}
         run: |
           set -ux
           max_age_days="${{ inputs.max_age_days }}"
