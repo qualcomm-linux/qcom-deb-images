@@ -1,4 +1,5 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
+{{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
@@ -8,6 +9,8 @@
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
 {{- $variantid = "xfce" }}
+{{- else if eq $gnomedesktop "true" }}
+{{- $variantid = "gnome" }}
 {{- end }}
 
 architecture: arm64
@@ -248,6 +251,95 @@ actions:
       # audio: wireplumber for session integration, pipewire-pulse for chromium
       # and xfce4-pulseaudio-plugin, and pavucontrol as referenced from the
       # xfce pulse panel applet
+      - pavucontrol
+      - pipewire-pulse
+      - wireplumber
+      # camera: mostly supported through pipewire, but pull the qcam app
+      # and cam CLI tool from libcamera-tools; also install libcamera
+      # gstreamer plugins for for gstreamer based apps; ideally, cam and
+      # qcam would be packaged separately as to allow pulling the CLI
+      # version outside of the desktop list. libcamera-v4l2 provides a
+      # LD_PRELOAD library for compatiblity with apps relying on v4l2
+      # (similar to pipewire and pulse situation)
+      - gstreamer1.0-libcamera
+      - libcamera-tools
+      - libcamera-v4l2
+{{- end }}
+
+{{- if eq $gnomedesktop "true" }}
+  - action: apt
+    description: Install Gnome desktop
+    recommends: false
+    packages:
+      - plymouth-label- # we probably don't need a boot splash
+      # from gnome-core (meta-gnome3 source package in trixie)
+      # removing gnome-snapshot that would bring gstreamer1.0-plugins-bad
+      # removing gnome-connections that would bring libfreerdp3 -> libavcodec61 -> libx265
+      - gdm3
+      - gnome-backgrounds
+      - gnome-bluetooth-sendto
+      - gnome-control-center
+      - gnome-keyring
+      - gnome-menus
+      - gnome-session
+      - gnome-settings-daemon
+      - gnome-shell
+      - gnome-user-docs
+      - orca
+      - gnome-sushi
+      - tecla
+      - adwaita-icon-theme
+      - glib-networking
+      - gsettings-desktop-schemas
+      - baobab
+      - evince
+      - gnome-calculator
+      - gnome-calendar
+      - gnome-characters
+      - gnome-clocks
+      - gnome-terminal
+      - gnome-contacts
+      - gnome-disk-utility
+      - gnome-font-viewer
+      - gnome-logs
+      - gnome-maps
+      - gnome-software
+      - gnome-system-monitor
+      - gnome-text-editor
+      - gnome-weather
+      - nautilus
+      - simple-scan
+      - totem
+      - yelp
+      # Additional core dependencies from gnome-core
+      - cups
+      - evolution-data-server
+      - fonts-cantarell
+      - gstreamer1.0-packagekit
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - gvfs-backends
+      - gvfs-fuse
+      - libatk-adaptor
+      - libcanberra-pulse
+      - libglib2.0-bin
+      - libpam-gnome-keyring
+      - pipewire-audio
+      - system-config-printer-common
+      - system-config-printer-udev
+      - zenity
+
+      # from task-desktop
+      - desktop-base
+      - xdg-utils
+      - fonts-symbola
+      - avahi-daemon
+      - libnss-mdns
+      # browser
+      - chromium
+      # bluetooth settings
+      - blueman
+      # audio: wireplumber for session integration, pipewire-pulse for chromium
       - pavucontrol
       - pipewire-pulse
       - wireplumber
