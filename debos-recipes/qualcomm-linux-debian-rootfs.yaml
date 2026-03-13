@@ -44,7 +44,7 @@ actions:
       cat >/etc/apt/sources.list.d/apt-local-repo.sources <<EOF
       Types: deb
       URIs: file:///media/apt-local-repo
-      Suites: /
+      Suites: ./
       Trusted: true
       EOF
 {{- end }}
