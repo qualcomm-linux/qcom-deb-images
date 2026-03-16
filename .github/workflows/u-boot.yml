@@ -32,7 +32,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images:/efs
+        - /efs/qli/qcom-deb-images:/efs
     steps:
       - uses: actions/checkout@v4
         with:
