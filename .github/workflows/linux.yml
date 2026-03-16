@@ -54,7 +54,7 @@ permissions:
 env:
   # github runs are only unique per repository and may also be re-run; create a
   # build id for the current run
-  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  BUILD_ID: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # name of the kernel being built
   KERNEL_NAME: ${{ inputs.kernel_name || 'mainline' }}
   # extra args to pass to build-linux-deb.py
@@ -123,7 +123,7 @@ jobs:
           cp -av artifacts/* "${BUILD_DIR}"
           # create or update symlink
           mkdir -vp /fileserver-downloads/qcom-deb-images
-          ln -fnsv "../${BUILD_ID}" \
+          ln -fnsv "${BUILD_ID}" \
               "/fileserver-downloads/qcom-deb-images/${KERNEL_NAME}"
           # perhaps help NFS sync
           sync

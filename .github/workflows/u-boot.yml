@@ -14,7 +14,7 @@ permissions:
 env:
   # github runs are only unique per repository and may also be re-run; create a
   # build id for the current run
-  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  BUILD_ID: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -83,7 +83,7 @@ jobs:
               # remove what used to be a directory and create/update symlink to
               # point to latest build
               rm -rvf u-boot-rb1-latest
-              ln -fnsv "../${BUILD_ID}" u-boot-rb1-latest
+              ln -fnsv "${BUILD_ID}" u-boot-rb1-latest
           )
           # perhaps help NFS sync
           sync
