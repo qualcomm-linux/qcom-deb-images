@@ -51,7 +51,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images:/efs
       options: --privileged
     steps:
       # make sure we have latest packages first, to get latest fixes and to
@@ -67,8 +67,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Copy U-Boot for RB1 from fileserver space for downloads
-        run: cp -av "/fileserver-downloads/qcom-deb-images/u-boot-rb1-latest/rb1-boot.img" .
+      - name: Copy U-Boot for RB1 from EFS
+        run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
       # mtools is needed for the flash recipe
       - name: Install debos and dependencies of the recipes and local tests
@@ -85,10 +85,9 @@ jobs:
           # optionally, copy kernel debs from fileserver
           case "$KERNEL_PACKAGE" in
             fileserver/*)
-              fileserver_dir="${KERNEL_PACKAGE#fileserver}"
               mkdir -v local-apt-repo/kernel
               # get kernel from the fileserver space for downloads
-              cp -av "/fileserver-downloads/qcom-deb-images/${fileserver_dir}/"*.deb \
+              cp -av "/efs/${KERNEL_PACKAGE#fileserver}/"*.deb \
                   local-apt-repo/kernel
             ;;
           esac

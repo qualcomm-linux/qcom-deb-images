@@ -76,7 +76,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images:/efs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,16 +115,14 @@ jobs:
           mkdir -v artifacts
           cp -av `dcmd *.changes` artifacts
 
-      - name: Upload results to fileserver space for downloads
+      - name: Upload results to EFS
         run: |
           set -ux
-          export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
+          export BUILD_DIR="/efs/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
           # create or update symlink
-          mkdir -vp /fileserver-downloads/qcom-deb-images
-          ln -fnsv "${BUILD_ID}" \
-              "/fileserver-downloads/qcom-deb-images/${KERNEL_NAME}"
+          ln -fnsv "${BUILD_ID}" "/efs/${KERNEL_NAME}"
           # perhaps help NFS sync
           sync
 
