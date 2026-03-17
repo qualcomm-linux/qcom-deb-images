@@ -54,7 +54,7 @@ permissions:
 env:
   # github runs are only unique per repository and may also be re-run; create a
   # build id for the current run
-  BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+  BUILD_ID: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # name of the kernel being built
   KERNEL_NAME: ${{ inputs.kernel_name || 'mainline' }}
   # extra args to pass to build-linux-deb.py
@@ -76,7 +76,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/metaqcom/gh-runners/quic-yocto/downloads:/fileserver-downloads
+        - /efs/qli/qcom-deb-images:/efs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,16 +115,14 @@ jobs:
           mkdir -v artifacts
           cp -av `dcmd *.changes` artifacts
 
-      - name: Upload results to fileserver space for downloads
+      - name: Upload results to EFS
         run: |
           set -ux
-          export BUILD_DIR="/fileserver-downloads/${BUILD_ID}"
+          export BUILD_DIR="/efs/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
           # create or update symlink
-          mkdir -vp /fileserver-downloads/qcom-deb-images
-          ln -fnsv "../${BUILD_ID}" \
-              "/fileserver-downloads/qcom-deb-images/${KERNEL_NAME}"
+          ln -fnsv "${BUILD_ID}" "/efs/${KERNEL_NAME}"
           # perhaps help NFS sync
           sync
 
@@ -141,7 +139,7 @@ jobs:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     with:
-      kernelpackage: fileserver/${{ inputs.kernel_name || 'mainline' }}
+      kernelpackage: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
