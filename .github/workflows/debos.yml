@@ -234,6 +234,7 @@ jobs:
         env:
           build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
         run: |
+          echo '⚠️ Username and password are now "qcom"'
           echo "Downloads URL: ${build_url}"
           echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
           echo "${build_url}" > build_url
