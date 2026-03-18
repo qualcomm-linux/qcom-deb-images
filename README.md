@@ -186,12 +186,13 @@ make EXTRA_DEBOS_OPTS="-t xfcedesktop:true" disk-ufs.img
 
 The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
 
-For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
+For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-4k.xml` file. This configuration file can also be used for flashing the image to an NVME drive.
 
 Put the board in "emergency download mode" (EDL; see next section) and run:
 ```bash
-qdl --storage ufs prog_firehose_ddr.elf rawprogram-ufs.xml
+qdl --storage ufs prog_firehose_ddr.elf rawprogram-4k.xml
 ```
+
 Make sure to use `prog_firehose_ddr.elf` for the target platform, such as this [version from the QCM6490 boot binaries](https://softwarecenter.qualcomm.com/download/software/chip/qualcomm_linux-spf-1-0/qualcomm-linux-spf-1-0_test_device_public/r1.0_00058.0/qcm6490-le-1-0/common/build/ufs/bin/QCM6490_bootbinaries.zip) or this [version from the RB1 rescue image](https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip).
 
 #### Emergency Download Mode (EDL)
