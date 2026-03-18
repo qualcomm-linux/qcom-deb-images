@@ -66,9 +66,28 @@ test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
+# Glymur
+
+Glymur_bootbinaries.zip:
+	wcurl https://softwarecenter.qualcomm.com/nexus/generic/software/chip/qualcomm_linux-spf-0-0/qualcomm-linux-spf-0-0_test_device_public/r0.0_00009.0/glymur-le-0-0/common/build/bin/Glymur_bootbinaries.zip
+
+GLYMUR_BOOTBINARIES := \
+	flash_glymur/bootfw1.bin \
+	flash_glymur/bootfw2.bin \
+	flash_glymur/xbl_s.melf \
+	flash_glymur/xbl_s_devprg_ns.melf \
+	flash_glymur/xbl_sc.elf
+
+$(GLYMUR_BOOTBINARIES): flash_glymur/
+
+flash_glymur/: Glymur_bootbinaries.zip
+	unzip -j -o -d flash_glymur/ $<
+
 .PHONY: clean
 clean:
 	rm -f disk-ufs.img1 disk-ufs.img2 disk-ufs.img
 	rm -f disk-sdcard.img1 disk-sdcard.img2 disk-sdcard.img
 	rm -f rootfs.tar
 	rm -f dtbs.tar.gz
+	rm -rf flash_glymur
+	rm -f Glymur_bootbinaries.zip
