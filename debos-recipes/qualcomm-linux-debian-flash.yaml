@@ -348,6 +348,10 @@ actions:
                       esp="../disk-ufs.img1"
                       rootfs="../disk-ufs.img2"
                       ;;
+                    *)
+                      echo "unsupported disk type $disk_type"
+                      exit 1
+                      ;;
                   esac
                   echo "$disk_type" >disk_type
                   ;;
