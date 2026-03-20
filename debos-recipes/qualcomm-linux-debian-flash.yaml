@@ -340,11 +340,11 @@ actions:
                 "--disk "*)
                   disk_type="$(echo "$line" | sed -n 's/.*--type=\([^ ]*\).*/\1/p')"
                   case $disk_type in
-                    "emmc")
+                    emmc)
                       esp="../disk-sdcard.img1"
                       rootfs="../disk-sdcard.img2"
                       ;;
-                    "ufs")
+                    ufs)
                       esp="../disk-ufs.img1"
                       rootfs="../disk-ufs.img2"
                       ;;
