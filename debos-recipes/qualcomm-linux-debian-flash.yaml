@@ -15,12 +15,33 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/6b9bdebb6c88809a543117735003c3f0e9ea8217.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/2caadb316227dc6cba4c2d5d8276f4b7d951599a.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
     unpack: true
 
 {{- $boards := list }}
+{{- $boards = append $boards (dict
+    "name" "glymur-crd"
+    "silicon_family" "glymur"
+    "ptool_platforms" (list "glymur-crd/nvme")
+    "boot_binaries_download" (dict
+        "description" "Glymur boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/software/chip/qualcomm_linux-spf-0-0/qualcomm-linux-spf-0-0_test_device_public/r0.0_00009.0/glymur-le-0-0/common/build/bin/Glymur_bootbinaries.zip"
+        "name" "glymur_boot-binaries"
+        "filename" "glymur_boot-binaries.zip"
+        "sha256sum" "79df8ab4cc3248472d819098d20829ab129828c19937525cfc16f089d65a7a42"
+    )
+    "cdt_download" (dict
+        "description" "Glymur CRD CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8480XP/cdt/sc8480xp-crd.zip"
+        "name" "glymur-crd_cdt"
+        "filename" "glymur-crd_cdt.zip"
+        "sha256sum" "d694eedb0addcc5ee588d6993661cd23996fba1d1a43afc3b196dad12534bffc"
+    )
+    "cdt_filename" "CRD/cdt_glymur_crd_0.1.0.bin"
+    "dtb" "qcom/glymur-crd.dtb"
+)}}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
@@ -340,13 +361,17 @@ actions:
                 "--disk "*)
                   disk_type="$(echo "$line" | sed -n 's/.*--type=\([^ ]*\).*/\1/p')"
                   case $disk_type in
-                    "emmc")
+                    emmc|nvme)
                       esp="../disk-sdcard.img1"
                       rootfs="../disk-sdcard.img2"
                       ;;
-                    "ufs")
+                    ufs)
                       esp="../disk-ufs.img1"
                       rootfs="../disk-ufs.img2"
+                      ;;
+                    *)
+                      echo "unsupported disk type $disk_type"
+                      exit 1
                       ;;
                   esac
                   echo "$disk_type" >disk_type
@@ -427,6 +452,7 @@ actions:
                   -or -name 'boot.img' \
                   -or -name '*.bin' \
                   -or -name '*.elf' \
+                  -or -name '*.melf' \
                   -or -name '*.fv' \
                   -or -name '*.mbn' \
               \) \
