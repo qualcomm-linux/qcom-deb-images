@@ -25,7 +25,7 @@ jobs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Print trigger
@@ -66,7 +66,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 

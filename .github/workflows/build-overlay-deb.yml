@@ -28,7 +28,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt -y full-upgrade
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install sbuild and dependencies
         run: |
