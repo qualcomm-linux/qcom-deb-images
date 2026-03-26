@@ -158,14 +158,7 @@ jobs:
           gzip -c disk-sdcard.img >"${dir}/disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}"
           # create tarballs with support for all UFS and all eMMC boards
-          tar -cvzf "${dir}"/flash-ufs.tar.gz \
-              disk-ufs.img1 \
-              disk-ufs.img2 \
-              flash_*_ufs
-          tar -cvzf "${dir}"/flash-emmc.tar.gz \
-              disk-sdcard.img1 \
-              disk-sdcard.img2 \
-              flash_*_emmc
+          scripts/bundle-flash-dirs.sh "${dir}"
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
