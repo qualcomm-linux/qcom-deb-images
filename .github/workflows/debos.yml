@@ -110,7 +110,7 @@ jobs:
 
           debos \
               -t overlays:'${{ inputs.overlays }}' \
-              -t xfcedesktop:true \
+              -t gnomedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackage:"$kernel_package" \
               -t "buildid:${BUILD_ID}" \
