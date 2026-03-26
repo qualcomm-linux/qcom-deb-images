@@ -69,6 +69,10 @@ DISK_SDCARD_IMAGES := disk-sdcard.img \
 $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS_CMD) -t imagetype:sdcard $<
 
+.PHONY: flash
+flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
+	$(DEBOS_CMD) $<
+
 .PHONY: test
 test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
