@@ -52,14 +52,26 @@ export http_proxy
 .PHONY: all
 all: disk-ufs.img disk-sdcard.img
 
-rootfs.tar: debos-recipes/qualcomm-linux-debian-rootfs.yaml
+rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS_CMD) $<
 
-disk-ufs.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
+DISK_UFS_IMAGES := disk-ufs.img \
+	disk-ufs.img1 \
+	disk-ufs.img2
+
+$(DISK_UFS_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS_CMD) $<
 
-disk-sdcard.img: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
+DISK_SDCARD_IMAGES := disk-sdcard.img \
+	disk-sdcard.img1 \
+	disk-sdcard.img2
+
+$(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 	$(DEBOS_CMD) -t imagetype:sdcard $<
+
+.PHONY: flash
+flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
+	$(DEBOS_CMD) $<
 
 .PHONY: test
 test: disk-ufs.img
@@ -68,7 +80,7 @@ test: disk-ufs.img
 
 .PHONY: clean
 clean:
-	rm -f disk-ufs.img1 disk-ufs.img2 disk-ufs.img
-	rm -f disk-sdcard.img1 disk-sdcard.img2 disk-sdcard.img
+	rm -f $(DISK_UFS_IMAGES)
+	rm -f $(DISK_SDCARD_IMAGES)
 	rm -f rootfs.tar
 	rm -f dtbs.tar.gz

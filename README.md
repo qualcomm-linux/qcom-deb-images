@@ -102,13 +102,13 @@ To build flashable assets for all supported boards, follow these steps:
 
 1. build flashable assets from downloaded boot binaries, the DTBs, and pointing at the UFS/SD card disk images
     ```bash
-    debos debos-recipes/qualcomm-linux-debian-flash.yaml
+    make flash
 
     # (optional) if you've built U-Boot for the RB1, run this instead:
-    #debos -t u_boot_rb1:u-boot/rb1-boot.img debos-recipes/qualcomm-linux-debian-flash.yaml
+    #EXTRA_DEBOS_OPTS="-t u_boot_rb1:u-boot/rb1-boot.img" make flash
 
     # (optional) build only a subset of boards:
-    #debos -t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit debos-recipes/qualcomm-linux-debian-flash.yaml
+    #EXTRA_DEBOS_OPTS="-t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit" make flash
     ```
 
 1. enter Emergency Download Mode (see section below) and flash the resulting images with QDL
