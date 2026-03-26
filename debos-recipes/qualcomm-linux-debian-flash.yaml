@@ -24,7 +24,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "glymur-crd"
     "silicon_family" "glymur"
-    "ptool_platforms" (list "glymur-crd/nvme")
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
     "boot_binaries_download" (dict
         "description" "Glymur boot binaries"
         "url" "https://softwarecenter.qualcomm.com/nexus/generic/software/chip/qualcomm_linux-spf-0-0/qualcomm-linux-spf-0-0_test_device_public/r0.0_00009.0/glymur-le-0-0/common/build/bin/Glymur_bootbinaries.zip"
@@ -368,6 +368,11 @@ actions:
                     ufs)
                       esp="../disk-ufs.img1"
                       rootfs="../disk-ufs.img2"
+                      ;;
+                    spinor)
+                      # spinor carries firmware only; no OS efi/rootfs partitions
+                      esp=""
+                      rootfs=""
                       ;;
                     *)
                       echo "unsupported disk type $disk_type"
