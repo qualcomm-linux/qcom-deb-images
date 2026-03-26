@@ -52,7 +52,7 @@ export http_proxy
 .PHONY: all
 all: disk-ufs.img disk-sdcard.img
 
-rootfs.tar: debos-recipes/qualcomm-linux-debian-rootfs.yaml
+rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS_CMD) $<
 
 DISK_UFS_IMAGES := disk-ufs.img \
