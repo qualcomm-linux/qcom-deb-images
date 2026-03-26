@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: glymur
-      build_linux_deb_extra_args: '--repo https://git.codelinaro.org/clo/linux-kernel/kernel-qcom.git --ref next-20260204-glymur'
+      build_linux_deb_extra_args: '--qcom-next prune.config qcom.config'
       debos_extra_args: '-t dtb:qcom/glymur-crd.dtb'
       # we hardcode the DT, and that's not compatible with the QEMU machine model
       skip_qemu_tests: true
