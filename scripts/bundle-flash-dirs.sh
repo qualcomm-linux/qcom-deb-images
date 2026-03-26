@@ -45,8 +45,8 @@ echo "ufs_dirs: $ufs_dirs"
 
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/flash-emmc.tar.gz" $emmc_dirs
+tar -cvzf "$output_dir/flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $emmc_dirs
 
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/flash-ufs.tar.gz" $ufs_dirs
+tar -cvzf "$output_dir/flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $ufs_dirs
