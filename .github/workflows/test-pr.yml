@@ -25,7 +25,7 @@ jobs:
       url: ${{ steps.set-build-url.outputs.url }}
     steps:
       - name: 'Download build URL'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
