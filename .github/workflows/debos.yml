@@ -127,24 +127,13 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          debos -b qemu --scratchsize 6GiB -t imagetype:ufs \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-image.yaml
-          debos -b qemu --scratchsize 6GiB -t imagetype:sdcard \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-image.yaml
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          debos \
-              -t u_boot_rb1:rb1-boot.img \
-              -t "buildid:${BUILD_ID}" \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-flash.yaml
+          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
