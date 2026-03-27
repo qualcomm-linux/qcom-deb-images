@@ -299,6 +299,21 @@ actions:
       - kmod
       - linux-base
 
+  # Some firmware is needed early in the initramfs for ADSP, eg. on the Lenovo T14s.
+  # These firmware files are not automatically included because they are
+  # dynamically found from the device-tree instead of being statically loaded
+  # in the driver.
+  #
+  # Install an initramfs-tools hook prior to the kernel package to make sure
+  # the initramfs contains such firmware when it is generated.
+  #
+  # See also:
+  # - https://github.com/qualcomm-linux/qcom-deb-images/issues/258
+  # - https://github.com/dracut-ng/dracut-ng/pull/2266
+  - action: overlay
+    description: Install extra firmware hook for initramfs
+    source: overlays/workaround-t14s-initramfs-firmware
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
