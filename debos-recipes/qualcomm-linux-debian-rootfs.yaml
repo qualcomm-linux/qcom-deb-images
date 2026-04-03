@@ -4,6 +4,7 @@
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
+{{- $suite := or .suite "trixie" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -15,8 +16,7 @@ architecture: arm64
 actions:
   - action: mmdebstrap
     description: Bootstrap initial filesystem
-    # NB: not currently configurable
-    suite: trixie
+    suite: {{ $suite }}
     components:
       - main
       - contrib
@@ -50,23 +50,100 @@ actions:
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
-  # modern etc/apt/sources.list.d/debian.sources; sources.list is removed after
+  # modern etc/apt/sources.list.d/*.sources; sources.list is removed after
   # applying all overlays, and followed by an APT update and full-upgrade
-  - action: overlay
-    description: Create Debian APT sources
-    source: overlays/apt-sources
+  - action: run
+    description: Create APT sources for debian {{ $suite }}
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/sources.list.d/debian.sources <<EOF
+      # Debian archive
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
-  - action: overlay
-    description: Add Debian backports APT configuration
-    source: overlays/backports
+{{- if and (ne $suite "unstable") (ne $suite "testing") }}
 
-{{- if $overlays }}
+      # Debian stable updates
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: {{ $suite }}-updates
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      # Debian security updates
+      Types: deb
+      URIs: http://deb.debian.org/debian-security/
+      Suites: {{ $suite }}-security
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+{{- end }}
+      EOF
+
+{{- if and (ne $suite "unstable") (ne $suite "testing") }}
+  - action: run
+    description: Add Debian {{ $suite }}-backports APT configuration
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/sources.list.d/debian-backports.sources <<EOF
+      # Debian backports
+      Types: deb
+      URIs: http://deb.debian.org/debian
+      Suites: {{ $suite }}-backports
+      Components: main contrib non-free non-free-firmware
+      Enabled: yes
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+      tee /etc/apt/preferences.d/debian-backports.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # Debian backports higher as to get hardware enabled or better hardware support
+
+      Package: src:alsa-ucm-conf:any src:firmware-free:any src:firmware-nonfree:any src:linux:any src:linux-signed-arm64:any src:mesa:any src:u-boot-efi-dtb
+      Pin: release n={{ $suite }}-backports
+      Pin-Priority: 900
+      EOF
+{{- end }}
+
+{{- if ne $overlays "none" }}
 {{- range $overlay := split "," $overlays }}
   - action: overlay
     description: Apply overlay {{$overlay}}
     source: overlays/{{$overlay}}
 {{- end }}
 {{- end }}
+
+  # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
+  # .sources and .pref files dynamically to use the correct $suite-overlay
+  - action: run
+    description: Create qsc-deb-releases APT sources for {{ $suite }}-overlay
+    chroot: true
+    command: |
+      set -eux
+      # only generate if the keyring was installed by the overlay
+      if [ -f /etc/apt/keyrings/qsc-deb-releases.asc ]; then
+        tee /etc/apt/sources.list.d/qsc-deb-releases.sources <<EOF
+      # QArtifactory qsc-deb-releases repository
+      # NB: publishing Sources indices for deb-src isn't supported by Artifactory,
+      # but sources are published with other packages files
+      Types: deb
+      URIs: https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases
+      Suites: {{ $suite }}-overlay
+      Components: main
+      Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
+      Enabled: yes
+      EOF
+        tee /etc/apt/preferences.d/qsc-deb-releases.pref <<EOF
+      # for binary packages built from these source packages, score the version from
+      # {{ $suite }}-overlay higher than versions from Debian for compliance
+      Package: src:pipewire:any
+      Pin: release n={{ $suite }}-overlay
+      Pin-Priority: 950
+      EOF
+      fi
 
   - action: run
     description: Remove old APT sources and upgrade packages
@@ -91,8 +168,6 @@ actions:
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-      # fastrpc support. fastrpc-tests pulls in the required stack
-      - fastrpc-tests
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
@@ -120,6 +195,22 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
+{{- if eq $suite "trixie" }}
+{{- if ne $overlays "none" }}
+{{- range $overlay := split "," $overlays }}
+{{- if eq $overlay "qsc-deb-releases" }}
+  # fastrpc-tests is only available in trixie-overlay
+  - action: apt
+    description: Install fastrpc-tests (trixie only)
+    recommends: true
+    packages:
+      # fastrpc support. fastrpc-tests pulls in the required stack
+      - fastrpc-tests
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
   - action: run
     description: Set hostname to "debian"
     chroot: true
@@ -139,8 +230,13 @@ actions:
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
+      groups="adm,audio,render,sudo,users,video"
+      # fastrpc group only exists when fastrpc-support is installed (Debian)
+      if getent group fastrpc >/dev/null 2>&1; then
+        groups="${groups},fastrpc"
+      fi
       useradd --create-home --shell /bin/bash --user-group \
-          --groups adm,audio,fastrpc,render,sudo,users,video debian
+          --groups "$groups" debian
       # set password to "debian"
       echo debian:debian | chpasswd
       # password must be changed on first login

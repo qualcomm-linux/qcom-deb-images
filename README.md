@@ -142,7 +142,8 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. Defaults to `qsc-deb-releases` to add our overlay
   apt repository that contains some package delta that isn't fully upstreamed
-  and backported to trixie in Debian yet.
+  and backported to trixie in Debian yet. Can be set to "none" to not include
+  any overlay.
 - `kernelpackage`: name of the kernel package to install from apt; defaults to
   `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
   providing local kernel package instead.
