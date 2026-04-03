@@ -92,7 +92,13 @@ actions:
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
       # fastrpc support. fastrpc-tests pulls in the required stack
+{{- if ne $overlays "none" }}
+{{- range $overlay := split "," $overlays }}
+{{- if eq $overlay "qsc-deb-releases" }}
       - fastrpc-tests
+{{- end }}
+{{- end }}
+{{- end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
