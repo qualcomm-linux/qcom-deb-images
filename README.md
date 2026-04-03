@@ -87,7 +87,7 @@ To build flashable assets for all supported boards, follow these steps:
 
     # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
     # and run this instead:
-    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/" make rootfs.tar
+    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackage:none" make rootfs.tar
     ```
 
 1. build disk and filesystem images from the root filesystem tarball
@@ -143,6 +143,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `debos-recipes/overlays/`. Defaults to `qsc-deb-releases` to add our overlay
   apt repository that contains some package delta that isn't fully upstreamed
   and backported to trixie in Debian yet.
+- `kernelpackage`: name of the kernel package to install from apt; defaults to
+  `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
+  providing local kernel package instead.
 
 For the image recipe:
 
