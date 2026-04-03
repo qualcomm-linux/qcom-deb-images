@@ -87,7 +87,7 @@ To build flashable assets for all supported boards, follow these steps:
 
     # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
     # and run this instead:
-    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/" make rootfs.tar
+    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackage:none" make rootfs.tar
     ```
 
 1. build disk and filesystem images from the root filesystem tarball
@@ -134,18 +134,36 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/
 #### Options for debos recipes
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
-- `localdebs`: path to a directory with local deb packages to install (NB: debos expects relative pathnames)
-- `xfcedesktop`: install an Xfce desktop environment; default: console only environment
-- `overlays`: a `,`-separated list of rootfs overlays to add from `debos-recipes/overlays/`. Defaults to `qsc-deb-releases` to add our overlay apt repository that contains some package delta that isn't fully upstreamed and backported to trixie in Debian yet.
+
+- `localdebs`: path to a directory with local deb packages to install (NB:
+  debos expects relative pathnames)
+- `xfcedesktop`: install an Xfce desktop environment; default: console only
+  environment
+- `overlays`: a `,`-separated list of rootfs overlays to add from
+  `debos-recipes/overlays/`. Defaults to `qsc-deb-releases` to add our overlay
+  apt repository that contains some package delta that isn't fully upstreamed
+  and backported to trixie in Debian yet.
+- `kernelpackage`: name of the kernel package to install from apt; defaults to
+  `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
+  providing local kernel package instead.
 
 For the image recipe:
-- `dtb`: override the firmware provided device tree with one from the Linux kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
-- `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named disk-ufs.img and use 4096-byte sectors and SD card images are named disk-sdcard.img and use 512-byte sectors
+
+- `dtb`: override the firmware provided device tree with one from the Linux
+  kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
+- `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
+  disk-ufs.img and use 4096-byte sectors and SD card images are named
+  disk-sdcard.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
 
 For the flash recipe:
-- `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format -- see below (NB: debos expects relative pathnames)
-- `target_boards`: comma-separated list of board names to build (default: `all`). Accepted values are the board names defined in the flash recipe, e.g. `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`, `qrb2210-rb1`.
+
+- `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format --
+  see below (NB: debos expects relative pathnames)
+- `target_boards`: comma-separated list of board names to build (default:
+  `all`). Accepted values are the board names defined in the flash recipe, e.g.
+  `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
+  `qcs9100-ride-r3`, `qrb2210-rb1`.
 
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
 

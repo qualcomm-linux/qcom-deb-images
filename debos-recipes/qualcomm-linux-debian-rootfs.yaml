@@ -305,7 +305,9 @@ actions:
     packages:
       - firmware-atheros
       - firmware-qcom-soc
+{{- if ne $kernelpackage "none" }}
       - {{$kernelpackage}}
+{{- end }}
 
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions
