@@ -264,6 +264,8 @@ Once the image has booted, you can log in as the `debian` user, with the
 default `debian` password. The image should then ask you to change this default
 password to a safe one.
 
+Note: "openssh server is installed but disabled by default; enable with "systemctl enable --now ssh" as root user".
+
 ## Development
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.

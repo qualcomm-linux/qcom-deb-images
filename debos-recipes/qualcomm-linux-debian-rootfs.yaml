@@ -302,13 +302,25 @@ actions:
       - wget
 
   - action: run
-    description: Add default user to docker group
+    description: Install openssh-server without generating host keys and report any existing keys
     chroot: true
     command: |
       set -eux
-      usermod -a -G docker debian
+      export DEBIAN_FRONTEND=noninteractive
+      install -d -m 700 /etc/ssh
+      touch /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key.pub
+      chmod 600 /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ed25519_key
+      dpkg-divert --add --rename /usr/bin/ssh-keygen
+      ln -s /bin/true /usr/bin/ssh-keygen
+      apt-get -y install openssh-server
+      rm /usr/bin/ssh-keygen
+      dpkg-divert --remove /usr/bin/ssh-keygen
+      systemctl mask ssh.service 2>/dev/null || true
+      systemctl disable ssh.service 2>/dev/null || true
+      find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*_key' -size +0 | grep -q . && { echo "SSH host key files found"; exit 1; } || echo "No SSH host key files present"
 
 {{- if eq $xfcedesktop "true" }}
+
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
   # instead, curate from the Depends and Recommends of task-xfce-desktop and
   # task-desktop recursively; also, disable Recommends
