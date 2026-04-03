@@ -60,7 +60,7 @@ actions:
     description: Add Debian backports APT configuration
     source: overlays/backports
 
-{{- if $overlays }}
+{{- if ne $overlays "none" }}
 {{- range $overlay := split "," $overlays }}
   - action: overlay
     description: Apply overlay {{$overlay}}
