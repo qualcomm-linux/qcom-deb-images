@@ -189,6 +189,8 @@ actions:
       # convenience networking commands (arp, ifconfig, route etc.)
       - net-tools
       - openssh-client
+      # convenience for ssh
+      - openssh-server
       # lspci
       - pciutils
       - rfkill
