@@ -92,6 +92,7 @@ actions:
     packages:
       - systemd-boot
       - systemd-ukify
+      - stubble
       # TODO investigate why systemd-boot Recommends: shim-signed which
       # Depends on grub packages
       - shim-signed-
