@@ -34,18 +34,18 @@ actions:
 - boot:
     auto_login:
       login_prompt: 'login:'
-      username: debian
+      username: qcom
       password_prompt: 'Password'
-      password: debian
+      password: qcom
       login_commands:
-      - "debian"
+      - "qcom"
       - "new password"
       - "new password"
       - sudo su
     method: minimal
     prompts:
-    - root@debian
-    - debian@debian
+    - root@qcom
+    - qcom@qcom
     - "Current password"
     - "New password"
     - "Retype new password"

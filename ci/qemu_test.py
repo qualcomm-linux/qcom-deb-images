@@ -69,19 +69,19 @@ def test_password_reset_required(vm):
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/69
 
     # This takes a minute or two on a ThinkPad T14s Gen 6 Snapdragon
-    vm.expect_exact("debian login:", timeout=240)
+    vm.expect_exact("qcom login:", timeout=240)
 
-    vm.send("debian\r\n")
+    vm.send("qcom\r\n")
     vm.expect_exact("Password:")
-    vm.send("debian\r\n")
+    vm.send("qcom\r\n")
     vm.expect_exact("You are required to change your password immediately")
     vm.expect_exact("Current password:")
-    vm.send("debian\r\n")
+    vm.send("qcom\r\n")
     vm.expect_exact("New password:")
     vm.send("new password\r\n")
     vm.expect_exact("Retype new password:")
     vm.send("new password\r\n")
-    vm.expect_exact("debian@debian:~$")
+    vm.expect_exact("qcom@qcom:~$")
 
     # The /boot/efi/loader/random-seed file should not be readable to users
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
