@@ -9,10 +9,18 @@
 {{- if eq $xfcedesktop "true" }}
 {{- $variantid = "xfce" }}
 {{- end }}
-
+{{- $auto_install_deps := or .auto_install_deps "false" }}
 architecture: arm64
 
 actions:
+  - action: run
+    description: Check host build dependencies
+    chroot: false
+    command: |
+      "${RECIPEDIR}/../scripts/check-deps.sh" \
+          {{if eq $auto_install_deps "true"}}--install{{end}} \
+          debian-archive-keyring mmdebstrap
+
   - action: mmdebstrap
     description: Bootstrap initial filesystem
     # NB: not currently configurable
