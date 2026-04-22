@@ -26,8 +26,15 @@ jobs:
       fail-fast: false
       matrix:
         suite: [trixie, forky]
+        kernelpackage: [linux-image-6.16.7-qcom1++, linux-image-arm64]
+        exclude:
+          - suite: trixie
+            kernelpackage: linux-image-arm64
+          - suite: forky
+            kernelpackage: linux-image-6.16.7-qcom1++
     uses: ./.github/workflows/debos.yml
     with:
       suite: ${{ matrix.suite }}
+      kernelpackage: ${{ matrix.kernelpackage }}
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
