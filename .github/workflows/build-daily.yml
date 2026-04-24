@@ -28,3 +28,4 @@ jobs:
     secrets: inherit
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
+      suite: trixie

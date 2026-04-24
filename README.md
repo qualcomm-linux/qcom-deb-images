@@ -150,6 +150,7 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `kernelpackage`: name of the kernel package to install from apt; defaults to
   `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
   providing local kernel package instead.
+- `suite`: Debian suite to use, defaults to `trixie`.
 
 For the image recipe:
 

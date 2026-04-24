@@ -3,6 +3,10 @@ name: Build debos recipe
 on:
   workflow_call:
     inputs:
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
       overlays:
         description: List of overlays to use
         type: string
@@ -40,16 +44,16 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
-  DEBOS_EXTRA_ARGS: ${{ inputs.debos_extra_args }}
+  DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes
+    name: Build and upload debos recipes (${{ inputs.suite }})
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: public.ecr.aws/debian/debian:trixie
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       volumes:
         - /efs/qli/qcom-deb-images:/efs
       options: --privileged
@@ -138,16 +142,17 @@ jobs:
       - name: Stage debos artifacts for publishing
         run: |
           set -ux
+          prefix="${{ inputs.suite }}"
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
-          # compress output files into the staging directory
-          gzip -c rootfs.tar >"${dir}/rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}"
+          # compress output files directly into the staging directory
+          gzip -c rootfs.tar >"${dir}/${prefix}-rootfs.tar.gz"
+          gzip -c disk-ufs.img >"${dir}/${prefix}-disk-ufs.img.gz"
+          gzip -c disk-sdcard.img >"${dir}/${prefix}-disk-sdcard.img.gz"
+          cp -av dtbs.tar.gz "${dir}/${prefix}-dtbs.tar.gz"
           # create tarballs with support for all UFS and all eMMC boards
-          scripts/bundle-flash-dirs.sh "${dir}"
+          scripts/bundle-flash-dirs.sh "${dir}" "${prefix}"
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee sha256sums.txt)
 
@@ -199,10 +204,11 @@ jobs:
       - name: Stage SBOMs for publishing
         run: |
           set -ux
+          prefix="${{ inputs.suite }}"
           dir="sboms"
           mkdir -v sboms
           for f in rootfs-sbom.*; do
-              gzip -c "$f" >"${dir}/${f}.gz"
+              gzip -c "$f" >"${dir}/${prefix}-${f}.gz"
           done
 
       - name: Upload SBOMs as private artifacts
