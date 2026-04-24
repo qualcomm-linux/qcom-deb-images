@@ -53,7 +53,7 @@ jobs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: public.ecr.aws/debian/debian:trixie
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       volumes:
         - /efs/qli/qcom-deb-images:/efs
       options: --privileged
