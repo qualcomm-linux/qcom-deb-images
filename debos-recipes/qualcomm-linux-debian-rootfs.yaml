@@ -116,6 +116,8 @@ actions:
 {{- end }}
 {{- end }}
 
+# QArtifactory is missing a Release file for some suites.
+{{- if and (ne $suite "sid") (ne $suite "testing") (ne $suite "forky") }}
   # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
   # .sources and .pref files dynamically to use the correct $suite-overlay
   - action: run
@@ -145,6 +147,7 @@ actions:
       Pin: release n={{ $suite }}-overlay
       Pin-Priority: 950
       EOF
+{{- end }}
 
   - action: run
     description: Remove old APT sources and upgrade packages
