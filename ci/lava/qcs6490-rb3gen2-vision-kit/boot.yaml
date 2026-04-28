@@ -22,7 +22,7 @@ actions:
 - deploy:
     images:
       image:
-        url: downloads://flash-ufs.tar.gz
+        url: downloads://{{SUITE}}-flash-ufs.tar.gz
       settings:
         url: downloads://flash.settings
       overlay:

@@ -23,7 +23,7 @@ actions:
 - deploy:
     images:
       image:
-        url: downloads://flash-emmc.tar.gz
+        url: downloads://{{SUITE}}-flash-emmc.tar.gz
       settings:
         url: downloads://flash.settings
       overlay:
