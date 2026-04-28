@@ -77,11 +77,22 @@ actions:
     setup-fstab: true
     append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
 
+  - action: run
+    description: Create /etc/kernel/install.conf file
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/kernel/install.conf <<EOF
+      layout=uki
+      EOF
+
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
     packages:
       - systemd-boot
+      - systemd-ukify
+      - stubble
       # TODO investigate why systemd-boot Recommends: shim-signed which
       # Depends on grub packages
       - shim-signed-
