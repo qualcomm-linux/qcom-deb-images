@@ -137,17 +137,24 @@ jobs:
 
   debos-linux-deb:
     needs: build-linux-deb
+    strategy:
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
     with:
+      suite: ${{ matrix.suite }}
       kernelpackage: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
   test-linux-deb:
     if: ${{ !inputs.skip_lava_tests }}
+    strategy:
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
     secrets: inherit
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
-      suite: trixie
+      suite: ${{ matrix.suite }}
