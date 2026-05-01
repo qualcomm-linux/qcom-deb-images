@@ -25,4 +25,5 @@ jobs:
       # we hardcode the DT, and that's not compatible with the QEMU machine model
       skip_qemu_tests: true
       skip_lava_tests: false
+      lava_boards_include: '["glymur-crd"]'
     secrets: inherit
