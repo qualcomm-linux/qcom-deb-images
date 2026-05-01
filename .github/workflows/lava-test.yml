@@ -10,6 +10,14 @@ on:
         description: Distribution suite (e.g. trixie, forky)
         type: string
         default: trixie
+      boards_include:
+        description: JSON array of board names to include (empty = all boards)
+        type: string
+        default: ''
+      boards_exclude:
+        description: JSON array of board names to exclude (empty = none excluded)
+        type: string
+        default: ''
 
 # implicitely set all other permissions to none
 permissions:
@@ -22,6 +30,8 @@ env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
   SUITE: ${{ inputs.suite }}
+  BOARDS_INCLUDE: ${{ inputs.boards_include }}
+  BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
 
 jobs:
   prepare-job-list:
@@ -42,13 +52,16 @@ jobs:
         run: |
           # json with display names and relative filenames to LAVA templates
           J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq --compact-output --raw-input --slurp '
+                  jq --compact-output --raw-input --slurp \
+                      --argjson include "${BOARDS_INCLUDE:-[]}" \
+                      --argjson exclude "${BOARDS_EXCLUDE:-[]}" '
                       # split null-delimited list and remove last empty item
                       split("\u0000")[:-1]
                       # remove leading "ci/lava/"
                       | map(sub("^ci/lava/"; ""))
-                      # build include entries with target and pretty name
+                      # build include entries with board name (for filtering), target and pretty name
                       | map({
+                          board: split("/")[0],
                           target: .,
                           name: (
                               .
@@ -56,6 +69,16 @@ jobs:
                               | gsub("/"; " ")
                           )
                         })
+                      # restrict to boards listed in $include (if non-empty)
+                      | if ($include | length) > 0 then
+                          map(select(.board as $b | $include | any(. == $b)))
+                        else . end
+                      # remove boards listed in $exclude (if non-empty)
+                      | if ($exclude | length) > 0 then
+                          map(select(.board as $b | $exclude | any(. == $b) | not))
+                        else . end
+                      # drop temporary board field
+                      | map(del(.board))
                       # output as matrix.include list
                       | { include: . }
                       ')

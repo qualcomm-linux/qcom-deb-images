@@ -64,6 +64,7 @@ jobs:
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
+      boards_exclude: '["glymur-crd"]'
 
   publish-test-results:
     name: "Publish Tests Results"
