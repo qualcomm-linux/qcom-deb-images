@@ -150,4 +150,5 @@ jobs:
     secrets: inherit
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      boards_json: ${{ needs.debos-linux-deb.outputs.boards_json }}
       suite: trixie
