@@ -238,17 +238,22 @@ jobs:
       - name: "Print output"
         env:
           build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
+          boards_json: ${{ steps.stage_artifacts.outputs.boards_json }}
         run: |
           echo "Downloads URL: ${build_url}"
           echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
-          echo "${build_url}" > build_url
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
-      - name: Upload build URL
+          # bundle with boards.json so test-pr.yml can consume both together;
+          # boards_json is already compact (single line) from the step output
+          mkdir -v build-info-artifact
+          echo "${build_url}" > build-info-artifact/build-url.txt
+          printf '%s\n' "${boards_json}" > build-info-artifact/boards.json
+      - name: Upload build info
         uses: actions/upload-artifact@v7
         with:
-          name: build_url
-          path: build_url
+          name: ${{ inputs.suite }}-build-info
+          path: build-info-artifact/
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |
