@@ -13,9 +13,10 @@ actions:
         - cp overlay*.tar.gz overlay.tar.gz
         - echo "OVERLAY=overlay.tar.gz" >> $IMAGE_PATH/flash.settings
         - echo "OVERLAY_PATH=/home/" >> $IMAGE_PATH/flash.settings
-        - echo "STORAGE=emmc" >> $IMAGE_PATH/flash.settings
         - echo "ROOTFS_IMAGE=disk-sdcard.img2" >> $IMAGE_PATH/flash.settings
         - echo "DEVICE_TYPE=debian-glymur-crd_nvme" >> $IMAGE_PATH/flash.settings
+        - echo "STORAGE=nvme" >> $IMAGE_PATH/flash.settings
+        - echo "FIREHOSE_PROGRAM=xbl_s_devprg_ns.melf" >> $IMAGE_PATH/flash.settings
         - cat $IMAGE_PATH/flash.settings
     timeout:
       minutes: 200
