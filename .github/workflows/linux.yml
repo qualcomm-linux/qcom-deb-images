@@ -28,6 +28,16 @@ on:
         required: false
         type: boolean
         default: false
+      lava_boards_include:
+        description: JSON array of board names to include in LAVA tests (empty = all boards)
+        required: false
+        type: string
+        default: ''
+      lava_boards_exclude:
+        description: JSON array of board names to exclude from LAVA tests (empty = none excluded)
+        required: false
+        type: string
+        default: ''
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -151,3 +161,5 @@ jobs:
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: trixie
+      boards_include: ${{ inputs.lava_boards_include }}
+      boards_exclude: ${{ inputs.lava_boards_exclude }}
