@@ -18,52 +18,79 @@ permissions:
   pull-requests: write
 
 jobs:
-  retrieve-build-url:
+  retrieve-build-info:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     outputs:
-      url: ${{ steps.set-build-url.outputs.url }}
+      matrix: ${{ steps.collect.outputs.matrix }}
     steps:
-      - name: 'Download build URL'
+      - name: 'Download build-info artifacts'
         uses: actions/github-script@v9
         with:
           script: |
-            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            const fs = require('fs');
+            const path = require('path');
+            const allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
                run_id: context.payload.workflow_run.id,
             });
-            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "build_url"
-            })[0];
-            let download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
-            });
-            const fs = require('fs');
-            const path = require('path');
+            const infoArtifacts = allArtifacts.data.artifacts.filter(
+              (a) => a.name.endsWith('-build-info')
+            );
             const temp = '${{ runner.temp }}/artifacts';
-            if (!fs.existsSync(temp)){
+            if (!fs.existsSync(temp)) {
               fs.mkdirSync(temp);
             }
-            fs.writeFileSync(path.join(temp, 'build_url.zip'), Buffer.from(download.data));
+            for (const a of infoArtifacts) {
+              const download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: a.id,
+                 archive_format: 'zip',
+              });
+              fs.writeFileSync(
+                path.join(temp, a.name + '.zip'),
+                Buffer.from(download.data)
+              );
+            }
 
-      - name: 'Setup build URL'
-        id: set-build-url
+      - name: 'Collect build-info into matrix'
+        id: collect
         run: |
-          unzip "${{ runner.temp }}/artifacts/build_url.zip"
-          BUILD_URL=$(cat build_url)
-          echo "Build URL: ${BUILD_URL}"
-          echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          set -eu -o pipefail
+          temp="${{ runner.temp }}/artifacts"
+          entries='[]'
+          for zip in "$temp"/*-build-info.zip; do
+            [ -f "$zip" ] || continue
+            name=$(basename "$zip" .zip)
+            suite=${name%-build-info}
+            mkdir -p "$temp/$suite"
+            unzip -o -d "$temp/$suite" "$zip"
+            url=$(cat "$temp/$suite/build-url.txt")
+            boards=$(cat "$temp/$suite/boards.json")
+            entries=$(jq -nc \
+                --argjson e "$entries" \
+                --arg s "$suite" \
+                --arg u "$url" \
+                --arg b "$boards" \
+                '$e + [{suite: $s, url: $u, boards_json: $b}]')
+          done
+          matrix=$(jq -nc --argjson i "$entries" '{include: $i}')
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
   test:
+    needs: retrieve-build-info
+    if: ${{ needs.retrieve-build-info.outputs.matrix != '{"include":[]}' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.retrieve-build-info.outputs.matrix) }}
     uses: ./.github/workflows/lava-test.yml
     secrets: inherit
-    needs: retrieve-build-url
     with:
-      url: ${{ needs.retrieve-build-url.outputs.url }}
+      suite: ${{ matrix.suite }}
+      url: ${{ matrix.url }}
+      boards_json: ${{ matrix.boards_json }}
 
   publish-test-results:
     name: "Publish Tests Results"

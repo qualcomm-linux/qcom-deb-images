@@ -32,6 +32,9 @@ on:
       artifacts_url:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
+      boards_json:
+        description: "JSON database of supported boards, with storage type and flash tarball"
+        value: ${{ jobs.build-debos.outputs.boards_json }}
 
 # implicitely set all other permissions to none
 permissions:
@@ -49,6 +52,7 @@ jobs:
     name: Build and upload debos recipes (${{ inputs.suite }})
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
+      boards_json: ${{ steps.stage_artifacts.outputs.boards_json }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
       image: public.ecr.aws/debian/debian:trixie
@@ -144,6 +148,7 @@ jobs:
           make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Stage debos artifacts for publishing
+        id: stage_artifacts
         run: |
           set -ux
           # create a directory for the current run
@@ -154,8 +159,16 @@ jobs:
           gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
           gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
-          # create tarballs with support for all UFS and all eMMC boards
-          scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
+          # create tarballs with support for all UFS and all eMMC boards;
+          # also emit a boards database as JSON alongside the tarballs
+          scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}" "${dir}/${PREFIX}-boards.json"
+          # capture compact JSON for the step output before pretty-printing
+          boards_json=$(cat "${dir}/${PREFIX}-boards.json")
+          echo "boards_json=${boards_json}" >> "$GITHUB_OUTPUT"
+          # pretty-print with stdlib json.tool so humans can read the JSON
+          python3 -m json.tool "${dir}/${PREFIX}-boards.json" \
+              >"${dir}/${PREFIX}-boards.json.tmp"
+          mv "${dir}/${PREFIX}-boards.json.tmp" "${dir}/${PREFIX}-boards.json"
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee sha256sums.txt)
 
@@ -225,17 +238,22 @@ jobs:
       - name: "Print output"
         env:
           build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
+          boards_json: ${{ steps.stage_artifacts.outputs.boards_json }}
         run: |
           echo "Downloads URL: ${build_url}"
           echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
-          echo "${build_url}" > build_url
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
-      - name: Upload build URL
+          # bundle with boards.json so test-pr.yml can consume both together;
+          # boards_json is already compact (single line) from the step output
+          mkdir -v build-info-artifact
+          echo "${build_url}" > build-info-artifact/build-url.txt
+          printf '%s\n' "${boards_json}" > build-info-artifact/boards.json
+      - name: Upload build info
         uses: actions/upload-artifact@v7
         with:
-          name: build_url
-          path: build_url
+          name: ${{ inputs.suite }}-build-info
+          path: build-info-artifact/
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |

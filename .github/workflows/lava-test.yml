@@ -6,6 +6,11 @@ on:
       url:
         required: true
         type: string
+      boards_json:
+        description: "JSON database of supported boards; when set, only matching LAVA templates are submitted"
+        required: false
+        type: string
+        default: ''
       suite:
         description: Distribution suite (e.g. trixie, forky)
         type: string
@@ -40,22 +45,32 @@ jobs:
       - name: "List jobs"
         id: listjobs
         run: |
+          # when boards_json is provided, only submit jobs for boards that were built
+          BOARDS='${{ inputs.boards_json }}'
+          BOARDS="${BOARDS:-[]}"
           # json with display names and relative filenames to LAVA templates
           J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq --compact-output --raw-input --slurp '
+                  jq --compact-output --raw-input --slurp --argjson built "$BOARDS" '
                       # split null-delimited list and remove last empty item
                       split("\u0000")[:-1]
                       # remove leading "ci/lava/"
                       | map(sub("^ci/lava/"; ""))
-                      # build include entries with target and pretty name
-                      | map({
-                          target: .,
-                          name: (
-                              .
-                              | sub("\\.yaml$"; "")
-                              | gsub("/"; " ")
-                          )
-                        })
+                      # filter to built boards and annotate with board metadata
+                      | map(
+                          . as $tpl
+                          | split("/")[0] as $board
+                          | ($built | map(select(.name == $board))) as $matches
+                          | if ($built | length) == 0 then
+                              { target: $tpl,
+                                name: ($tpl | sub("\\.yaml$"; "") | gsub("/"; " ")) }
+                            elif ($matches | length) > 0 then
+                              { target:        $tpl,
+                                name:          ($tpl | sub("\\.yaml$"; "") | gsub("/"; " ")),
+                                storage:       $matches[0].storage,
+                                flash_tarball: $matches[0].flash_tarball }
+                            else empty
+                            end
+                        )
                       # output as matrix.include list
                       | { include: . }
                       ')
