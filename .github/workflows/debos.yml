@@ -157,7 +157,7 @@ jobs:
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
           # generate sha256sums for all artifacts
-          (cd "${dir}" && sha256sum * | tee sha256sums.txt)
+          (cd "${dir}" && sha256sum * | tee "${PREFIX}-sha256sums.txt")
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
