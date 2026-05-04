@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
+      has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
@@ -83,10 +84,12 @@ jobs:
                       | { include: . }
                       ')
           echo "jobmatrix=$J" >> $GITHUB_OUTPUT
+          echo "has_jobs=$(echo "$J" | jq '.include | length > 0')" >> $GITHUB_OUTPUT
           echo "Preparing testjob files"
 
   submit-job:
     needs: prepare-job-list
+    if: needs.prepare-job-list.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     name: Submit ${{ matrix.name }}
     strategy:
