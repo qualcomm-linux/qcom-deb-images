@@ -395,7 +395,11 @@ actions:
     recommends: true
     packages:
       - apparmor
+{{- if eq $suite "trixie" }}
       - initramfs-tools
+{{- else }}
+      - dracut
+{{- end }}
       - kmod
       - linux-base
 
