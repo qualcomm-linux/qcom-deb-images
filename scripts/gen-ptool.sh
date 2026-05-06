@@ -19,6 +19,9 @@ CDT_FILENAME="$3"
 BUILDID="$4"
 # disk storage, emmc, nvme, spinor or ufs
 DISK_TYPE="$5"
+# dtb type: multidtb (shared ../dtb-multidtb.bin at ARTIFACTDIR level) or
+# combineddtb (local dtb-combineddtb.bin in flash dir); default is combineddtb
+DTB_TYPE="${6:-combineddtb}"
 
 PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
 
@@ -42,6 +45,19 @@ case "$DISK_TYPE" in
     ;;
 esac
 
+case "$DTB_TYPE" in
+  multidtb)
+    dtb="../dtb-multidtb.bin"
+    ;;
+  combineddtb)
+    dtb="dtb-combineddtb.bin"
+    ;;
+  *)
+    echo "unsupported dtb type $DTB_TYPE"
+    exit 1
+    ;;
+esac
+
 # build a map of partition names from partitions.conf to our names
 #
 # |--------|--------------|-------------------|-----------------|
@@ -53,8 +69,8 @@ esac
 # | CDTs   | cdt          | unset / per board | from download   |
 # |--------|--------------|-------------------|-----------------|
 partition_map="cdt=$(basename "${CDT_FILENAME}")"
-partition_map="${partition_map},dtb_a=dtb.bin"
-partition_map="${partition_map},dtb_b=dtb.bin"
+partition_map="${partition_map},dtb_a=${dtb}"
+partition_map="${partition_map},dtb_b=${dtb}"
 partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
@@ -74,4 +90,3 @@ fi
 
 # generate flashing files from qcom-partitions.xml
 "${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
-

@@ -1,6 +1,8 @@
 disk-sdcard.img*
 disk-ufs.img*
 dtbs.tar.gz
+dtb-multidtb.bin
+dtb-combineddtb.bin
 *.deb
 *.buildinfo
 *.changes

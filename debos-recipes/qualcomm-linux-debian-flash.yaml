@@ -18,6 +18,15 @@ actions:
     url: https://github.com/qualcomm-linux/qcom-ptool/archive/6c9922f220c884236303a94075eb7c62e0120af0.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
+    sha256sum: f201dcaee55c6dda30afad7c98c76768dc02d29c567dbc91690b43f54cbeb41f
+    unpack: true
+
+  - action: download
+    description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/bf8f11f5274d850f71cc1af8b5a5c46683c14eee.tar.gz
+    name: qcom-dtb-metadata
+    filename: qcom-dtb-metadata.tar.gz
+    sha256sum: 4e2a4bf2c4939ebb7093f1dd3ce2eea69325e1b6f4514696c7c7475b010316ae
     unpack: true
 
 {{- $boards := list }}
@@ -63,6 +72,7 @@ actions:
     )
     "cdt_filename" "cdt_adp_air_sa6155p.bin"
     "dtb" "qcom/qcs615-ride.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 {{- end }}
 {{- if eq $build_qcm6490 "true" }}
@@ -86,6 +96,7 @@ actions:
     )
     "cdt_filename" "cdt_vision_kit.bin"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 {{- end }}
 {{- if eq $build_qcs8300 "true" }}
@@ -109,6 +120,7 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs8300-ride.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
@@ -174,6 +186,7 @@ actions:
     )
     "cdt_filename" "cdt_ride_sx.bin"
     "dtb" "qcom/qcs9100-ride-r3.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 {{- $boards = append $boards (dict
     "name" "lemans-evk"
@@ -211,6 +224,7 @@ actions:
     )
     "u_boot_file" .u_boot_rb1
     "dtb" "qcom/qrb2210-rb1.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 {{- end }}
 {{- $boards = append $boards (dict
@@ -225,6 +239,7 @@ actions:
         "sha256sum" "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
     )
     "dtb" "qcom/qrb2210-arduino-imola.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 
 {{- range $board := $boards }}
@@ -297,6 +312,19 @@ actions:
           ;;
       esac
 
+      # Generate dtb.bin (multi-DTB FIT image) from the qcom/ subtree of dtbs.tar.gz.
+      if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
+          QCOM_DTB_METADATA="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
+          mkdir -p build/dtbs
+          # unpack only qcom/ DTBs
+          tar -C build/dtbs -xzf "${ARTIFACTDIR}/dtbs.tar.gz" qcom
+          "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
+              --dtb-src build/dtbs/qcom \
+              --out "${ARTIFACTDIR}/dtb-multidtb.bin" \
+              --prune
+          echo "Multi-DTB FIT image generated: ${ARTIFACTDIR}/dtb-multidtb.bin"
+      fi
+
 {{- range $board := $boards }}
       ### board: {{ $board.name }}
       ### silicon family: {{ $board.silicon_family }}
@@ -305,6 +333,9 @@ actions:
       # in shell syntax
       board_name="{{$board.name}}"
       board_dtb="{{$board.dtb}}"
+      # default dtb_bin_type is multidtb
+      board_dtb_bin_type="{{or $board.dtb_bin_type "multidtb"}}"
+      echo "Board ${board_name}: dtb_bin_type=${board_dtb_bin_type}"
       boot_binaries_filename="{{$board.boot_binaries_download.filename}}"
       board_cdt_download_filename=""
       board_cdt_filename=""
@@ -365,6 +396,7 @@ actions:
                   "$board_cdt_filename" \
                   "$buildid" \
                   "$disk_type" \
+                  "$board_dtb_bin_type" \
           )
 
           # create board-specific flash directory
@@ -418,23 +450,25 @@ actions:
                   "${flash_dir}"
           fi
 
-          # generate a dtb.bin FAT partition with just a single dtb for the
-          # current board; long-term this should really be a set of dtbs and
-          # overlays as to share dtb.bin across boards
-          dtb_bin="${flash_dir}/dtb.bin"
-          rm -f "${dtb_bin}"
-          # dtb.bin is only used in UFS based boards at the moment and UFS
-          # uses a 4k sector size, so pass -S 4096 in
-          # qcom-ptool/platforms/*/partitions.conf, dtb_a and _b partitions
-          # are provisioned with 64MiB; create a 4MiB FAT that will
-          # comfortably fit in these and hold the target device tree, which is
-          # 4096 KiB sized blocks for mkfs.vfat's last argument
-          mkfs.vfat -S 4096 -C "${dtb_bin}" 4096
-          # extract board device tree from the root filesystem provided
-          # tarball
-          tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "$board_dtb"
-          # copy into the FAT as combined-dtb.dtb
-          mcopy -vmp -i "${dtb_bin}" "build/${board_dtb}" ::/combined-dtb.dtb
+          if [ "${board_dtb_bin_type}" = "combineddtb" ]; then
+              # generate a dtb-combineddtb.bin" FAT partition with just a single dtb for the
+              # current board; long-term this should really be a set of dtbs and
+              # overlays as to share dtb.bin across boards
+              dtb_bin="${flash_dir}/dtb-combineddtb.bin"
+              rm -f "${dtb_bin}"
+              # dtb-combineddtb.bin is only used in UFS based boards at the moment
+              # and UFS uses a 4k sector size, so pass -S 4096 in
+              # qcom-ptool/platforms/*/partitions.conf, dtb_a and _b partitions
+              # are provisioned with 64MiB; create a 4MiB FAT that will
+              # comfortably fit in these and hold the target device tree, which is
+              # 4096 KiB sized blocks for mkfs.vfat's last argument
+              mkfs.vfat -S 4096 -C "${dtb_bin}" 4096
+              # extract board device tree from the root filesystem provided
+              # tarball
+              tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "$board_dtb"
+              # copy into the FAT as combined-dtb.dtb
+              mcopy -vmp -i "${dtb_bin}" "build/${board_dtb}" ::/combined-dtb.dtb
+          fi
 {{- end }}
       fi
 {{- end }}
@@ -464,6 +498,7 @@ actions:
                           -u "//*[@storage_type='${storage}']/file_name[text()='efi.bin']" -v "${efi_img}" \
                           -u "//*[@storage_type='${storage}'][file_name/text()='rootfs.img']/file_path[text()='../']" -v "../../" \
                           -u "//*[@storage_type='${storage}']/file_name[text()='rootfs.img']" -v "${rootfs_img}" \
+                          -u "//download_file[file_name/text()='dtb-multidtb.bin']/file_path[text()='..']" -v "../../" \
                           "${copied_contents}"
                   fi
               done
