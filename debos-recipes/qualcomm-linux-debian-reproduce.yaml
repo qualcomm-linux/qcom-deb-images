@@ -1,0 +1,126 @@
+{{- $packagesfile := or .packagesfile "installed-packages.txt" }}
+{{- $suite := or .suite "trixie" }}
+{{- $localdebs := or .localdebs "none" }}
+
+architecture: arm64
+
+actions:
+  - action: mmdebstrap
+    description: Bootstrap minimal base filesystem
+    suite: {{ $suite }}
+    components:
+      - main
+      - contrib
+      - non-free
+      - non-free-firmware
+    mirrors: ['http://deb.debian.org/debian']
+    variant: minbase
+    # ca-certificates needed for https APT sources; python3 needed for the
+    # pinned-install step below
+    include: [ca-certificates, python3]
+
+  - action: overlay
+    description: Install QSC APT keyring (needed for qsc-deb-releases repo)
+    source: overlays/qsc-deb-releases
+
+  - action: run
+    description: Parse packages list – write APT sources and install script into rootfs
+    chroot: false
+    command: |
+      set -eux
+      python3 -c "
+      import os
+      rootdir     = os.environ['ROOTDIR']
+      artifactdir = os.environ['ARTIFACTDIR']
+      pkgsfile    = os.path.join(artifactdir, '{{$packagesfile}}')
+      lines = [l.strip() for l in open(pkgsfile) if l.strip() and not l.startswith('#')]
+      pkgs, srcs, local_pkgs = {}, {}, []
+      for l in lines:
+          p = l.split('\t')
+          if len(p) < 3: continue
+          pkg, ver, src = p[0], p[1], p[2]
+          if src == 'local/unknown':
+              local_pkgs.append((pkg, ver)); continue
+          pkgs[pkg] = ver
+          parts = src.split()
+          if len(parts) >= 2:
+              url, f2 = parts[0], parts[1]
+              f3 = parts[2] if len(parts) > 2 else ''
+              suite, comp = f2.split('/', 1) if '/' in f2 else (f2, f3)
+              srcs[(url, suite, comp)] = True
+      import glob
+      srcdir = os.path.join(rootdir, 'etc/apt/sources.list.d')
+      os.makedirs(srcdir, exist_ok=True)
+      # Remove sources created by mmdebstrap to avoid Trusted: conflicts
+      for f in glob.glob(os.path.join(srcdir, '*.sources')) + \
+               glob.glob(os.path.join(srcdir, '*.list')) + \
+               [os.path.join(rootdir, 'etc/apt/sources.list')]:
+          if os.path.exists(f): os.remove(f)
+      def signed_by(url):
+          if 'deb.debian.org' in url:
+              return '/usr/share/keyrings/debian-archive-keyring.gpg'
+          if 'qartifactory' in url:
+              return '/etc/apt/keyrings/qsc-deb-releases.asc'
+          return ''
+      with open(os.path.join(srcdir, 'reproduced-build.sources'), 'w') as f:
+          for url, suite, comp in sorted(srcs):
+              sb = signed_by(url)
+              entry = 'Types: deb\nURIs: {}\nSuites: {}\nComponents: {}\n'.format(url, suite, comp)
+              if sb: entry += 'Signed-By: {}\n'.format(sb)
+              f.write(entry + '\n')
+      os.makedirs(os.path.join(rootdir, 'root'), exist_ok=True)
+      with open(os.path.join(rootdir, 'root/install-packages.sh'), 'w') as f:
+          f.write('#!/bin/sh\nset -eux\nexport DEBIAN_FRONTEND=noninteractive\napt-get -y update\n')
+          f.write('apt-get install -y --allow-downgrades --no-install-recommends')
+          for p, v in sorted(pkgs.items()):
+              f.write(' ' + p + '=' + v)
+          f.write('\n')
+      print('Wrote APT sources ({} repos) and install script ({} packages)'.format(len(srcs), len(pkgs)))
+      if local_pkgs:
+          print('NOTE: {} local/unknown package(s) skipped (supply via localdebs):'.format(len(local_pkgs)))
+          for p, v in local_pkgs: print('  {} {}'.format(p, v))
+      "
+
+  - action: run
+    description: Install exact pinned packages from APT sources
+    chroot: true
+    command: |
+      set -eux
+      bash /root/install-packages.sh
+      rm -f /root/install-packages.sh
+
+{{- if ne $localdebs "none" }}
+  - action: overlay
+    description: Overlay local debs directory {{ $localdebs }} to /root/
+    source: {{ $localdebs }}
+    destination: /root/
+
+  - action: run
+    description: Install local debs from /root/ (e.g. locally-built kernel)
+    chroot: true
+    command: |
+      set -eux
+      apt-get -y install /root/*.deb
+      rm -vf /root/*.deb
+{{- end }}
+
+  - action: run
+    description: Create DTBs tarball
+    chroot: false
+    command: |
+      set -eux
+      kernel_dirs=$(ls -d "$ROOTDIR"/usr/lib/linux-image-*)
+      latest_kernel=$(echo "$kernel_dirs" | sort -V | tail -1)
+      tar \
+          -C "${latest_kernel}" \
+          --transform='s|^\./||' \
+          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          .
+
+  - action: pack
+    description: Create reproduced root filesystem tarball
+    file: rootfs.tar
+    compression: none
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

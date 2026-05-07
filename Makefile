@@ -78,6 +78,34 @@ test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
+# Reproduce an exact build from a previously captured installed-packages.txt.
+# APT packages are installed at their exact recorded versions; local/unknown
+# packages (e.g. a locally-built kernel) are installed from LOCALDEBS dir.
+#
+# Usage:
+#   make reproduce
+#   make reproduce PACKAGES_FILE=trixie-installed-packages.txt
+#   make reproduce PACKAGES_FILE=... SUITE=forky
+#   make reproduce LOCALDEBS=local-debs   # supply locally-built .deb files
+PACKAGES_FILE ?= installed-packages.txt
+SUITE         ?= trixie
+LOCALDEBS     ?= none
+
+# packagesfile is passed as a path relative to ARTIFACTDIR (the repo root).
+# localdebs overlay source is relative to the recipe dir (debos-recipes/), so
+# strip the leading debos-recipes/ prefix if the user supplies a repo-root path.
+# e.g. LOCALDEBS=debos-recipes/local-debs/ → overlay source: local-debs/
+_LOCALDEBS_REL := $(patsubst debos-recipes/%,%,$(LOCALDEBS))
+_LOCALDEBS_OPT := $(if $(filter-out none,$(LOCALDEBS)),-t localdebs:$(_LOCALDEBS_REL))
+
+.PHONY: reproduce
+reproduce: debos-recipes/qualcomm-linux-debian-reproduce.yaml $(PACKAGES_FILE)
+	$(DEBOS_CMD) \
+		-t packagesfile:$(PACKAGES_FILE) \
+		-t suite:$(SUITE) \
+		$(_LOCALDEBS_OPT) \
+		$<
+
 .PHONY: clean
 clean:
 	rm -f $(DISK_UFS_IMAGES)
