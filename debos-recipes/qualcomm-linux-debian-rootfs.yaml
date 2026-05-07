@@ -473,6 +473,36 @@ actions:
           -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
           .
 
+  - action: run
+    description: Generate installed packages list with versions and APT sources
+    chroot: true
+    command: |
+      set -eux
+      dpkg-query -W --showformat='${Package}\t${Version}\n' | sort > /tmp/pkgs.txt
+      python3 -c "
+      import re, subprocess
+      pkgs = dict(l.split('\t',1) for l in open('/tmp/pkgs.txt').read().splitlines() if '\t' in l)
+      pol = subprocess.run(['apt-cache','policy']+sorted(pkgs), capture_output=True, text=True).stdout
+      src, cur, star = {}, None, False
+      for l in pol.splitlines():
+          m = re.match(r'^(\S+):$', l)
+          if m: cur, star = m.group(1), False
+          elif re.match(r'^\s+[*]{3}', l): star = True
+          elif star:
+              m = re.match(r'^\s+\d+\s+(https?://\S+|file:\S+)\s+(\S+)\s+(\S+)', l)
+              if m: src[cur] = '{} {} {}'.format(*m.groups())
+              star = False
+      open('/installed-packages.txt','w').write(
+          '# Package\tVersion\tAPT Source\n' +
+          ''.join('{}\t{}\t{}\n'.format(p, pkgs[p], src.get(p,'local/unknown')) for p in sorted(pkgs)))
+      print('Total packages:', len(pkgs))
+      "
+
+  - action: run
+    description: Copy installed packages list to artifact directory
+    chroot: false
+    command: cp -v "${ROOTDIR}/installed-packages.txt" "${ARTIFACTDIR}/installed-packages.txt"
+
   - action: pack
     description: Create root filesystem tarball
     file: rootfs.tar

@@ -154,6 +154,8 @@ jobs:
           gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
           gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          # copy installed packages list
+          cp -av installed-packages.txt "${dir}/${PREFIX}-installed-packages.txt"
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
           # generate sha256sums for all artifacts
