@@ -20,4 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: mainline
+      lava_boards_exclude: '["glymur-crd"]'
     secrets: inherit
