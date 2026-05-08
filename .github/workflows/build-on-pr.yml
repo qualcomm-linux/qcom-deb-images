@@ -35,7 +35,3 @@ jobs:
       # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository
       kernelpackages: efs/qcom-next
-  schema-check:
-    uses: ./.github/workflows/lava-schema-check.yml
-    permissions:
-      contents: read

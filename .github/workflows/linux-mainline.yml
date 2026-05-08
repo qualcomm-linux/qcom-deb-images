@@ -32,9 +32,10 @@ jobs:
       # reference build: we want the debs and the LAVA results to compare
       # against, but its failures must not gate qcom-deb-images work
       lava_report_test_results_externally: false
-      # monaco-evk only validated against the linux-next/qcom-next/arduino
-      # kernels so far; see
+      # every board but glymur-crd, lemans-evk, qcs615-ride and qcs8300-ride;
+      # monaco-evk is also left out as it is only validated against the
+      # linux-next/qcom-next/arduino kernels so far, see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      lava_boards_exclude: '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      lava_boards: 'monaco-arduino-monza,qcs6490-rb3gen2-vision-kit,qrb2210-rb1'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}

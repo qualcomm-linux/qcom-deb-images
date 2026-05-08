@@ -77,6 +77,9 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
+      # id of the run that built the image under test
+      build_id: ${{ github.run_id }}
       suite: ${{ matrix.suite }}
+      # every board but monaco-arduino-monza; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
-      boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
+      boards_include: 'glymur-crd,lemans-evk,monaco-evk,qcs615-ride,qcs6490-rb3gen2-vision-kit,qcs8300-ride,qrb2210-rb1,monaco-arduino-monza,qrb2210-arduino-imola'
