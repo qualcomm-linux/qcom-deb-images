@@ -6,6 +6,9 @@ on:
       url:
         required: true
         type: string
+      build_id:
+        required: true
+        type: string
       suite:
         description: Distribution suite (e.g. trixie, forky)
         type: string
@@ -14,10 +17,10 @@ on:
         description: JSON array of board names to include (empty = all boards)
         type: string
         default: ''
-      boards_exclude:
-        description: JSON array of board names to exclude (empty = none excluded)
-        type: string
-        default: ''
+    outputs:
+      summary_ids:
+        description: "IDs of the test summary artifact"
+        value: ${{ jobs.collect-ids.outputs.summary_ids }}
 
 # implicitely set all other permissions to none
 permissions:
@@ -31,137 +34,47 @@ env:
   LAVA_CI: ci/lava/
   SUITE: ${{ inputs.suite }}
   BOARDS_INCLUDE: ${{ inputs.boards_include }}
-  BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
+  # git sha, tag or branch in lava-test-plans repository
+  LAVA_TEST_PLANS_REF: "b9de72b563d8b361b39075c6070d76010040660e"
 
 jobs:
-  prepare-job-list:
+  prepare-env:
+    name: Prepare environment
     runs-on: ubuntu-latest
+    steps:
+      - name: "Print ref"
+        shell: bash
+        run: |
+          echo "lava-test-plans ref: ${{ env.LAVA_TEST_PLANS_REF }}"
     outputs:
-      jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
-      has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Print trigger
-        run: |
-          echo "Triggered by ${{ github.event_name }}"
-          echo "Build URL: $BUILD_URL"
-      - name: "List jobs"
-        id: listjobs
-        run: |
-          # json with display names and relative filenames to LAVA templates
-          J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq --compact-output --raw-input --slurp \
-                      --argjson include "${BOARDS_INCLUDE:-[]}" \
-                      --argjson exclude "${BOARDS_EXCLUDE:-[]}" '
-                      # split null-delimited list and remove last empty item
-                      split("\u0000")[:-1]
-                      # remove leading "ci/lava/"
-                      | map(sub("^ci/lava/"; ""))
-                      # build include entries with board name (for filtering), target and pretty name
-                      | map({
-                          board: split("/")[0],
-                          target: .,
-                          name: (
-                              .
-                              | sub("\\.yaml$"; "")
-                              | gsub("/"; " ")
-                          )
-                        })
-                      # restrict to boards listed in $include (if non-empty)
-                      | if ($include | length) > 0 then
-                          map(select(.board as $b | $include | any(. == $b)))
-                        else . end
-                      # remove boards listed in $exclude (if non-empty)
-                      | if ($exclude | length) > 0 then
-                          map(select(.board as $b | $exclude | any(. == $b) | not))
-                        else . end
-                      # drop temporary board field
-                      | map(del(.board))
-                      # output as matrix.include list
-                      | { include: . }
-                      ')
-          echo "jobmatrix=$J" >> $GITHUB_OUTPUT
-          echo "has_jobs=$(echo "$J" | jq '.include | length > 0')" >> $GITHUB_OUTPUT
-          echo "Preparing testjob files"
+      lava-test-plans-ref: "${{ env.LAVA_TEST_PLANS_REF }}"
+  test-debian:
+    needs: [prepare-env]
+    name: "Test nodistro"
+    uses: mwasilew/meta-qcom/.github/workflows/test-distro.yml@debian-support
+    secrets: inherit
+    with:
+      build_id: "${{ inputs.build_id }}"
+      devices: "${{ inputs.boards_include }}"
+      project_name: "qcom-deb-images"
+      distro_name: "debian"
+      lava_test_plans_ref: "${{ needs.prepare-env.outputs.lava-test-plans-ref }}"
 
-  submit-job:
-    needs: prepare-job-list
-    if: needs.prepare-job-list.outputs.has_jobs == 'true'
+  collect-ids:
+    name: "Collect Summary artifact IDs"
+    needs: [test-nodistro, test-qcom-distro, test-qcom-distro_linux-qcom-6-18]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
-    name: Submit ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
+    permissions:
+      checks: write
+      pull-requests: write
+    outputs:
+      summary_ids: ${{ steps.generate-summary.outputs.artifact_ids }}
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Update test definition ${{ matrix.target }}
+      - name: Summary IDs
+        id: generate-summary
         run: |
-          # e.g. qrb2210-rb1/boot.yaml
-          TARGET="${{ matrix.target }}"
-          TEMPLATE="${LAVA_CI}${TARGET}"
-          # left-side – e.g. qrb2210-rb1
-          DEVICE_TYPE="${TARGET%/*}"
-          BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="unused"
-          sed \
-              -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
-              -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
-              -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
-              -e "s|{{SUITE}}|${SUITE}|g" \
-              -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
-              -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
-              -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
-              -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
-              -i "$TEMPLATE"
-          cat "$TEMPLATE"
-
-      - name: Submit ${{ matrix.target }}
-        timeout-minutes: 240
-        uses: foundriesio/lava-action@v13
-        with:
-          lava_token: ${{ secrets.LAVATOKEN }}
-          lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ env.LAVA_CI }}${{ matrix.target }}
-          wait_for_job: true
-          fail_action_on_failure: false
-          save_result_as_artifact: true
-          save_job_details: true
-
-  publish-test-results:
-    name: Publish Tests Results
-    needs: submit-job
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v8.0.1
-        with:
-          path: artifacts
-
-      - name: List files
-        run: |
-          echo $GITHUB_WORKSPACE
-          ls -R $GITHUB_WORKSPACE
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: "${{ github.workspace }}/artifacts/**/*.xml"
-
-      - name: Publish Test Job Details
-        run: |
-          for json_file in $(find ${{ github.workspace }} -name "test-job-*.json")
-          do
-              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
-              URL=$(cat "$json_file" | jq -r ".url")
-              JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> $GITHUB_STEP_SUMMARY
-          done
+          echo "artifact_ids=${{ needs.test-nodistro.outputs.summary_id }},${{ needs.test-qcom-distro.outputs.summary_id }},${{ needs.test-qcom-distro_linux-qcom-6-18.outputs.summary_id }}" >> $GITHUB_OUTPUT

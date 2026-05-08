@@ -7,7 +7,7 @@ on:
 # implicitely set all other permissions to none
 permissions:
   checks: write # lava-test.yml
-  contents: read # debos.yml lava-schema-check.yml lava-test.yml
+  contents: read # debos.yml lava-test.yml
   packages: read # lava-test.yml
   pull-requests: write # lava-test.yml
 
