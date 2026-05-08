@@ -65,7 +65,7 @@ actions:
       Components: main contrib non-free non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
-{{- if and (ne $suite "unstable") (ne $suite "sid") }}
+{{- if ne $suite "unstable") }}
 
       # Debian stable updates
       Types: deb
@@ -83,7 +83,7 @@ actions:
 {{- end }}
       EOF
 
-{{- if and (ne $suite "unstable") (ne $suite "sid") (ne $suite "testing") }}
+{{- if and (ne $suite "unstable") (ne $suite "testing") }}
   - action: run
     description: Add Debian {{ $suite }}-backports APT configuration
     chroot: true
@@ -117,7 +117,7 @@ actions:
 {{- end }}
 
 # QArtifactory is missing a Release file for some suites.
-{{- if and (ne $suite "sid") (ne $suite "testing") (ne $suite "forky") }}
+{{- if and (ne $suite "testing") (ne $suite "forky") }}
   # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
   # .sources and .pref files dynamically to use the correct $suite-overlay
   - action: run
