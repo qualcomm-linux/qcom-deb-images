@@ -1,9 +1,9 @@
 name: Daily glymur linux build
 
 on:
-  # run daily at 10:30am
+  # run daily at 6am IST
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '30 0 * * *'
   # allow manual runs
   workflow_dispatch:
 
