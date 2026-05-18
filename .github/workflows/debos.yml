@@ -41,6 +41,7 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
+  SUITE: ${{ inputs.suite }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   PREFIX: ${{ inputs.suite }}
 
@@ -103,16 +104,24 @@ jobs:
         run: |
           set -ux
           kernel_package="$KERNEL_PACKAGE"
+          suite="$SUITE"
           case "$kernel_package" in
             # if kernel package is from EFS, determine actual package name
             efs/*)
               kernel_package="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_)"
               ;;
             default-ci)
-              # the package name will be passed to APT which interprets the trailing
-              # plus sign in the package name as a request to install the package, so
-              # use two plus signs
-              kernel_package="linux-image-6.16.7-qcom1++"
+              case "$suite" in
+                trixie)
+                  # the package name will be passed to APT which interprets the trailing
+                  # plus sign in the package name as a request to install the package, so
+                  # use two plus signs
+                  kernel_package="linux-image-6.16.7-qcom1++"
+                  ;;
+                *)
+                  kernel_package="linux-image-arm64"
+                  ;;
+              esac
               ;;
           esac
 
