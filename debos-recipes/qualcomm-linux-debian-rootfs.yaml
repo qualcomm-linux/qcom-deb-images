@@ -164,8 +164,6 @@ actions:
     description: Install foundational packages
     recommends: true
     packages:
-      # Android Debug Bridge (daemon)
-      - adbd
       # bluetooth
       - bluez
       # vfat tools, notably fsck.fat for the ESP
