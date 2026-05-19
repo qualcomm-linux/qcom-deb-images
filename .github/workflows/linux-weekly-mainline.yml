@@ -20,5 +20,5 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: mainline
-      lava_boards_exclude: '["glymur-crd"]'
+      lava_boards: 'qrb2210-rb1,qcs6490-rb3gen2-vision-kit'
     secrets: inherit

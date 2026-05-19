@@ -29,4 +29,4 @@ jobs:
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: trixie
-      boards_exclude: '["glymur-crd"]'
+      lava_boards: 'qrb2210-rb1,qcs6490-rb3gen2-vision-kit'

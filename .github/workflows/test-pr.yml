@@ -64,7 +64,7 @@ jobs:
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
-      boards_exclude: '["glymur-crd"]'
+      lava_boards: 'qrb2210-rb1,qcs6490-rb3gen2-vision-kit'
 
   publish-test-results:
     name: "Publish Tests Results"
