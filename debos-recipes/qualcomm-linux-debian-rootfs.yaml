@@ -5,6 +5,7 @@
 {{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
+{{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
 
 {{- $variantid := "console" }}
@@ -65,6 +66,17 @@ actions:
     chroot: true
     command: |
       set -eux
+{{- if $snapshot }}
+      if [ "{{ $snapshot }}" = "today" ]; then
+        SNAPSHOT_DATE=$(date -u +%Y%m%dT%H%M%SZ)
+      elif echo "{{ $snapshot }}" | grep -qE '^([0-9]{8}|[0-9]{8}T[0-9]{6}Z)$'; then
+        SNAPSHOT_DATE="{{ $snapshot }}"
+      else
+        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: today | YYYYMMDD | YYYYMMDDTHHMMSSz"; exit 1
+      fi
+      touch /etc/buildinfo && chmod 644 /etc/buildinfo
+      echo "SNAPSHOT=${SNAPSHOT_DATE}" >> /etc/buildinfo
+{{- end }}
       tee /etc/apt/sources.list.d/debian.sources <<EOF
       # Debian archive
       Types: deb
@@ -72,6 +84,7 @@ actions:
       Suites: {{ $suite }}
       Components: main contrib non-free non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
 
 {{- if ne $suite "unstable" }}
 
@@ -81,6 +94,7 @@ actions:
       Suites: {{ $suite }}-updates
       Components: main contrib non-free non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
 
       # Debian security updates
       Types: deb
@@ -88,8 +102,43 @@ actions:
       Suites: {{ $suite }}-security
       Components: main contrib non-free non-free-firmware
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
 {{- end }}
       EOF
+
+{{- if $snapshot }}
+      # Disable regular sources so snapshot sources take over
+      sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/debian.sources
+      # Snapshot sources — Enabled: yes; Check-Valid-Until scoped to this file
+      tee /etc/apt/sources.list.d/snapshot-debian.sources <<EOF
+      Types: deb
+      URIs: http://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/
+      Suites: {{ $suite }}
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
+      Check-Valid-Until: no
+
+{{- if ne $suite "unstable" }}
+
+      Types: deb
+      URIs: http://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/
+      Suites: {{ $suite }}-updates
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
+      Check-Valid-Until: no
+
+      Types: deb
+      URIs: http://snapshot.debian.org/archive/debian-security/${SNAPSHOT_DATE}/
+      Suites: {{ $suite }}-security
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      Enabled: yes
+      Check-Valid-Until: no
+{{- end }}
+      EOF
+{{- end }}
 
 {{- if and (ne $suite "unstable") (ne $suite "testing") }}
   - action: run
@@ -97,6 +146,9 @@ actions:
     chroot: true
     command: |
       set -eux
+{{- if $snapshot }}
+      SNAPSHOT_DATE=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+{{- end }}
       tee /etc/apt/sources.list.d/debian-backports.sources <<EOF
       # Debian backports
       Types: deb
@@ -106,6 +158,21 @@ actions:
       Enabled: yes
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
       EOF
+
+{{- if $snapshot }}
+      # Disable regular backports so snapshot backports take over
+      sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/debian-backports.sources
+      # Snapshot backports — Enabled: yes; Check-Valid-Until scoped to this file
+      tee /etc/apt/sources.list.d/snapshot-debian-backports.sources <<EOF
+      Types: deb
+      URIs: http://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/
+      Suites: {{ $suite }}-backports
+      Components: main contrib non-free non-free-firmware
+      Enabled: yes
+      Check-Valid-Until: no
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+{{- end }}
       tee /etc/apt/preferences.d/debian-backports.pref <<EOF
       # for binary packages built from these source packages, score the version from
       # Debian backports higher as to get hardware enabled or better hardware support
@@ -562,6 +629,22 @@ actions:
       set -eux
       rm -v /etc/apt/sources.list.d/apt-local-repo.sources
       apt-get update
+{{- end }}
+
+{{- if $snapshot }}
+  - action: run
+    description: Restore APT sources to live mirrors
+    chroot: true
+    command: |
+      set -eux
+      # Re-enable regular sources, disable snapshot sources via Enabled: toggle
+      sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/debian.sources
+      [ -f /etc/apt/sources.list.d/debian-backports.sources ] && \
+          sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/debian-backports.sources || true
+      [ -f /etc/apt/sources.list.d/snapshot-debian.sources ] && \
+          sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/snapshot-debian.sources || true
+      [ -f /etc/apt/sources.list.d/snapshot-debian-backports.sources ] && \
+          sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/snapshot-debian-backports.sources || true
 {{- end }}
 
   - action: run

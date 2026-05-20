@@ -152,6 +152,10 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
   providing local kernel package instead.
 - `suite`: Debian suite to use, defaults to `trixie`.
+- `snapshot`: pin all apt sources to a Debian snapshot for a reproducible
+  build. Accepts `true` (today's date), `YYYYMMDD`, or `YYYYMMDDTHHMMSSz`.
+  Sources are restored to live mirrors after the build; the date is logged to
+  `/etc/buildinfo`.
 
 For the image recipe:
 

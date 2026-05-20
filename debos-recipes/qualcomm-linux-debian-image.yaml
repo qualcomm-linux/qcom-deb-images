@@ -2,6 +2,7 @@
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
+{{- $snapshot := or .snapshot "" }}
 
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
@@ -77,6 +78,22 @@ actions:
     setup-fstab: true
     append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
 
+{{- if $snapshot }}
+  - action: run
+    description: Enable snapshot sources for image build
+    chroot: true
+    command: |
+      set -eux
+      # snapshot-debian.sources already has Enabled: no — flip to yes
+      sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/snapshot-debian.sources
+      sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/debian.sources
+      [ -f /etc/apt/sources.list.d/snapshot-debian-backports.sources ] && \
+          sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/snapshot-debian-backports.sources || true
+      [ -f /etc/apt/sources.list.d/debian-backports.sources ] && \
+          sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/debian-backports.sources || true
+      apt-get update
+{{- end }}
+
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
@@ -140,6 +157,20 @@ actions:
       EOF
       # enable unit
       systemctl enable debos-grow-rootfs
+
+{{- if $snapshot }}
+  - action: run
+    description: Restore APT sources to live mirrors
+    chroot: true
+    command: |
+      set -eux
+      sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/debian.sources
+      sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/snapshot-debian.sources
+      [ -f /etc/apt/sources.list.d/debian-backports.sources ] && \
+          sed -i 's/Enabled: no/Enabled: yes/' /etc/apt/sources.list.d/debian-backports.sources || true
+      [ -f /etc/apt/sources.list.d/snapshot-debian-backports.sources ] && \
+          sed -i 's/Enabled: yes/Enabled: no/' /etc/apt/sources.list.d/snapshot-debian-backports.sources || true
+{{- end }}
 
   - action: run
     description: Extract partition images
