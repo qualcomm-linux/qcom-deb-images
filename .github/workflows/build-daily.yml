@@ -18,15 +18,25 @@ jobs:
   build-daily:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
+    with:
+      suite: ${{ matrix.suite }}
 
   test-daily:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
     needs: build-daily
     secrets: inherit
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
-      suite: trixie
+      suite: ${{ matrix.suite }}
       boards_exclude: '["glymur-crd"]'
