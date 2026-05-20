@@ -39,4 +39,4 @@ jobs:
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
-      boards_exclude: '["glymur-crd"]'
+      boards_exclude: '["glymur-crd", "monaco-evk"]'

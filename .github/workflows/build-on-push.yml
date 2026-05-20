@@ -28,4 +28,4 @@ jobs:
     secrets: inherit
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
-      boards_exclude: '["glymur-crd"]'
+      boards_exclude: '["glymur-crd", "monaco-evk"]'

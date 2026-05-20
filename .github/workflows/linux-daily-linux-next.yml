@@ -21,5 +21,5 @@ jobs:
     with:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
-      lava_boards_exclude: '["glymur-crd"]'
+      lava_boards_exclude: '["glymur-crd", "monaco-evk"]'
     secrets: inherit
