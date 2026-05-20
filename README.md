@@ -152,6 +152,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
   providing local kernel package instead.
 - `suite`: Debian suite to use, defaults to `trixie`.
+- `snapshot`: use a Debian snapshot archive for a reproducible build (`YYYYMMDD`
+  or `YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
+  Live mirrors are restored in the final image to allow upgrades.
 
 For the image recipe:
 

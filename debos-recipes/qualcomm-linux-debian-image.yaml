@@ -2,6 +2,7 @@
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
+{{- $snapshot := or .snapshot "" }}
 
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
@@ -77,6 +78,16 @@ actions:
     setup-fstab: true
     append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
 
+{{- if $snapshot }}
+  - action: run
+    description: Enable snapshot sources for image build
+    chroot: true
+    command: |
+      set -eux
+      apt-snapshot-toggle enable
+      apt-get update
+{{- end }}
+
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
@@ -140,6 +151,17 @@ actions:
       EOF
       # enable unit
       systemctl enable debos-grow-rootfs
+
+{{- if $snapshot }}
+  - action: run
+    description: Restore APT sources to live mirrors and clean up snapshot helpers
+    chroot: true
+    command: |
+      set -eux
+      apt-snapshot-toggle disable
+      rm -f /etc/apt/sources.list.d/snapshot_*.sources
+      rm -f /usr/local/bin/apt-snapshot-toggle
+{{- end }}
 
   - action: run
     description: Extract partition images
