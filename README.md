@@ -145,6 +145,7 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   debos expects relative pathnames)
 - `xfcedesktop`: install an Xfce desktop environment; default: console only
   environment
+- `gnomedesktop`: install a GNOME desktop environment; default: console only environment
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackage`: name of the kernel package to install from apt; defaults to
