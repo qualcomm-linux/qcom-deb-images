@@ -40,4 +40,5 @@ jobs:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # qrb2210-rb1 can't boot forky pending a newer kernel; see #424
-      boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1"]') || '["glymur-crd"]' }}
+      # glymur-crd can't boot anything
+      boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1", "glymur-crd"]') || '["glymur-crd"]' }}
