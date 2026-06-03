@@ -1,4 +1,4 @@
-## Contributing to Qualcomm Linux deb images
+# Contributing to Qualcomm Linux deb images
 
 Hi there!
 We’re thrilled that you’d like to contribute to this project.
