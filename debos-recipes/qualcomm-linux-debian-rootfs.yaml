@@ -482,6 +482,25 @@ actions:
           update-locale LANG=en_US.UTF-8
       fi
 
+  - action: run
+    description: Configure USB gadget with serial number identification
+    chroot: true
+    command: |
+      set -eux
+
+      FILE="/usr/lib/android-sdk/platform-tools/adbd-usb-gadget"
+
+      if [ -e "$FILE" ]; then
+        sed -i '/^setup()/,/^}/ {
+          /^}/i\
+           \
+          if [ -e /sys/devices/soc0/serial_number ]; then\
+              model="debian_SN:$(printf '"'"'%x'"'"' "$(tr -d '"'"' \\n'"'"' < /sys/devices/soc0/serial_number)")"\
+              echo "$model" > strings/0x409/product\
+          fi
+        }' "$FILE"
+      fi
+
 {{- if ne $buildid "" }}
   - action: run
     description: Set build and variant ID in /etc/buildinfo
