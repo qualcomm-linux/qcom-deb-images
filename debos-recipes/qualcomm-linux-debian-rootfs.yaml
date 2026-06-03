@@ -323,10 +323,12 @@ actions:
       fi
       useradd --create-home --shell /bin/bash --user-group \
           --groups "$groups" debian
-      # set password to "debian"
+
+      # do not use any password and force password change on first login
       echo debian:debian | chpasswd
-      # password must be changed on first login
+      passwd -d debian
       chage --lastday 0 debian
+
       # add to sudoers
       mkdir -v --mode 755 --parents /etc/sudoers.d
       # subshell to override umask
