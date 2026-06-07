@@ -410,7 +410,7 @@ actions:
               \( \
                   -iname 'SAIL' \
                   -o -iname 'SPINOR' \
-                  -o -iname '*sail*nor*' \
+                  -o -iname 'sail_nor*' \
               \) \
               -exec sh -c '
                   board_name="$1"
