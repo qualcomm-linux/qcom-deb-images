@@ -404,6 +404,19 @@ actions:
               \) \
               -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
 
+          if [ "${board_name}" = "monaco-arduino-monza" ]; then
+              # Preserve SAIL/SPINOR directories (and their XML files) so
+              # SAIL domain flashing can provision SPI-NOR.
+              find "build/${board_name}_boot-binaries" -type d \
+                  \( -name 'SAIL' -o -name 'SPINOR' \) | \
+                  while read -r source_dir; do
+                      relative_dir="${source_dir#build/${board_name}_boot-binaries/}"
+                      target_dir="${flash_dir}/${relative_dir}"
+                      mkdir -vp "${target_dir}"
+                      cp --preserve=mode,timestamps -rv "${source_dir}/." "${target_dir}/"
+                  done
+          fi
+
           if [ -n "${board_u_boot_file}" ]; then
               # copy U-Boot binary to boot.img; qcom-ptool partitions.conf
               # files use filename=boot.img for boot_a and boot_b partitions
