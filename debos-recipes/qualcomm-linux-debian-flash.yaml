@@ -407,7 +407,12 @@ actions:
           # Preserve SAIL/SPINOR directories (and their XML files) so
           # SAIL domain flashing can provision SPI-NOR.
           find "build/${board_name}_boot-binaries" -type d \
-              \( -name 'SAIL' -o -name 'SPINOR' \) \
+              \( \
+                  -iname 'SAIL' \
+                  -o -iname 'SPINOR' \
+                  -o -iname 'sail_nor' \
+                  -o -iname '*sail*nor*' \
+              \) \
               -exec sh -c '
                   board_name="$1"
                   flash_dir="$2"
