@@ -404,6 +404,14 @@ actions:
               \) \
               -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
 
+          # copy the sail_nor directory (standalone rawprogram/gpt/firehose/elf
+          # payloads) for SAIL domain flashing on SPI-NOR; only some silicon
+          # families ship it
+          sail_nor_dir="build/${board_name}_boot-binaries/sail_nor"
+          if [ -d "${sail_nor_dir}" ]; then
+              cp --preserve=mode,timestamps -rv "${sail_nor_dir}" "${flash_dir}/"
+          fi
+
           if [ -n "${board_u_boot_file}" ]; then
               # copy U-Boot binary to boot.img; qcom-ptool partitions.conf
               # files use filename=boot.img for boot_a and boot_b partitions
