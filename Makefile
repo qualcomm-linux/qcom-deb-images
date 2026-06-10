@@ -84,6 +84,8 @@ clean:
 	rm -f $(DISK_SDCARD_IMAGES)
 	rm -f rootfs.tar
 	rm -f dtbs.tar.gz
+	rm -f dtb-multidtb.bin
+	rm -f dtb-combineddtb.bin
 
 .PHONY: clean-debos
 clean-debos:
