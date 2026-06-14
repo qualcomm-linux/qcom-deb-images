@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import hashlib
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # git repo/ref to use
@@ -152,6 +155,78 @@ def check_dependencies():
 
     if missing:
         fatal(f"Missing build-dependencies: {' '.join(missing)}")
+
+
+def add_qcom_dtbos_to_image_deb(linux_dir, make_base_command):
+    """
+    Workaround: add qcom/ DTB overlays (*.dtbo) to the linux-image deb.
+
+    The kernel only installs (via dtbs_install) the DTBs listed in dtbs-list,
+    which is built from dtb-y. Overlays declared solely as composite
+    ingredients (foo-dtbs := base.dtb overlay.dtbo) never appear in dtb-y on
+    their own, so the raw *.dtbo files are compiled but never packaged. The
+    downstream FIT/multi-DTB image generation (qcom-dtb-metadata) needs those
+    raw overlays, so without them boards whose only configs require overlays
+    (e.g. monaco-evk / qcs8275) get no matching DTB and fail to boot.
+
+    Until the upstream Makefile fix (which adds the overlays to dtb-y) lands,
+    repack the produced linux-image deb to add every already-built qcom/*.dtbo
+    under the same usr/lib/linux-image-<release>/qcom/ path dtbs_install uses.
+
+    See the upstream fix that makes this unnecessary once merged
+    (lore.kernel.org message-id, Vishwas Udupa):
+        20260428123725.3457865-1-vudupa@qti.qualcomm.com
+    """
+    dts_qcom = linux_dir / "arch" / "arm64" / "boot" / "dts" / "qcom"
+    dtbos = sorted(dts_qcom.glob("*.dtbo"))
+    if not dtbos:
+        log_i("No qcom/*.dtbo found to add to the linux-image deb; skipping")
+        return
+
+    # the kernel release is what names both the deb and the install subdir
+    release = subprocess.check_output(
+        make_base_command + ["-s", "kernelrelease"],
+        cwd=linux_dir,
+        text=True,
+    ).strip()
+
+    # bindeb-pkg writes the debs to the parent of the source tree
+    deb_dir = linux_dir.resolve().parent
+    image_debs = sorted(deb_dir.glob(f"linux-image-{release}_*.deb"))
+    image_debs = [d for d in image_debs if "-dbg_" not in d.name]
+    if len(image_debs) != 1:
+        fatal(
+            f"Expected exactly one linux-image-{release} deb in {deb_dir}, "
+            f"found: {[d.name for d in image_debs]}"
+        )
+    image_deb = image_debs[0]
+
+    install_subdir = f"usr/lib/linux-image-{release}/qcom"
+
+    log_i(f"Adding {len(dtbos)} qcom/*.dtbo to {image_deb.name}")
+    with tempfile.TemporaryDirectory() as tmp:
+        extract = Path(tmp) / "deb"
+        # -R preserves the control archive so we can rebuild an identical deb
+        subprocess.run(
+            ["dpkg-deb", "-R", str(image_deb), str(extract)],
+            check=True,
+        )
+
+        dst = extract / install_subdir
+        dst.mkdir(parents=True, exist_ok=True)
+        for dtbo in dtbos:
+            # mirror dtbs_install's "install -D -m 0644"
+            shutil.copy2(dtbo, dst / dtbo.name)
+            (dst / dtbo.name).chmod(0o644)
+
+        # rebuild in place; dpkg-deb recomputes the control fields it owns
+        subprocess.run(
+            ["dpkg-deb", "-b", str(extract), str(image_deb)],
+            check=True,
+        )
+
+    sha = hashlib.sha256(image_deb.read_bytes()).hexdigest()
+    log_i(f"Repacked {image_deb.name} (sha256 {sha})")
 
 
 def main():
@@ -313,6 +388,8 @@ def main():
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
     subprocess.run(build_command, check=True, cwd=linux_dir)
+
+    add_qcom_dtbos_to_image_deb(linux_dir, make_base_command)
 
 
 if __name__ == "__main__":
