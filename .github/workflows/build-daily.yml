@@ -41,7 +41,7 @@ jobs:
       suite: ${{ matrix.suite }}
       # qrb2210-rb1 can't boot forky pending a newer kernel; see #424
       # glymur-crd can't boot anything
-      # monaco-evk only validated against the linux-next/qcom-next/monza
+      # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far, not the distro kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
       boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1", "glymur-crd", "monaco-evk"]') || '["glymur-crd", "monaco-evk"]' }}

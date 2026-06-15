@@ -1,4 +1,4 @@
-name: Daily monza linux build
+name: Daily arduino linux build
 
 on:
   # run daily at 6:30am
@@ -19,8 +19,8 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     with:
-      kernel_name: monza
-      build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/monza'
+      kernel_name: arduino
+      build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/arduino'
       # workaround-hexagon-dsp-binaries-monza can be dropped once an
       # updated hexagon-dsp-binaries with Monza support is integrated; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/298 and
