@@ -28,7 +28,7 @@ jobs:
     secrets: inherit
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
-      # monaco-evk only validated against the linux-next/qcom-next/monza
+      # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
       boards_exclude: '["glymur-crd", "monaco-evk"]'
