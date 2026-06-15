@@ -504,6 +504,11 @@ actions:
                           -u "//download_file[file_name/text()='dtb-multidtb.bin']/file_path[text()='..']" -v "../../" \
                           "${copied_contents}"
                   fi
+                  # fix rawprogram*.xml in spinor dir: ../dtb-multidtb.bin -> ../../dtb-multidtb.bin
+                  find "${target_dir}/spinor" -name 'rawprogram*.xml' \
+                      -exec xmlstarlet ed -L \
+                          -u "//program[@filename='../dtb-multidtb.bin']/@filename" -v "../../dtb-multidtb.bin" \
+                      '{}' \;
               done
       done
 
