@@ -1,9 +1,9 @@
 name: Daily Build
 
 on:
-  # run daily at 8:30am
+  # run daily at 6:30am
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '30 6 * * *'
   # allow manual runs
   workflow_dispatch:
 
