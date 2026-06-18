@@ -37,7 +37,7 @@ ifeq ($(USE_CONTAINER),yes)
 		--mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
 		--security-opt label=disable \
 		$(CONTAINER_IMAGE) \
-		$(DEBOS_OPTS)
+		$(DEBOS_OPTS) -t auto_install_deps:true
 else
 	# Working directory for native debos
 	DEBOS_WORKDIR := $(CURDIR)
