@@ -20,6 +20,6 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       kernel_name: qcom-next
-      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.1-rc6-20260609 prune.config qcom.config'
+      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.1-rc7-20260617 prune.config qcom.config'
       lava_boards_exclude: '["glymur-crd"]'
     secrets: inherit
