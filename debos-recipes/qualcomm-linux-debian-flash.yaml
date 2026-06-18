@@ -10,9 +10,18 @@
 
 {{- $target_boards := or .target_boards "all" }}
 
+{{- $auto_install_deps := or .auto_install_deps "false" }}
 architecture: arm64
 
 actions:
+  - action: run
+    description: Check host build dependencies
+    chroot: false
+    command: |
+      "${RECIPEDIR}/../scripts/check-deps.sh" \
+          {{if eq $auto_install_deps "true"}}--install{{end}} \
+          dosfstools mtools python3-defusedxml unzip xmlstarlet
+
   - action: download
     description: Download qcom-ptool
     url: https://github.com/qualcomm-linux/qcom-ptool/archive/6c9922f220c884236303a94075eb7c62e0120af0.tar.gz
