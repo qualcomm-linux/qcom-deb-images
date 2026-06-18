@@ -15,7 +15,7 @@ actions:
     command: |
       "${RECIPEDIR}/../scripts/check-deps.sh" \
           {{if eq $auto_install_deps "true"}}--install{{end}} \
-          dosfstools
+          dosfstools e2fsprogs
 
   - action: unpack
     description: Unpack root filesystem
