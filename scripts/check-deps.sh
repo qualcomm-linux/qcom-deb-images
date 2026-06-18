@@ -13,21 +13,32 @@ if [ "${1:-}" = "--install" ]; then
     shift
 fi
 
-# If dpkg is not available (e.g. inside a fakemachine qemu VM), skip silently.
-# Dependencies are expected to be present on the real host in that case.
-[ -f /var/lib/dpkg/status ] || exit 0
+# When the dpkg database is absent there is no package state to query. This
+# happens for a chroot:false action running inside a fakemachine guest, which
+# bind-mounts the host /usr (so the dpkg binary is present) but not /var (so
+# the status database is not). Test the database rather than the binary and
+# skip: the dependencies are expected to be present on the real host that
+# invoked debos.
+if [ ! -f /var/lib/dpkg/status ]; then
+    echo "W: no dpkg database found; skipping host dependency check" >&2
+    exit 0
+fi
 
 missing=""
 for pkg in "$@"; do
     dpkg -s "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"
 done
 
-[ -z "$missing" ] && exit 0
+if [ -z "$missing" ]; then
+    exit 0
+fi
 
 if [ "$install" = true ]; then
     sudo=""
     [ "$(id -u)" -eq 0 ] || sudo="sudo"
-    $sudo apt-get update -qq
+    echo "I: refreshing APT package lists" >&2
+    $sudo apt-get update
+    echo "I: installing missing host packages:$missing" >&2
     $sudo apt-get install -y --no-install-recommends $missing
 else
     echo "E: Missing host packages:$missing" >&2
