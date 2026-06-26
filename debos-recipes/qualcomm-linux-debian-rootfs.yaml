@@ -222,6 +222,32 @@ actions:
       EOF
 {{- end }}
 
+# Qualcomm Linux maintains overlays for trixie/forky
+{{- if ne $suite "unstable" }}
+  - action: run
+    description: Create Qualcomm Linux APT sources for {{ $suite }}
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/sources.list.d/qli.sources <<EOF
+      # Qualcomm Linux repository
+      Types: deb
+      URIs: https://deb.debusine.qualcomm.com/qualcomm/qli
+      Suites: {{ $suite }}
+      Components: main contrib non-free-firmware non-free
+      Signed-By:
+       -----BEGIN PGP PUBLIC KEY BLOCK-----
+       .
+       mDMEag8p/xYJKwYBBAHaRw8BAQdAdB6JSNF1OXxnsTgp4VTUekW52BM7e6ZQVRsq
+       QT5QDaS0JEFyY2hpdmUgc2lnbmluZyBrZXkgZm9yIHF1YWxjb21tL3FsaYiQBBMW
+       CgA4FiEEOwuFfyf8aPE5SQakb8qSvoHfw8IFAmoPKf8CGwMFCwkIBwIGFQoJCAsC
+       BBYCAwECHgECF4AACgkQb8qSvoHfw8Lz1gEA9XocADbvqUgZQc0LceThn7vMI98d
+       kTJoiInuulQ6rEUBANo+GOKILH71VRnZ5jWtsu7IlVk7oUMlTtC0eE5tcBwB
+       =bX6V
+       -----END PGP PUBLIC KEY BLOCK-----
+      EOF
+{{- end }}
+
   - action: run
     description: Remove old APT sources and upgrade packages
     chroot: true
