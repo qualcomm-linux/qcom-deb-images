@@ -1,0 +1,33 @@
+#!/bin/sh
+
+PREREQ=""
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# shellcheck source=/dev/null
+. /usr/share/initramfs-tools/hook-functions
+# Begin real processing below this line
+
+# Add missing firmware required by the ADSP driver for eg. battery management
+for f in /usr/lib/firmware/qcom/x1e80100/LENOVO/21N1/*
+do
+	copy_file firmware "$f"
+done
+
+
+# Uncomment the following for GPU accel support in initramfs
+# by having the Adreno firmware available.
+#
+# This is not a strict requirement, as the display will still work without the
+# GPU firmware for eg. full-disk encryption password prompt.
+#copy_file firmware /usr/lib/firmware/qcom/gen70500_sqe.fw
+#copy_file firmware /usr/lib/firmware/qcom/gen70500_gmu.bin
