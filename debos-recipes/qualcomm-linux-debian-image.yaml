@@ -88,11 +88,21 @@ actions:
       apt-get update
 {{- end }}
 
+  - action: run
+    description: Ask for UKI via /etc/kernel/install.conf
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/kernel/install.conf <<EOF
+      layout=uki
+      EOF
+
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
     packages:
       - systemd-boot
+      - systemd-ukify
       # TODO investigate why systemd-boot Recommends: shim-signed which
       # Depends on grub packages
       - shim-signed-
