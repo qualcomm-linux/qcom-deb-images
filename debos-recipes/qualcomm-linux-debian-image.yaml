@@ -4,10 +4,19 @@
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $snapshot := or .snapshot "" }}
 
+{{- $auto_install_deps := or .auto_install_deps "false" }}
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
+  - action: run
+    description: Check host build dependencies
+    chroot: false
+    command: |
+      "${RECIPEDIR}/../scripts/check-deps.sh" \
+          {{if eq $auto_install_deps "true"}}--install{{end}} \
+          dosfstools e2fsprogs
+
   - action: unpack
     description: Unpack root filesystem
     file: rootfs.tar

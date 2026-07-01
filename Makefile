@@ -31,12 +31,17 @@ ifeq ($(USE_CONTAINER),yes)
 	KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm)
 	# Working directory as seen from inside the container
 	DEBOS_WORKDIR := /recipes
+	# The debos container is a disposable instance, so it is safe to let the
+	# recipes auto-install their missing host dependencies into it. Pass the
+	# flag before $(DEBOS_OPTS) so that EXTRA_DEBOS_OPTS can still override it:
+	# debos applies the last -t value given for a key.
 	DEBOS_CMD := docker run --rm --interactive --tty \
 		$(KVM_DEVICE) \
 		--user $(shell id -u) --workdir $(DEBOS_WORKDIR) \
 		--mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
 		--security-opt label=disable \
 		$(CONTAINER_IMAGE) \
+		-t auto_install_deps:true \
 		$(DEBOS_OPTS)
 else
 	# Working directory for native debos
