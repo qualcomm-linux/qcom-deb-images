@@ -35,10 +35,7 @@ actions:
     auto_login:
       login_prompt: 'login:'
       username: debian
-      password_prompt: 'Password'
-      password: debian
       login_commands:
-      - "debian"
       - "new password"
       - "new password"
       - sudo su
