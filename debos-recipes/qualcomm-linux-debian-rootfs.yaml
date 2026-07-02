@@ -347,7 +347,7 @@ actions:
       if getent group fastrpc >/dev/null 2>&1; then
         groups="${groups},fastrpc"
       fi
-      useradd --create-home --shell /bin/bash --user-group \
+      useradd --create-home --shell /usr/bin/bash --user-group \
           --groups "$groups" debian
       # set password to "debian"
       echo debian:debian | chpasswd
