@@ -106,7 +106,7 @@ actions:
       set -eux
       # Fixes error when running outside qemu
       dpkg-divert --local --rename --add /etc/kernel/postinst.d/u-boot-efi-dtb
-      ln -s /bin/true /etc/kernel/postinst.d/u-boot-efi-dtb
+      ln -s /usr/bin/true /etc/kernel/postinst.d/u-boot-efi-dtb
       # u-boot-efi-dtb installs a kernel hook that will trigger on kernel
       # installation/upgrade, but also calls it explicitely in its postinst in
       # case it was installed after the kernel; it requires an ESP partition to
@@ -146,7 +146,7 @@ actions:
       Type=oneshot
       ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` 2'
       ExecStart=resize2fs $ROOTFS_DEV
-      ExecStartPost=/bin/systemctl disable debos-grow-rootfs.service
+      ExecStartPost=/usr/bin/systemctl disable debos-grow-rootfs.service
       [Install]
       WantedBy=default.target
       EOF
