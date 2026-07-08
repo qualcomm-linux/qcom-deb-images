@@ -63,27 +63,36 @@ if ! command -v dpkg >/dev/null 2>&1; then
     exit 0
 fi
 
-missing=""
-for pkg in $packages; do
-    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-        missing="$missing $pkg"
-    fi
-done
-
-if [ -z "$missing" ]; then
-    exit 0
-fi
-
 if [ "$install" = true ]; then
+    # apt-get install is idempotent: it acts only on packages that are missing
+    # or need configuring, so let APT resolve the set rather than pre-checking
+    # it ourselves.
     sudo=""
     if [ "$(id -u)" -ne 0 ]; then
         sudo="sudo"
     fi
-    echo "I: installing missing host packages:$missing" >&2
+    echo "I: ensuring host packages:$packages" >&2
     echo "I: refreshing APT package lists" >&2
     $sudo apt-get update
-    $sudo apt-get install -y --no-install-recommends $missing
-else
+    $sudo apt-get install -y --no-install-recommends $packages
+    exit 0
+fi
+
+# Validate only. A package counts as present only when dpkg records it as fully
+# "installed". "dpkg -s" succeeds (exit 0) even for config-files (removed but not
+# purged) and half-configured states, where the tool is not actually usable, so
+# check the status field and require the "ok installed" form (any want, so a
+# held-back-but-installed package still counts).
+missing=""
+for pkg in $packages; do
+    status="$(dpkg-query -f '${Status}' -W "$pkg" 2>/dev/null || true)"
+    case "$status" in
+        *" ok installed") ;;
+        *) missing="$missing $pkg" ;;
+    esac
+done
+
+if [ -n "$missing" ]; then
     echo "E: missing host packages:$missing" >&2
     echo "E: install them, or build via make with AUTO_INSTALL_DEPS=yes" >&2
     exit 1
