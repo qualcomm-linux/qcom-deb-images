@@ -107,9 +107,17 @@ jobs:
           kernel_packages="$KERNEL_PACKAGES"
           suite="$SUITE"
           case "$kernel_packages" in
-            # if kernel package is from EFS, determine actual package name(s)
+            # NB: this is slightly weak as we collapse
+            # kernelpackages which is potentially a list and only
+            # look at the special value efs/* instead of splitting
+            #
+            # if kernel package is from EFS, determine actual package name(s);
+            # install the generated linux-headers-* packages alongside the
+            # linux-image-* ones since these are ephemeral and not published in
+            # an APT repo (unlike official Debian kernels, installed from APT)
+            # 
             efs/*)
-              kernel_packages="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|paste -sd,)"
+              kernel_packages="$(find local-apt-repo/kernel -type f \( -name 'linux-image-*' -o -name 'linux-headers-*' \) -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|sort|paste -sd,)"
               ;;
             default-ci)
               case "$suite" in
