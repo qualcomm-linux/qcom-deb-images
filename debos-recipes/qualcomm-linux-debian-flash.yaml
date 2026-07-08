@@ -23,10 +23,10 @@ actions:
 
   - action: download
     description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
-    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/bf8f11f5274d850f71cc1af8b5a5c46683c14eee.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/b07b6e7792b8c1a24d9758353fdefbe9591eb5a3.tar.gz
     name: qcom-dtb-metadata
     filename: qcom-dtb-metadata.tar.gz
-    sha256sum: 4e2a4bf2c4939ebb7093f1dd3ce2eea69325e1b6f4514696c7c7475b010316ae
+    sha256sum: a81f39859a6dbe00cda2bc995890186f8733244ed6885d061573aaea1b39e0f4
     unpack: true
 
 {{- $boards := list }}
