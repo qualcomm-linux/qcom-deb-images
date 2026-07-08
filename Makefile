@@ -15,7 +15,6 @@ DEBOS_OPTS := $(FAKEMACHINE_OPTS) --memory 1GiB --scratchsize 6GiB $(EXTRA_DEBOS
 # Container support: auto-detect if debos is available, otherwise use container
 USE_CONTAINER ?= auto
 CONTAINER_IMAGE ?= ghcr.io/go-debos/debos:latest
-
 ifeq ($(USE_CONTAINER),auto)
 	ifdef GITHUB_ACTIONS
 		# Disable container in GitHub Actions
@@ -37,7 +36,7 @@ ifeq ($(USE_CONTAINER),yes)
 		--mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
 		--security-opt label=disable \
 		$(CONTAINER_IMAGE) \
-		$(DEBOS_OPTS)
+		$(DEBOS_OPTS) -t auto_install_deps:true
 else
 	# Working directory for native debos
 	DEBOS_WORKDIR := $(CURDIR)
