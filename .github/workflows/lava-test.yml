@@ -41,7 +41,7 @@ jobs:
       has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Print trigger
@@ -97,7 +97,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
