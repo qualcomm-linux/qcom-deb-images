@@ -1,36 +1,27 @@
 actions:
 - deploy:
-    images:
-      image:
-        headers:
-          Authorization: Q_S3_TOKEN
-        url: "{{BUILD_DOWNLOAD_URL}}/{{SUITE}}-flash-emmc.tar.gz"
-    postprocess:
-      docker:
-        image: ghcr.io/foundriesio/lava-lmp-sign:main
-        steps:
-        - export IMAGE_PATH=$PWD
-        - cp overlay*.tar.gz overlay.tar.gz
-        - echo "OVERLAY=overlay.tar.gz" >> $IMAGE_PATH/flash.settings
-        - echo "OVERLAY_PATH=/" >> $IMAGE_PATH/flash.settings
-        - echo "STORAGE=emmc" >> $IMAGE_PATH/flash.settings
-        - echo "ROOTFS_IMAGE=disk-sdcard.img2" >> $IMAGE_PATH/flash.settings
-        - echo "DEVICE_TYPE=debian-qrb2210-rb1_emmc" >> $IMAGE_PATH/flash.settings
-        - cat $IMAGE_PATH/flash.settings
-    timeout:
-      minutes: 200
-    to: downloads
-- deploy:
-    images:
-      image:
-        url: downloads://{{SUITE}}-flash-emmc.tar.gz
-      settings:
-        url: downloads://flash.settings
-      overlay:
-        url: downloads://overlay.tar.gz
+    rootfs_image: disk-sdcard.img2
+    overlay_path: /
+    qcomflash:
+      headers:
+        Authorization: Q_S3_TOKEN
+      url: "{{BUILD_DOWNLOAD_URL}}/{{SUITE}}-flash-emmc.tar.gz"
+      apply-overlay: true
     timeout:
       minutes: 20
-    to: flasher
+    to: qdl
+- boot:
+    firehose_program: prog_firehose_ddr.elf
+    rawprogram: rawprogram0.xml
+    patch: patch0.xml
+    path: flash_qrb2210-rb1_emmc
+    storage: emmc
+    debug: true
+    timeout:
+      minutes: 15
+    method: qdl
+- command:
+    name: network_turn_on
 - boot:
     auto_login:
       login_prompt: 'login:'
@@ -69,8 +60,6 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         WAIT_TIME: 60
-- command:
-    name: network_turn_on
 context:
   test_character_delay: 10
 device_type: qrb2210-rb1
