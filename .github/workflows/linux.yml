@@ -149,7 +149,7 @@ jobs:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     with:
-      kernelpackage: efs/${{ inputs.kernel_name || 'mainline' }}
+      kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 

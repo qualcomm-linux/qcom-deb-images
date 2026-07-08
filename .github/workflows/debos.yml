@@ -11,11 +11,11 @@ on:
         description: List of overlays to use
         type: string
         default: qsc-deb-releases
-      kernelpackage:
+      kernelpackages:
         description: >
-          Kernel package to install from APT repositories (e.g.
-          linux-image-arm64) or name of a EFS kernel package directory
-          (e.g. efs/mainline)
+          Comma-separated list of kernel packages to install from APT
+          repositories (e.g. linux-image-arm64) or name of a EFS kernel
+          package directory (e.g. efs/mainline)
         type: string
         default: default-ci
       debos_extra_args:
@@ -40,7 +40,7 @@ permissions:
 env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-  KERNEL_PACKAGE: ${{ inputs.kernelpackage }}
+  KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   SUITE: ${{ inputs.suite }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   PREFIX: ${{ inputs.suite }}
@@ -87,11 +87,11 @@ jobs:
           mkdir -v local-apt-repo
 
           # optionally, copy kernel debs from EFS
-          case "$KERNEL_PACKAGE" in
+          case "$KERNEL_PACKAGES" in
             efs/*)
               mkdir -v local-apt-repo/kernel
               # get kernel from EFS
-              cp -av "/efs/${KERNEL_PACKAGE#efs/}/"*.deb local-apt-repo/kernel
+              cp -av "/efs/${KERNEL_PACKAGES#efs/}/"*.deb local-apt-repo/kernel
             ;;
           esac
 
@@ -104,12 +104,12 @@ jobs:
       - name: Build rootfs with debos
         run: |
           set -ux
-          kernel_package="$KERNEL_PACKAGE"
+          kernel_packages="$KERNEL_PACKAGES"
           suite="$SUITE"
-          case "$kernel_package" in
-            # if kernel package is from EFS, determine actual package name
+          case "$kernel_packages" in
+            # if kernel package is from EFS, determine actual package name(s)
             efs/*)
-              kernel_package="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_)"
+              kernel_packages="$(find local-apt-repo/kernel -type f -name 'linux-image-*' -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|paste -sd,)"
               ;;
             default-ci)
               case "$suite" in
@@ -117,10 +117,10 @@ jobs:
                   # the package name will be passed to APT which interprets the trailing
                   # plus sign in the package name as a request to install the package, so
                   # use two plus signs
-                  kernel_package="linux-image-6.16.7-qcom1++"
+                  kernel_packages="linux-image-6.16.7-qcom1++"
                   ;;
                 *)
-                  kernel_package="linux-image-arm64"
+                  kernel_packages="linux-image-arm64"
                   ;;
               esac
               ;;
@@ -130,7 +130,7 @@ jobs:
               -t overlays:'${{ inputs.overlays }}' \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackage:"$kernel_package" \
+              -t kernelpackages:"$kernel_packages" \
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \

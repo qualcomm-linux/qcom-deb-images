@@ -93,7 +93,7 @@ To build flashable assets for all supported boards, follow these steps:
 
     # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
     # and run this instead:
-    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackage:none" make rootfs.tar
+    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
     ```
 
 1. build disk and filesystem images from the root filesystem tarball
@@ -148,9 +148,11 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `gnomedesktop`: install a GNOME desktop environment; default: console only environment
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
-- `kernelpackage`: name of the kernel package to install from apt; defaults to
-  `Debian’s linux-image-arm64`. Can (and should) be set to `none` if you are
-  providing local kernel package instead.
+- `kernelpackages`: a `,`-separated list of kernel packages to install from
+  apt; defaults to `Debian’s linux-image-arm64`. Can (and should) be set to
+  `none` if you are providing local kernel package instead.
+- `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
+  accepted as a single package name for backwards compatibility.
 - `suite`: Debian suite to use, defaults to `trixie`.
 - `snapshot`: use a Debian snapshot archive for a reproducible build (`YYYYMMDD`
   or `YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.

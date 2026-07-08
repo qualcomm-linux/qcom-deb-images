@@ -2,7 +2,8 @@
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-{{- $kernelpackage := or .kernelpackage "linux-image-arm64" }}
+# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
+{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
@@ -617,8 +618,10 @@ actions:
     packages:
       - firmware-atheros
       - firmware-qcom-soc
-{{- if ne $kernelpackage "none" }}
+{{- if ne $kernelpackages "none" }}
+{{- range $kernelpackage := split "," $kernelpackages }}
       - {{$kernelpackage}}
+{{- end }}
 {{- end }}
 
   # this is currently needed on boards such as RB1 which are using Android
