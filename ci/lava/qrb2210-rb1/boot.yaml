@@ -20,6 +20,8 @@ actions:
     timeout:
       minutes: 15
     method: qdl
+- command:
+    name: network_turn_on
 - boot:
     auto_login:
       login_prompt: 'login:'
@@ -58,8 +60,6 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         WAIT_TIME: 60
-- command:
-    name: network_turn_on
 context:
   test_character_delay: 10
 device_type: qrb2210-rb1
