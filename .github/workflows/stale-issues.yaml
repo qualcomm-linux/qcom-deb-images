@@ -11,7 +11,8 @@ jobs:
     steps:
       - uses: actions/stale@v10
         with:
-            days-before-close: -1
+            days-before-close: 5
+            days-before-issue-close: -1
             days-before-issue-stale: 30
             days-before-pr-stale: 30
             stale-pr-message: "This PR is stale. Add a nice message, can mention maintainers or maintainer team to draw attention"
