@@ -74,19 +74,24 @@ partition_map="${partition_map},dtb_b=${dtb}"
 partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
+# qcom-ptool ships as the "qcom_ptool" Python package; run its scripts as
+# modules with the tree root on PYTHONPATH so intra-package imports resolve
+# without a pip install
+export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
+
 # generate ptool-partitions.xml from partitions.conf
-"${QCOM_PTOOL}/gen_partition.py" -i "${PARTITIONS_CONF}" \
+python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
     -o ptool-partitions.xml \
     -m "${partition_map}"
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
 if [ -e "$CONTENTS" ]; then
-    "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
+    python3 -m qcom_ptool.gen_contents -p ptool-partitions.xml \
         -t "$CONTENTS" \
         -b "$BUILDID" \
         -o contents.xml
 fi
 
 # generate flashing files from qcom-partitions.xml
-"${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
+python3 -m qcom_ptool.ptool -x ptool-partitions.xml
