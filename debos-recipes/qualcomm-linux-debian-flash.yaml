@@ -199,6 +199,30 @@ actions:
     "cdt_filename" "cdt_pakala_mtp_0.4.0.bin"
     "dtb" "qcom/sm8750-mtp.dtb"
 )}}
+{{- /*
+    Kaanapali reuses the SM8850 MTP CDT.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "kaanapali-mtp"
+    "soc_id" "kaanapali"
+    "ptool_platforms" (list "kaanapali-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "Kaanapali boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/software-product-family/Qualcomm_Linux.SPF.0.0/qualcomm_linux.spf.0.0-test-device-public/r0.0_00009.1/KAANAPALI.LE.0.0/common/build/ufs/bin/kaanapali_bootbinaries.zip"
+        "name" "kaanapali_boot-binaries"
+        "filename" "kaanapali_boot-binaries.zip"
+        "sha256sum" "87b72830fd06ffd08ebc211301a254f4ef46325fde75bb6ff82ac558a5c26b12"
+    )
+    "cdt_download" (dict
+        "description" "Kaanapali MTP CDT (SM8850 MTP)"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8850/cdt/sm8850-mtp.zip"
+        "name" "kaanapali-mtp_cdt"
+        "filename" "kaanapali-mtp_cdt.zip"
+        "sha256sum" "41b15acaa06311c8c7500d7467a5d8adb9fdee05aed09d983d3dad045865b1d7"
+    )
+    "cdt_filename" "cdt_kaanapali_mtp_0.4.0.bin"
+    "dtb" "qcom/kaanapali-mtp.dtb"
+)}}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
