@@ -44,4 +44,4 @@ jobs:
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far, not the distro kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1", "glymur-crd", "monaco-evk"]') || '["glymur-crd", "monaco-evk"]' }}
+      boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]') || '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]' }}

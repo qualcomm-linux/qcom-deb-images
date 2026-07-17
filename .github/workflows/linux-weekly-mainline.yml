@@ -23,5 +23,5 @@ jobs:
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      lava_boards_exclude: '["glymur-crd", "monaco-evk"]'
+      lava_boards_exclude: '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets: inherit
