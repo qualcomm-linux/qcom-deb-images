@@ -178,6 +178,27 @@ actions:
     "dtb" "qcom/shikra-iqs-evk.dtb"
     "dtb_bin_type" "multidtb"
 )}}
+{{- $boards = append $boards (dict
+    "name" "sm8750-mtp"
+    "soc_id" "sm8750"
+    "ptool_platforms" (list "sm8750-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "SM8750 (Pakala) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SM8750_bootbinaries.1.0/sm8750_bootbinaries.1.0-test-device-public/00043/pakala_bootbinaries_00043.zip"
+        "name" "sm8750_boot-binaries"
+        "filename" "sm8750_boot-binaries.zip"
+        "sha256sum" "e56b8cb82fd2566b9de9ca771e342dd7559bbfb51c94587a65c4ae395f605805"
+    )
+    "cdt_download" (dict
+        "description" "SM8750 MTP CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8750/cdt/sm8750-mtp_wcn7881.zip"
+        "name" "sm8750-mtp_cdt"
+        "filename" "sm8750-mtp_cdt.zip"
+        "sha256sum" "474c35a6f06948808be118a8b0dac61ca53fd71182c1f03b92ca30d34dbb8a58"
+    )
+    "cdt_filename" "cdt_pakala_mtp_0.4.0.bin"
+    "dtb" "qcom/sm8750-mtp.dtb"
+)}}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
