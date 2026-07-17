@@ -23,16 +23,21 @@ actions:
 
   - action: download
     description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
-    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/b07b6e7792b8c1a24d9758353fdefbe9591eb5a3.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/d30e9cdb766f08b05160ededf53556ed665d0c0b.tar.gz
     name: qcom-dtb-metadata
     filename: qcom-dtb-metadata.tar.gz
-    sha256sum: a81f39859a6dbe00cda2bc995890186f8733244ed6885d061573aaea1b39e0f4
+    sha256sum: a43ccf98149658352a74c54cac1455c35b44e7d48798dc0072540604ec475ae9
     unpack: true
 
+# soc_id identifies the SoC/SKU each board is built on, using the same
+# names as qcom-dtb-metadata's /soc node (qcom-metadata.dts), so --soc
+# can select the FIT image configs for the boards this repo supports.
+# Values are derived from IPCAT and verified against the kernel's
+# include/dt-bindings/arm/qcom,ids.h QCOM_ID_* constants.
 {{- $boards := list }}
 {{- $boards = append $boards (dict
     "name" "glymur-crd"
-    "silicon_family" "glymur"
+    "soc_id" "glymur"
     "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
     "boot_binaries_download" (dict
         "description" "Glymur boot binaries"
@@ -55,7 +60,7 @@ actions:
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
-    "silicon_family" "qcs615"
+    "soc_id" "qcs615"
     "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
@@ -78,7 +83,7 @@ actions:
 {{- if eq $build_qcm6490 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
-    "silicon_family" "qcm6490"
+    "soc_id" "qcs6490"
     "ptool_platforms" (list "qcs6490-rb3gen2/ufs")
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
@@ -101,7 +106,7 @@ actions:
 {{- if eq $build_qcs8300 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs8300-ride"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8300"
     "ptool_platforms" (list "qcs8300-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -122,7 +127,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8275"
     "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -143,7 +148,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "monaco-arduino-monza"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8300"
     "ptool_platforms" (list "qcs8275-monza/emmc")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -166,7 +171,7 @@ actions:
 {{- if eq $build_qcs9100 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs9100-ride-r3"
-    "silicon_family" "qcs9100"
+    "soc_id" "qcs9100"
     "ptool_platforms" (list "qcs9100-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
@@ -187,7 +192,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "lemans-evk"
-    "silicon_family" "qcs9075"
+    "soc_id" "qcs9075"
     "ptool_platforms" (list "iq-9075-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
@@ -210,7 +215,7 @@ actions:
 {{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
-    "silicon_family" "qcm2290"
+    "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-rb1/emmc")
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
@@ -225,7 +230,7 @@ actions:
 {{- end }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
-    "silicon_family" "qcm2290"
+    "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
     "boot_binaries_download" (dict
         "description" "UNO Q boot binaries"
@@ -307,6 +312,16 @@ actions:
           ;;
       esac
 
+      # Derive the list of SoCs supported.
+      # qcm2290 is excluded here because qcom-dtb-metadata's /soc node has no
+      # entry for it yet: https://github.com/qualcomm-linux/qcom-dtb-metadata/issues/126
+      {{- $fit_soc := list }}
+      {{- range $board := $boards }}
+      {{- if ne $board.soc_id "qcm2290" }}
+      {{- $fit_soc = append $fit_soc $board.soc_id }}
+      {{- end }}
+      {{- end }}
+
       # Generate dtb.bin (multi-DTB FIT image) from the qcom/ subtree of dtbs.tar.gz.
       if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
           QCOM_DTB_METADATA="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
@@ -315,6 +330,7 @@ actions:
           tar -C build/dtbs -xzf "${ARTIFACTDIR}/dtbs.tar.gz" qcom
           "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
               --dtb-src build/dtbs/qcom \
+              --soc {{ $fit_soc | uniq | join " " }} \
               --out "${ARTIFACTDIR}/dtb-multidtb.bin" \
               --prune
           echo "Multi-DTB FIT image generated: ${ARTIFACTDIR}/dtb-multidtb.bin"
@@ -322,7 +338,7 @@ actions:
 
 {{- range $board := $boards }}
       ### board: {{ $board.name }}
-      ### silicon family: {{ $board.silicon_family }}
+      ### soc id: {{ $board.soc_id }}
 
       # mirror template variables in shell variables to keep the action body
       # in shell syntax
