@@ -44,6 +44,14 @@ actions:
       - "new password"
       - sudo su
     method: minimal
+    parameters:
+      # glymur-crd's serial console drops bytes during the fast boot output
+      # burst, so the single-line default kernel-start-message
+      # ('Linux version [0-9]') is frequently mangled and never matched,
+      # stalling auto-login until timeout. Match the kernel timestamp prefix
+      # instead: it recurs on every dmesg line, so no single dropped line can
+      # defeat it, and it arms the login logic as early as possible.
+      kernel-start-message: '\[ *[0-9]+\.[0-9]+\]'
     prompts:
     - root@debian
     - debian@debian
