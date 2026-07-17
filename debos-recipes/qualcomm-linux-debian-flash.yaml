@@ -57,6 +57,55 @@ actions:
     "dtb" "qcom/glymur-crd.dtb"
     "dtb_bin_type" "multidtb"
 )}}
+{{- /*
+    IQ-X7181 and IQ-X5121 EVKs (hamoa / purwa SoCs) share the same qcom-ptool
+    platform (iq-x7181-evk), boot binaries and CDT; they differ only in soc_id
+    and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "hamoa-iot-evk"
+    "soc_id" "hamoa"
+    "ptool_platforms" (list "iq-x7181-evk/ufs" "iq-x7181-evk/spinor")
+    "boot_binaries_download" (dict
+        "description" "Hamoa (IQ-X EVK) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip"
+        "name" "hamoa_boot-binaries"
+        "filename" "hamoa_boot-binaries.zip"
+        "sha256sum" "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    )
+    "cdt_download" (dict
+        "description" "IQ-X EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz"
+        "name" "iq-x-evk_cdt"
+        "filename" "iq-x-evk_cdt.tar.gz"
+        "sha256sum" "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+    )
+    "cdt_filename" "IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin"
+    "dtb" "qcom/hamoa-iot-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "purwa-iot-evk"
+    "soc_id" "purwa"
+    "ptool_platforms" (list "iq-x7181-evk/ufs" "iq-x7181-evk/spinor")
+    "boot_binaries_download" (dict
+        "description" "Purwa (IQ-X EVK) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip"
+        "name" "purwa_boot-binaries"
+        "filename" "purwa_boot-binaries.zip"
+        "sha256sum" "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    )
+    "cdt_download" (dict
+        "description" "IQ-X EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz"
+        "name" "purwa_iq-x-evk_cdt"
+        "filename" "purwa_iq-x-evk_cdt.tar.gz"
+        "sha256sum" "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+    )
+    "cdt_filename" "IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin"
+    "dtb" "qcom/purwa-iot-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
@@ -384,9 +433,18 @@ actions:
 
       if [ "${skip_board}" = false ]; then
           if [ -n "$board_cdt_download_filename" ]; then
-              # unpack board CDT
-              unzip "${ROOTDIR}/../${board_cdt_download_filename}" \
-                  -d "build/${board_name}_cdt"
+              # unpack board CDT; some CDTs ship as .tar.gz, others as .zip
+              mkdir -vp "build/${board_name}_cdt"
+              case "$board_cdt_download_filename" in
+              *.tar.gz|*.tgz)
+                  tar -xzf "${ROOTDIR}/../${board_cdt_download_filename}" \
+                      -C "build/${board_name}_cdt"
+                  ;;
+              *)
+                  unzip "${ROOTDIR}/../${board_cdt_download_filename}" \
+                      -d "build/${board_name}_cdt"
+                  ;;
+              esac
           fi
 
 {{- range $platform := $board.ptool_platforms }}
