@@ -29,10 +29,15 @@ actions:
     sha256sum: a81f39859a6dbe00cda2bc995890186f8733244ed6885d061573aaea1b39e0f4
     unpack: true
 
+# soc_id identifies the SoC/SKU each board is built on, using the same
+# names as qcom-dtb-metadata's /soc node (qcom-metadata.dts), so --soc
+# can select the FIT image configs for the boards this repo supports.
+# Values are derived from IPCAT and verified against the kernel's
+# include/dt-bindings/arm/qcom,ids.h QCOM_ID_* constants.
 {{- $boards := list }}
 {{- $boards = append $boards (dict
     "name" "glymur-crd"
-    "silicon_family" "glymur"
+    "soc_id" "glymur"
     "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
     "boot_binaries_download" (dict
         "description" "Glymur boot binaries"
@@ -55,7 +60,7 @@ actions:
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
-    "silicon_family" "qcs615"
+    "soc_id" "qcs615"
     "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
@@ -78,7 +83,7 @@ actions:
 {{- if eq $build_qcm6490 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
-    "silicon_family" "qcm6490"
+    "soc_id" "qcs6490"
     "ptool_platforms" (list "qcs6490-rb3gen2/ufs")
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
@@ -101,7 +106,7 @@ actions:
 {{- if eq $build_qcs8300 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs8300-ride"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8300"
     "ptool_platforms" (list "qcs8300-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -122,7 +127,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8275"
     "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -143,7 +148,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "monaco-arduino-monza"
-    "silicon_family" "qcs8300"
+    "soc_id" "qcs8300"
     "ptool_platforms" (list "qcs8275-monza/emmc")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
@@ -166,7 +171,7 @@ actions:
 {{- if eq $build_qcs9100 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs9100-ride-r3"
-    "silicon_family" "qcs9100"
+    "soc_id" "qcs9100"
     "ptool_platforms" (list "qcs9100-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
@@ -187,7 +192,7 @@ actions:
 )}}
 {{- $boards = append $boards (dict
     "name" "lemans-evk"
-    "silicon_family" "qcs9075"
+    "soc_id" "qcs9075"
     "ptool_platforms" (list "iq-9075-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
@@ -210,7 +215,7 @@ actions:
 {{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
-    "silicon_family" "qcm2290"
+    "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-rb1/emmc")
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
@@ -225,7 +230,7 @@ actions:
 {{- end }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
-    "silicon_family" "qcm2290"
+    "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
     "boot_binaries_download" (dict
         "description" "UNO Q boot binaries"
@@ -322,7 +327,7 @@ actions:
 
 {{- range $board := $boards }}
       ### board: {{ $board.name }}
-      ### silicon family: {{ $board.silicon_family }}
+      ### soc id: {{ $board.soc_id }}
 
       # mirror template variables in shell variables to keep the action body
       # in shell syntax
