@@ -1,0 +1,76 @@
+actions:
+- deploy:
+    rootfs_image: disk-ufs.img2
+    overlay_path: /
+    qcomflash:
+      headers:
+        Authorization: Q_S3_TOKEN
+      url: "{{BUILD_DOWNLOAD_URL}}/{{SUITE}}-flash-ufs.tar.gz"
+      apply-overlay: true
+    timeout:
+      minutes: 20
+    to: qdl
+- boot:
+    firehose_program: prog_firehose_ddr.elf
+    rawprogram: rawprogram0.xml rawprogram1.xml rawprogram2.xml rawprogram3.xml rawprogram4.xml rawprogram5.xml
+    patch: patch0.xml patch1.xml patch2.xml patch3.xml patch4.xml patch5.xml
+    path: flash_qcs8300-ride_ufs
+    storage: ufs
+    debug: true
+    timeout:
+      minutes: 15
+    method: qdl
+- command:
+    name: network_turn_on
+- boot:
+    auto_login:
+      login_prompt: 'login:'
+      username: debian
+      password_prompt: 'Password'
+      password: debian
+      login_commands:
+      - "debian"
+      - "new password"
+      - "new password"
+      - sudo su
+    method: minimal
+    prompts:
+    - root@debian
+    - debian@debian
+    - "Current password"
+    - "New password"
+    - "Retype new password"
+    timeout:
+      minutes: 3
+- test:
+    timeout:
+      minutes: 5
+    definitions:
+    - from: git
+      name: "smoke-test"
+      path: automated/linux/smoke/smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
+        TESTS: "pwd, uname -a, ip a"
+    - from: git
+      name: "wlan-smoke-test"
+      path: automated/linux/wlan-smoke/wlan-smoke.yaml
+      repository: https://github.com/linaro/test-definitions.git
+      parameters:
+        SKIP_INSTALL: "True"
+        WAIT_TIME: 60
+context:
+  test_character_delay: 10
+# our board name "qcs8300-ride" is not a LAVA alias; the matching LAVA
+# device type is "monaco-ride" (the ci/lava/ directory name is what the
+# workflow uses for board include/exclude filtering)
+device_type: monaco-ride
+job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
+metadata:
+  build-commit: '{{GITHUB_SHA}}'
+priority: 50
+timeouts:
+  job:
+    minutes: 210
+visibility: public
