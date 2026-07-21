@@ -19,9 +19,13 @@ CDT_FILENAME="$3"
 BUILDID="$4"
 # disk storage, emmc, nvme, spinor or ufs
 DISK_TYPE="$5"
-# dtb type: multidtb (shared ../dtb-multidtb.bin at ARTIFACTDIR level) or
-# combineddtb (local dtb-combineddtb.bin in flash dir); default is combineddtb
+# dtb type: multidtb (shared ../dtb-multidtb-<soc>.bin at ARTIFACTDIR level)
+# or combineddtb (local dtb-combineddtb.bin in flash dir); default is
+# combineddtb
 DTB_TYPE="${6:-combineddtb}"
+# SoC id, used to pick the per-SoC ../dtb-multidtb-<soc>.bin; only required for
+# the multidtb dtb type
+SOC="${7:-}"
 
 PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
 
@@ -47,7 +51,11 @@ esac
 
 case "$DTB_TYPE" in
   multidtb)
-    dtb="../dtb-multidtb.bin"
+    if [ -z "$SOC" ]; then
+      echo "multidtb dtb type requires a SoC id (arg 7)"
+      exit 1
+    fi
+    dtb="../dtb-multidtb-${SOC}.bin"
     ;;
   combineddtb)
     dtb="dtb-combineddtb.bin"

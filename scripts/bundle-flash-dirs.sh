@@ -45,10 +45,19 @@ done
 echo "emmc_dirs: $emmc_dirs"
 echo "ufs_dirs: $ufs_dirs"
 
-# word splitting is a feature in this case
-# shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 dtb-multidtb.bin $emmc_dirs
+# per-SoC multi-DTB FIT images shared across boards; glob into a list so all
+# of them land in each bundle (there may be none for a given build)
+multidtb_bins=""
+for f in dtb-multidtb-*.bin
+do
+    [ -e "$f" ] && multidtb_bins="$multidtb_bins $f"
+done
+echo "multidtb_bins: $multidtb_bins"
 
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 dtb-multidtb.bin $ufs_dirs
+tar -cvzf "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $multidtb_bins $emmc_dirs
+
+# word splitting is a feature in this case
+# shellcheck disable=SC2086
+tar -cvzf "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $multidtb_bins $ufs_dirs

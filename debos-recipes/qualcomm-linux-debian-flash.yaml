@@ -312,28 +312,59 @@ actions:
           ;;
       esac
 
-      # Derive the list of SoCs supported.
-      # qcm2290 is excluded here because qcom-dtb-metadata's /soc node has no
-      # entry for it yet: https://github.com/qualcomm-linux/qcom-dtb-metadata/issues/126
+      # Derive the list of SoCs that use per-SoC multi-DTB FIT images.
+      # Only boards with dtb_bin_type "multidtb" need one; building a FIT for
+      # any other SoC would be wasted work. qcm2290 has no /soc entry in
+      # qcom-dtb-metadata yet and only appears on combineddtb boards anyway:
+      # https://github.com/qualcomm-linux/qcom-dtb-metadata/issues/126
       {{- $fit_soc := list }}
       {{- range $board := $boards }}
-      {{- if ne $board.soc_id "qcm2290" }}
+      {{- if eq (or $board.dtb_bin_type "combineddtb") "multidtb" }}
       {{- $fit_soc = append $fit_soc $board.soc_id }}
       {{- end }}
       {{- end }}
 
-      # Generate dtb.bin (multi-DTB FIT image) from the qcom/ subtree of dtbs.tar.gz.
+      # Generate one dtb-multidtb-<soc>.bin (multi-DTB FIT image) per SoC from
+      # the qcom/ subtree of dtbs.tar.gz. A single combined FIT across all SoCs
+      # overflows the 4 MiB FAT container, so each SoC gets its own; --soc
+      # filters the FIT down to just that SoC's device trees.
       if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
           QCOM_DTB_METADATA="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
           mkdir -p build/dtbs
           # unpack only qcom/ DTBs
           tar -C build/dtbs -xzf "${ARTIFACTDIR}/dtbs.tar.gz" qcom
-          "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
-              --dtb-src build/dtbs/qcom \
-              --soc {{ $fit_soc | uniq | join " " }} \
-              --out "${ARTIFACTDIR}/dtb-multidtb.bin" \
-              --prune
-          echo "Multi-DTB FIT image generated: ${ARTIFACTDIR}/dtb-multidtb.bin"
+        {{- range $soc := $fit_soc | uniq }}
+          # Only build a FIT for this SoC if at least one of its boards' DTBs is
+          # actually shipped in dtbs.tar.gz. qcom-dtb-metadata may know a new SoC
+          # (so --soc is valid and its ITS configs get selected) before the
+          # kernel ships that SoC's DTBs; without this gate build-dtb-image.sh
+          # --prune would drop every config and hard-fail. This mirrors the
+          # per-board "dtb not available" skip below.
+          soc_dtbs=""
+          {{- range $b := $boards }}
+          {{- if and (eq (or $b.dtb_bin_type "combineddtb") "multidtb") (eq $b.soc_id $soc) }}
+          soc_dtbs="${soc_dtbs} {{ $b.dtb }}"
+          {{- end }}
+          {{- end }}
+          soc_present=false
+          for soc_dtb in ${soc_dtbs}; do
+              if grep -Fxq "${soc_dtb}" "${dtbs_file}"; then
+                  soc_present=true
+                  break
+              fi
+          done
+          if [ "${soc_present}" = false ]; then
+              echo "Skipping FIT for SoC {{ $soc }}: no DTBs present in dtbs.tar.gz"
+          else
+              dtb_bin="${ARTIFACTDIR}/dtb-multidtb-{{ $soc }}.bin"
+              "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
+                  --dtb-src build/dtbs/qcom \
+                  --soc {{ $soc }} \
+                  --out "${dtb_bin}" \
+                  --prune
+              echo "Multi-DTB FIT image generated: ${dtb_bin}"
+          fi
+        {{- end }}
       fi
 
 {{- range $board := $boards }}
@@ -343,6 +374,7 @@ actions:
       # mirror template variables in shell variables to keep the action body
       # in shell syntax
       board_name="{{$board.name}}"
+      board_soc_id="{{$board.soc_id}}"
       board_dtb="{{$board.dtb}}"
       # default dtb_bin_type is combineddtb
       board_dtb_bin_type="{{or $board.dtb_bin_type "combineddtb"}}"
@@ -408,6 +440,7 @@ actions:
                   "$buildid" \
                   "$disk_type" \
                   "$board_dtb_bin_type" \
+                  "$board_soc_id" \
           )
 
           # create board-specific flash directory
@@ -517,13 +550,16 @@ actions:
                           -u "//*[@storage_type='${storage}']/file_name[text()='efi.bin']" -v "${efi_img}" \
                           -u "//*[@storage_type='${storage}'][file_name/text()='rootfs.img']/file_path[text()='../']" -v "../../" \
                           -u "//*[@storage_type='${storage}']/file_name[text()='rootfs.img']" -v "${rootfs_img}" \
-                          -u "//download_file[file_name/text()='dtb-multidtb.bin']/file_path[text()='..']" -v "../../" \
+                          -u "//download_file[starts-with(file_name/text(),'dtb-multidtb-')]/file_path[text()='..']" -v "../../" \
                           "${copied_contents}"
                   fi
-                  # fix rawprogram*.xml in spinor dir: ../dtb-multidtb.bin -> ../../dtb-multidtb.bin
+                  # fix rawprogram*.xml in spinor dir:
+                  # ../dtb-multidtb-<soc>.bin -> ../../dtb-multidtb-<soc>.bin;
+                  # preserve the per-SoC filename by rewriting only the prefix
                   find "${target_dir}/spinor" -name 'rawprogram*.xml' \
                       -exec xmlstarlet ed -L \
-                          -u "//program[@filename='../dtb-multidtb.bin']/@filename" -v "../../dtb-multidtb.bin" \
+                          -u "//program[starts-with(@filename,'../dtb-multidtb-')]/@filename" \
+                          -x "concat('../', .)" \
                       '{}' \;
               done
       done
