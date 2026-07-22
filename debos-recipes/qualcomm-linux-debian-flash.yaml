@@ -367,29 +367,34 @@ actions:
         {{- end }}
       fi
 
+      # Board metadata table: one record per board, fields separated by '|'.
+      # Fields (in order):
+      #   name|soc_id|dtb|dtb_bin_type|boot_binaries_filename|
+      #   cdt_download_filename|cdt_filename|u_boot_file|platforms
+      # The optional fields (cdt_download_filename, cdt_filename,
+      # u_boot_file) are empty when they don't apply. "platforms" is a
+      # space-separated list and comes last so "read" captures all of it.
+      #
+      # This table is rendered once from the templated $boards list and then
+      # iterated in shell, so the (long) per-board/per-platform logic below is
+      # emitted a single time instead of being unrolled per board by the Go
+      # template, to avoid generating a massive script.
+      boards_table="build/boards.txt"
+      : >"${boards_table}"
 {{- range $board := $boards }}
-      ### board: {{ $board.name }}
-      ### soc id: {{ $board.soc_id }}
+      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ with $board.u_boot_file }}{{ . }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
+{{- end }}
 
-      # mirror template variables in shell variables to keep the action body
-      # in shell syntax
-      board_name="{{$board.name}}"
-      board_soc_id="{{$board.soc_id}}"
-      board_dtb="{{$board.dtb}}"
-      # default dtb_bin_type is combineddtb
-      board_dtb_bin_type="{{or $board.dtb_bin_type "combineddtb"}}"
+      while IFS='|' read -r board_name board_soc_id board_dtb \
+          board_dtb_bin_type boot_binaries_filename \
+          board_cdt_download_filename board_cdt_filename board_u_boot_file \
+          board_platforms; do
+      # skip blank lines produced by template whitespace
+      [ -n "${board_name}" ] || continue
+
+      ### board: ${board_name}
+      ### soc id: ${board_soc_id}
       echo "Board ${board_name}: dtb_bin_type=${board_dtb_bin_type}"
-      boot_binaries_filename="{{$board.boot_binaries_download.filename}}"
-      board_cdt_download_filename=""
-      board_cdt_filename=""
-      board_u_boot_file=""
-  {{- if $board.cdt_download }}
-      board_cdt_download_filename="{{$board.cdt_download.filename}}"
-      board_cdt_filename="{{$board.cdt_filename}}"
-  {{- end }}
-  {{- if $board.u_boot_file }}
-      board_u_boot_file="{{$board.u_boot_file}}"
-  {{- end }}
 
       # set skip_board if board isn't listed
       skip_board=false
@@ -421,9 +426,8 @@ actions:
                   -d "build/${board_name}_cdt"
           fi
 
-{{- range $platform := $board.ptool_platforms }}
-          ### platform: {{ $platform }}
-          platform="{{$platform}}"
+          for platform in ${board_platforms}; do
+          ### platform: ${platform}
           # infer storage from ptool platform dir; first strip leading directory
           storage_use_case="${platform#*/}"
           # then strip trailing use case (after first dash)
@@ -521,9 +525,9 @@ actions:
               # copy into the FAT as combined-dtb.dtb
               mcopy -vmp -i "${dtb_bin}" "build/${board_dtb}" ::/combined-dtb.dtb
           fi
-{{- end }}
+          done
       fi
-{{- end }}
+      done <"${boards_table}"
 
       # copy each spinor flash dir into its parent storage flash dirs;
       # storage types are read from product_info/chipid in contents.xml
