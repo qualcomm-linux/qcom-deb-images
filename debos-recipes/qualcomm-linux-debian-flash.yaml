@@ -357,12 +357,24 @@ actions:
               echo "Skipping FIT for SoC {{ $soc }}: no DTBs present in dtbs.tar.gz"
           else
               dtb_bin="${ARTIFACTDIR}/dtb-multidtb-{{ $soc }}.bin"
-              "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
+              # build-dtb-image.sh --prune fails when every ITS config for
+              # this SoC references a DTB/DTBO the kernel doesn't ship yet (all
+              # configs get pruned). This happens even though the SoC's base
+              # DTB is present, e.g. when all of a SoC's configs additionally
+              # require a .dtbo overlay that isn't built. Treat that as "not
+              # ready yet": warn, drop any partial output and skip this SoC's
+              # FIT rather than failing the whole recipe.
+              rm -f "${dtb_bin}"
+              if "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
                   --dtb-src build/dtbs/qcom \
                   --soc {{ $soc }} \
                   --out "${dtb_bin}" \
-                  --prune
-              echo "Multi-DTB FIT image generated: ${dtb_bin}"
+                  --prune; then
+                  echo "Multi-DTB FIT image generated: ${dtb_bin}"
+              else
+                  rm -f "${dtb_bin}"
+                  echo "Skipping FIT for SoC {{ $soc }}: build-dtb-image.sh --prune left no usable configs (required DTBs/DTBOs not in dtbs.tar.gz)"
+              fi
           fi
         {{- end }}
       fi
@@ -407,6 +419,14 @@ actions:
       if ! grep -Fxq "$board_dtb" "${dtbs_file}"; then
           skip_board=true
           echo "Skipping board ${board_name}: dtb ${board_dtb} not available"
+      fi
+
+      # set skip_board if this is a multidtb board but its per-SoC FIT wasn't
+      # produced above
+      if [ "${board_dtb_bin_type}" = multidtb ] &&
+         [ ! -f "${ARTIFACTDIR}/dtb-multidtb-${board_soc_id}.bin" ]; then
+          skip_board=true
+          echo "Skipping board ${board_name}: multidtb FIT dtb-multidtb-${board_soc_id}.bin not available"
       fi
 
       # unpack boot binaries
