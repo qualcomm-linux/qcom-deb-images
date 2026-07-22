@@ -64,6 +64,12 @@ jobs:
                       | map({
                           board: split("/")[0],
                           target: .,
+                          # filename-safe id per target, e.g. qrb2210-rb1-boot
+                          slug: (
+                              .
+                              | sub("\\.yaml$"; "")
+                              | gsub("/"; "-")
+                          ),
                           name: (
                               .
                               | sub("\\.yaml$"; "")
@@ -133,6 +139,13 @@ jobs:
           fail_action_on_failure: false
           save_result_as_artifact: true
           save_job_details: true
+          # Stable per-suite/per-board name: the action deletes the previous
+          # same-named artifact before uploading, so a re-run overwrites in
+          # place and only the latest result per board ever exists.
+          result_file_name: test-results-${{ inputs.suite }}-${{ matrix.slug }}
+          # Job-details artifacts always keep the (changing) LAVA job id and are
+          # never overwritten, so scope them by suite + run attempt instead.
+          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-
 
   publish-test-results:
     name: Publish Tests Results
@@ -140,10 +153,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Artifacts
+      # Artifacts live at the run level and persist across re-run attempts, so
+      # scope the download to this suite's current results only. Without this,
+      # download-artifact tries to fetch stale artifacts from superseded
+      # attempts (and the other suite) and 404s on the orphaned ones.
+      - name: Download test results (this debian suite; latest per board)
         uses: actions/download-artifact@v8.0.1
         with:
           path: artifacts
+          pattern: test-results-${{ inputs.suite }}-*
+      - name: Download job details (this debian suite, this run attempt)
+        uses: actions/download-artifact@v8.0.1
+        with:
+          path: artifacts
+          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
 
       - name: List files
         run: |
@@ -157,7 +180,7 @@ jobs:
 
       - name: Publish Test Job Details
         run: |
-          for json_file in $(find ${{ github.workspace }} -name "test-job-*.json")
+          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
