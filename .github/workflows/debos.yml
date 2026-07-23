@@ -66,7 +66,7 @@ jobs:
           apt -y upgrade
           apt -y full-upgrade
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
