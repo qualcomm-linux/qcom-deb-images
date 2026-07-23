@@ -15,10 +15,10 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/6c9922f220c884236303a94075eb7c62e0120af0.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/b147606c32b7d29148eca16fbe071f9420dd51a9.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: f201dcaee55c6dda30afad7c98c76768dc02d29c567dbc91690b43f54cbeb41f
+    sha256sum: a9fb80e1e03400d228c784a12c55de66ff7144ec8f07732f0dff332b33ead242
     unpack: true
 
   - action: download
@@ -56,6 +56,172 @@ actions:
     "cdt_filename" "CRD/cdt_glymur_crd_0.1.0.bin"
     "dtb" "qcom/glymur-crd.dtb"
     "dtb_bin_type" "multidtb"
+)}}
+{{- /*
+    IQ-X7181 and IQ-X5121 EVKs (hamoa / purwa SoCs) share the same qcom-ptool
+    platform (iq-x7181-evk), boot binaries and CDT; they differ only in soc_id
+    and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "hamoa-iot-evk"
+    "soc_id" "hamoa"
+    "ptool_platforms" (list "iq-x7181-evk/ufs" "iq-x7181-evk/spinor")
+    "boot_binaries_download" (dict
+        "description" "Hamoa (IQ-X EVK) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip"
+        "name" "hamoa_boot-binaries"
+        "filename" "hamoa_boot-binaries.zip"
+        "sha256sum" "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    )
+    "cdt_download" (dict
+        "description" "IQ-X EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz"
+        "name" "iq-x-evk_cdt"
+        "filename" "iq-x-evk_cdt.tar.gz"
+        "sha256sum" "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+    )
+    "cdt_filename" "IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin"
+    "dtb" "qcom/hamoa-iot-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "purwa-iot-evk"
+    "soc_id" "purwa"
+    "ptool_platforms" (list "iq-x7181-evk/ufs" "iq-x7181-evk/spinor")
+    "boot_binaries_download" (dict
+        "description" "Purwa (IQ-X EVK) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip"
+        "name" "purwa_boot-binaries"
+        "filename" "purwa_boot-binaries.zip"
+        "sha256sum" "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    )
+    "cdt_download" (dict
+        "description" "IQ-X EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz"
+        "name" "purwa_iq-x-evk_cdt"
+        "filename" "purwa_iq-x-evk_cdt.tar.gz"
+        "sha256sum" "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+    )
+    "cdt_filename" "IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin"
+    "dtb" "qcom/purwa-iot-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- /*
+    Shikra EVK ships in three SKUs (CQM, CQS, IQS), each with its own soc_id
+    (shikracqm / shikracqs / shikraiqs) and DTB. They share the same qcom-ptool
+    platform (shikra-evk/emmc), boot binaries and CDT, so they get one board
+    entry each differing only in name, soc_id and dtb.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "shikra-cqm-evk"
+    "soc_id" "shikracqm"
+    "ptool_platforms" (list "shikra-evk/emmc")
+    "boot_binaries_download" (dict
+        "description" "Shikra boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "name" "shikra-cqm_boot-binaries"
+        "filename" "shikra-cqm_boot-binaries.zip"
+        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    )
+    "cdt_download" (dict
+        "description" "Shikra EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip"
+        "name" "shikra-cqm-evk_cdt"
+        "filename" "shikra-cqm-evk_cdt.zip"
+        "sha256sum" "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+    )
+    "cdt_filename" "cdt_cq2390_itp_0.2.0.bin"
+    "dtb" "qcom/shikra-cqm-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "shikra-cqs-evk"
+    "soc_id" "shikracqs"
+    "ptool_platforms" (list "shikra-evk/emmc")
+    "boot_binaries_download" (dict
+        "description" "Shikra boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "name" "shikra-cqs_boot-binaries"
+        "filename" "shikra-cqs_boot-binaries.zip"
+        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    )
+    "cdt_download" (dict
+        "description" "Shikra EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip"
+        "name" "shikra-cqs-evk_cdt"
+        "filename" "shikra-cqs-evk_cdt.zip"
+        "sha256sum" "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+    )
+    "cdt_filename" "cdt_cq2390_itp_0.2.0.bin"
+    "dtb" "qcom/shikra-cqs-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "shikra-iqs-evk"
+    "soc_id" "shikraiqs"
+    "ptool_platforms" (list "shikra-evk/emmc")
+    "boot_binaries_download" (dict
+        "description" "Shikra boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "name" "shikra-iqs_boot-binaries"
+        "filename" "shikra-iqs_boot-binaries.zip"
+        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    )
+    "cdt_download" (dict
+        "description" "Shikra EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip"
+        "name" "shikra-iqs-evk_cdt"
+        "filename" "shikra-iqs-evk_cdt.zip"
+        "sha256sum" "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+    )
+    "cdt_filename" "cdt_cq2390_itp_0.2.0.bin"
+    "dtb" "qcom/shikra-iqs-evk.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "sm8750-mtp"
+    "soc_id" "sm8750"
+    "ptool_platforms" (list "sm8750-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "SM8750 (Pakala) boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SM8750_bootbinaries.1.0/sm8750_bootbinaries.1.0-test-device-public/00043/pakala_bootbinaries_00043.zip"
+        "name" "sm8750_boot-binaries"
+        "filename" "sm8750_boot-binaries.zip"
+        "sha256sum" "e56b8cb82fd2566b9de9ca771e342dd7559bbfb51c94587a65c4ae395f605805"
+    )
+    "cdt_download" (dict
+        "description" "SM8750 MTP CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8750/cdt/sm8750-mtp_wcn7881.zip"
+        "name" "sm8750-mtp_cdt"
+        "filename" "sm8750-mtp_cdt.zip"
+        "sha256sum" "474c35a6f06948808be118a8b0dac61ca53fd71182c1f03b92ca30d34dbb8a58"
+    )
+    "cdt_filename" "cdt_pakala_mtp_0.4.0.bin"
+    "dtb" "qcom/sm8750-mtp.dtb"
+)}}
+{{- /*
+    Kaanapali reuses the SM8850 MTP CDT.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "kaanapali-mtp"
+    "soc_id" "kaanapali"
+    "ptool_platforms" (list "kaanapali-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "Kaanapali boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/software-product-family/Qualcomm_Linux.SPF.0.0/qualcomm_linux.spf.0.0-test-device-public/r0.0_00009.1/KAANAPALI.LE.0.0/common/build/ufs/bin/kaanapali_bootbinaries.zip"
+        "name" "kaanapali_boot-binaries"
+        "filename" "kaanapali_boot-binaries.zip"
+        "sha256sum" "87b72830fd06ffd08ebc211301a254f4ef46325fde75bb6ff82ac558a5c26b12"
+    )
+    "cdt_download" (dict
+        "description" "Kaanapali MTP CDT (SM8850 MTP)"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8850/cdt/sm8850-mtp.zip"
+        "name" "kaanapali-mtp_cdt"
+        "filename" "kaanapali-mtp_cdt.zip"
+        "sha256sum" "41b15acaa06311c8c7500d7467a5d8adb9fdee05aed09d983d3dad045865b1d7"
+    )
+    "cdt_filename" "cdt_kaanapali_mtp_0.4.0.bin"
+    "dtb" "qcom/kaanapali-mtp.dtb"
 )}}
 {{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
@@ -312,52 +478,101 @@ actions:
           ;;
       esac
 
-      # Derive the list of SoCs supported.
-      # qcm2290 is excluded here because qcom-dtb-metadata's /soc node has no
-      # entry for it yet: https://github.com/qualcomm-linux/qcom-dtb-metadata/issues/126
+      # Derive the list of SoCs that use per-SoC multi-DTB FIT images.
+      # Only boards with dtb_bin_type "multidtb" need one; building a FIT for
+      # any other SoC would be wasted work. qcm2290 has no /soc entry in
+      # qcom-dtb-metadata yet and only appears on combineddtb boards anyway:
+      # https://github.com/qualcomm-linux/qcom-dtb-metadata/issues/126
       {{- $fit_soc := list }}
       {{- range $board := $boards }}
-      {{- if ne $board.soc_id "qcm2290" }}
+      {{- if eq (or $board.dtb_bin_type "combineddtb") "multidtb" }}
       {{- $fit_soc = append $fit_soc $board.soc_id }}
       {{- end }}
       {{- end }}
 
-      # Generate dtb.bin (multi-DTB FIT image) from the qcom/ subtree of dtbs.tar.gz.
+      # Generate one dtb-multidtb-<soc>.bin (multi-DTB FIT image) per SoC from
+      # the qcom/ subtree of dtbs.tar.gz. A single combined FIT across all SoCs
+      # overflows the 4 MiB FAT container, so each SoC gets its own; --soc
+      # filters the FIT down to just that SoC's device trees.
       if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
           QCOM_DTB_METADATA="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
           mkdir -p build/dtbs
           # unpack only qcom/ DTBs
           tar -C build/dtbs -xzf "${ARTIFACTDIR}/dtbs.tar.gz" qcom
-          "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
-              --dtb-src build/dtbs/qcom \
-              --soc {{ $fit_soc | uniq | join " " }} \
-              --out "${ARTIFACTDIR}/dtb-multidtb.bin" \
-              --prune
-          echo "Multi-DTB FIT image generated: ${ARTIFACTDIR}/dtb-multidtb.bin"
+        {{- range $soc := $fit_soc | uniq }}
+          # Only build a FIT for this SoC if at least one of its boards' DTBs is
+          # actually shipped in dtbs.tar.gz. qcom-dtb-metadata may know a new SoC
+          # (so --soc is valid and its ITS configs get selected) before the
+          # kernel ships that SoC's DTBs; without this gate build-dtb-image.sh
+          # --prune would drop every config and hard-fail. This mirrors the
+          # per-board "dtb not available" skip below.
+          soc_dtbs=""
+          {{- range $b := $boards }}
+          {{- if and (eq (or $b.dtb_bin_type "combineddtb") "multidtb") (eq $b.soc_id $soc) }}
+          soc_dtbs="${soc_dtbs} {{ $b.dtb }}"
+          {{- end }}
+          {{- end }}
+          soc_present=false
+          for soc_dtb in ${soc_dtbs}; do
+              if grep -Fxq "${soc_dtb}" "${dtbs_file}"; then
+                  soc_present=true
+                  break
+              fi
+          done
+          if [ "${soc_present}" = false ]; then
+              echo "Skipping FIT for SoC {{ $soc }}: no DTBs present in dtbs.tar.gz"
+          else
+              dtb_bin="${ARTIFACTDIR}/dtb-multidtb-{{ $soc }}.bin"
+              # build-dtb-image.sh --prune fails when every ITS config for
+              # this SoC references a DTB/DTBO the kernel doesn't ship yet (all
+              # configs get pruned). This happens even though the SoC's base
+              # DTB is present, e.g. when all of a SoC's configs additionally
+              # require a .dtbo overlay that isn't built. Treat that as "not
+              # ready yet": warn, drop any partial output and skip this SoC's
+              # FIT rather than failing the whole recipe.
+              rm -f "${dtb_bin}"
+              if "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
+                  --dtb-src build/dtbs/qcom \
+                  --soc {{ $soc }} \
+                  --out "${dtb_bin}" \
+                  --prune; then
+                  echo "Multi-DTB FIT image generated: ${dtb_bin}"
+              else
+                  rm -f "${dtb_bin}"
+                  echo "Skipping FIT for SoC {{ $soc }}: build-dtb-image.sh --prune left no usable configs (required DTBs/DTBOs not in dtbs.tar.gz)"
+              fi
+          fi
+        {{- end }}
       fi
 
+      # Board metadata table: one record per board, fields separated by '|'.
+      # Fields (in order):
+      #   name|soc_id|dtb|dtb_bin_type|boot_binaries_filename|
+      #   cdt_download_filename|cdt_filename|u_boot_file|platforms
+      # The optional fields (cdt_download_filename, cdt_filename,
+      # u_boot_file) are empty when they don't apply. "platforms" is a
+      # space-separated list and comes last so "read" captures all of it.
+      #
+      # This table is rendered once from the templated $boards list and then
+      # iterated in shell, so the (long) per-board/per-platform logic below is
+      # emitted a single time instead of being unrolled per board by the Go
+      # template, to avoid generating a massive script.
+      boards_table="build/boards.txt"
+      : >"${boards_table}"
 {{- range $board := $boards }}
-      ### board: {{ $board.name }}
-      ### soc id: {{ $board.soc_id }}
+      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ with $board.u_boot_file }}{{ . }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
+{{- end }}
 
-      # mirror template variables in shell variables to keep the action body
-      # in shell syntax
-      board_name="{{$board.name}}"
-      board_dtb="{{$board.dtb}}"
-      # default dtb_bin_type is combineddtb
-      board_dtb_bin_type="{{or $board.dtb_bin_type "combineddtb"}}"
+      while IFS='|' read -r board_name board_soc_id board_dtb \
+          board_dtb_bin_type boot_binaries_filename \
+          board_cdt_download_filename board_cdt_filename board_u_boot_file \
+          board_platforms; do
+      # skip blank lines produced by template whitespace
+      [ -n "${board_name}" ] || continue
+
+      ### board: ${board_name}
+      ### soc id: ${board_soc_id}
       echo "Board ${board_name}: dtb_bin_type=${board_dtb_bin_type}"
-      boot_binaries_filename="{{$board.boot_binaries_download.filename}}"
-      board_cdt_download_filename=""
-      board_cdt_filename=""
-      board_u_boot_file=""
-  {{- if $board.cdt_download }}
-      board_cdt_download_filename="{{$board.cdt_download.filename}}"
-      board_cdt_filename="{{$board.cdt_filename}}"
-  {{- end }}
-  {{- if $board.u_boot_file }}
-      board_u_boot_file="{{$board.u_boot_file}}"
-  {{- end }}
 
       # set skip_board if board isn't listed
       skip_board=false
@@ -372,6 +587,14 @@ actions:
           echo "Skipping board ${board_name}: dtb ${board_dtb} not available"
       fi
 
+      # set skip_board if this is a multidtb board but its per-SoC FIT wasn't
+      # produced above
+      if [ "${board_dtb_bin_type}" = multidtb ] &&
+         [ ! -f "${ARTIFACTDIR}/dtb-multidtb-${board_soc_id}.bin" ]; then
+          skip_board=true
+          echo "Skipping board ${board_name}: multidtb FIT dtb-multidtb-${board_soc_id}.bin not available"
+      fi
+
       # unpack boot binaries
       mkdir -v "build/${board_name}_boot-binaries"
       unzip "${ROOTDIR}/../${boot_binaries_filename}" \
@@ -384,14 +607,22 @@ actions:
 
       if [ "${skip_board}" = false ]; then
           if [ -n "$board_cdt_download_filename" ]; then
-              # unpack board CDT
-              unzip "${ROOTDIR}/../${board_cdt_download_filename}" \
-                  -d "build/${board_name}_cdt"
+              # unpack board CDT; some CDTs ship as .tar.gz, others as .zip
+              mkdir -vp "build/${board_name}_cdt"
+              case "$board_cdt_download_filename" in
+              *.tar.gz|*.tgz)
+                  tar -xzf "${ROOTDIR}/../${board_cdt_download_filename}" \
+                      -C "build/${board_name}_cdt"
+                  ;;
+              *)
+                  unzip "${ROOTDIR}/../${board_cdt_download_filename}" \
+                      -d "build/${board_name}_cdt"
+                  ;;
+              esac
           fi
 
-{{- range $platform := $board.ptool_platforms }}
-          ### platform: {{ $platform }}
-          platform="{{$platform}}"
+          for platform in ${board_platforms}; do
+          ### platform: ${platform}
           # infer storage from ptool platform dir; first strip leading directory
           storage_use_case="${platform#*/}"
           # then strip trailing use case (after first dash)
@@ -408,6 +639,7 @@ actions:
                   "$buildid" \
                   "$disk_type" \
                   "$board_dtb_bin_type" \
+                  "$board_soc_id" \
           )
 
           # create board-specific flash directory
@@ -488,9 +720,9 @@ actions:
               # copy into the FAT as combined-dtb.dtb
               mcopy -vmp -i "${dtb_bin}" "build/${board_dtb}" ::/combined-dtb.dtb
           fi
-{{- end }}
+          done
       fi
-{{- end }}
+      done <"${boards_table}"
 
       # copy each spinor flash dir into its parent storage flash dirs;
       # storage types are read from product_info/chipid in contents.xml
@@ -517,13 +749,16 @@ actions:
                           -u "//*[@storage_type='${storage}']/file_name[text()='efi.bin']" -v "${efi_img}" \
                           -u "//*[@storage_type='${storage}'][file_name/text()='rootfs.img']/file_path[text()='../']" -v "../../" \
                           -u "//*[@storage_type='${storage}']/file_name[text()='rootfs.img']" -v "${rootfs_img}" \
-                          -u "//download_file[file_name/text()='dtb-multidtb.bin']/file_path[text()='..']" -v "../../" \
+                          -u "//download_file[starts-with(file_name/text(),'dtb-multidtb-')]/file_path[text()='..']" -v "../../" \
                           "${copied_contents}"
                   fi
-                  # fix rawprogram*.xml in spinor dir: ../dtb-multidtb.bin -> ../../dtb-multidtb.bin
+                  # fix rawprogram*.xml in spinor dir:
+                  # ../dtb-multidtb-<soc>.bin -> ../../dtb-multidtb-<soc>.bin;
+                  # preserve the per-SoC filename by rewriting only the prefix
                   find "${target_dir}/spinor" -name 'rawprogram*.xml' \
                       -exec xmlstarlet ed -L \
-                          -u "//program[@filename='../dtb-multidtb.bin']/@filename" -v "../../dtb-multidtb.bin" \
+                          -u "//program[starts-with(@filename,'../dtb-multidtb-')]/@filename" \
+                          -x "concat('../', .)" \
                       '{}' \;
               done
       done

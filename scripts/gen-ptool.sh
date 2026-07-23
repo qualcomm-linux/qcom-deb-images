@@ -19,9 +19,13 @@ CDT_FILENAME="$3"
 BUILDID="$4"
 # disk storage, emmc, nvme, spinor or ufs
 DISK_TYPE="$5"
-# dtb type: multidtb (shared ../dtb-multidtb.bin at ARTIFACTDIR level) or
-# combineddtb (local dtb-combineddtb.bin in flash dir); default is combineddtb
+# dtb type: multidtb (shared ../dtb-multidtb-<soc>.bin at ARTIFACTDIR level)
+# or combineddtb (local dtb-combineddtb.bin in flash dir); default is
+# combineddtb
 DTB_TYPE="${6:-combineddtb}"
+# SoC id, used to pick the per-SoC ../dtb-multidtb-<soc>.bin; only required for
+# the multidtb dtb type
+SOC="${7:-}"
 
 PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
 
@@ -47,7 +51,11 @@ esac
 
 case "$DTB_TYPE" in
   multidtb)
-    dtb="../dtb-multidtb.bin"
+    if [ -z "$SOC" ]; then
+      echo "multidtb dtb type requires a SoC id (arg 7)"
+      exit 1
+    fi
+    dtb="../dtb-multidtb-${SOC}.bin"
     ;;
   combineddtb)
     dtb="dtb-combineddtb.bin"
@@ -74,19 +82,24 @@ partition_map="${partition_map},dtb_b=${dtb}"
 partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
+# qcom-ptool ships as the "qcom_ptool" Python package; run its scripts as
+# modules with the tree root on PYTHONPATH so intra-package imports resolve
+# without a pip install
+export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
+
 # generate ptool-partitions.xml from partitions.conf
-"${QCOM_PTOOL}/gen_partition.py" -i "${PARTITIONS_CONF}" \
+python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
     -o ptool-partitions.xml \
     -m "${partition_map}"
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
 if [ -e "$CONTENTS" ]; then
-    "${QCOM_PTOOL}/gen_contents.py" -p ptool-partitions.xml \
+    python3 -m qcom_ptool.gen_contents -p ptool-partitions.xml \
         -t "$CONTENTS" \
         -b "$BUILDID" \
         -o contents.xml
 fi
 
 # generate flashing files from qcom-partitions.xml
-"${QCOM_PTOOL}/ptool.py" -x ptool-partitions.xml
+python3 -m qcom_ptool.ptool -x ptool-partitions.xml
