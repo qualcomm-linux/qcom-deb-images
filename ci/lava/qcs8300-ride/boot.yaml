@@ -60,6 +60,7 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         WAIT_TIME: 60
+        DEVICE: wlp1s0
 context:
   test_character_delay: 10
 # our board name "qcs8300-ride" is not a LAVA alias; the matching LAVA
