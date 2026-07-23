@@ -118,22 +118,22 @@ def check_package_installed(pkg):
 
 def check_dependencies():
     packages = [
-        "git",
-        "crossbuild-essential-arm64", # native compiler on arm64, cross otherwise
-        "make",
-        "flex",
-        "bison",
         "bc",
+        "bison",
+        "coreutils", # nproc
+        "crossbuild-essential-arm64", # native compiler on arm64, cross otherwise
+        "debhelper",
+        "dpkg-dev",
+        "flex",
+        "git",
+        "kmod",
         "libdw-dev",
         "libelf-dev",
         "libssl-dev",
         "libssl-dev:arm64",
-        "dpkg-dev",
-        "debhelper",
-        "kmod",
+        "make",
         "python3",
         "rsync",
-        "coreutils", # nproc
     ]
 
     log_i(f"Checking build-dependencies ({' '.join(packages)})")
