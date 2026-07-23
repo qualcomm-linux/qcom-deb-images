@@ -120,6 +120,7 @@ def check_dependencies():
     packages = [
         "bc",
         "bison",
+        "build-essential",
         "coreutils", # nproc
         "crossbuild-essential-arm64", # native compiler on arm64, cross otherwise
         "debhelper",
