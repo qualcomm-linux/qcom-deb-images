@@ -154,6 +154,21 @@ actions:
 {{- end }}
 
 {{- if and (ne $suite "unstable") (ne $suite "testing") }}
+
+{{- /* prefer installing these packages from backports */}}
+{{- $backportpackages := list
+      "src:alsa-lib:any"
+      "src:alsa-ucm-conf:any"
+      "src:efivar"
+      "src:fastrpc"
+      "src:firmware-free:any"
+      "src:firmware-nonfree:any"
+      "src:hexagon-dsp-binaries"
+      "src:linux:any"
+      "src:linux-signed-arm64:any"
+      "src:mesa:any"
+      "src:u-boot-efi-dtb" }}
+
   - action: run
     description: Add Debian {{ $suite }}-backports APT configuration
     chroot: true
@@ -187,7 +202,7 @@ actions:
       # for binary packages built from these source packages, score the version from
       # Debian backports higher as to get hardware enabled or better hardware support
 
-      Package: src:alsa-lib:any src:alsa-ucm-conf:any src:efivar src:fastrpc src:firmware-free:any src:firmware-nonfree:any src:hexagon-dsp-binaries src:linux:any src:linux-signed-arm64:any src:mesa:any src:u-boot-efi-dtb
+      Package: {{ join " " $backportpackages }}
       Pin: release n={{ $suite }}-backports
       Pin-Priority: 900
       EOF
