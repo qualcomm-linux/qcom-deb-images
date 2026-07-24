@@ -121,8 +121,8 @@ def check_dependencies():
         "bc",
         "bison",
         "build-essential",
-        "coreutils", # nproc
-        "crossbuild-essential-arm64", # native compiler on arm64, cross otherwise
+        "coreutils",  # nproc
+        "crossbuild-essential-arm64",  # cross or native arm64 compiler
         "debhelper",
         "dpkg-dev",
         "flex",
