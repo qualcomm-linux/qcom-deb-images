@@ -103,10 +103,10 @@ actions:
     command: |
       set -eux
 {{- if $snapshot }}
-      if echo "{{ $snapshot }}" | grep -qE '^([0-9]{8}|[0-9]{8}T[0-9]{6}Z)$'; then
+      if echo "{{ $snapshot }}" | grep -qE '^[0-9]{8}T[0-9]{6}Z$'; then
         SNAPSHOT="{{ $snapshot }}"
       else
-        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDD | YYYYMMDDTHHMMSSZ" >&2
+        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDDTHHMMSSZ" >&2
         exit 1
       fi
       touch /etc/buildinfo && chmod 644 /etc/buildinfo
