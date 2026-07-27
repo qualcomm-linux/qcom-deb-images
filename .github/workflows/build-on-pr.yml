@@ -26,5 +26,6 @@ jobs:
     uses: ./.github/workflows/debos.yml
     with:
       suite: ${{ matrix.suite }}
+      build_armhf: true
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
