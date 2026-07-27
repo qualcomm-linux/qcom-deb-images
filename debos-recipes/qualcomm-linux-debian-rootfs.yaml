@@ -256,12 +256,16 @@ actions:
     chroot: true
     command: |
       set -eux
+{{- if $snapshot }}
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+{{- end }}
       tee /etc/apt/sources.list.d/qli.sources <<EOF
       # Qualcomm Linux repository
       Types: deb
       URIs: https://deb.debusine.qualcomm.com/qualcomm/qli
       Suites: {{ $suite }}
       Components: main contrib non-free-firmware non-free
+      Enabled: yes
       Signed-By:
        -----BEGIN PGP PUBLIC KEY BLOCK-----
        .
@@ -273,6 +277,17 @@ actions:
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
       EOF
+
+{{- if $snapshot }}
+      # Derive snapshot_qli.sources from qli.sources by rewriting mirror URLs
+      sed \
+        -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#" \
+        -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
+        -e "/^Enabled:/a\\Check-Valid-Until: no" \
+        /etc/apt/sources.list.d/qli.sources \
+        > /etc/apt/sources.list.d/snapshot_qli.sources
+      apt-snapshot-toggle enable
+{{- end }}
 {{- end }}
 
   - action: run
