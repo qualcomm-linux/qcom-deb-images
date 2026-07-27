@@ -27,8 +27,9 @@ ifeq ($(USE_CONTAINER),auto)
 endif
 
 ifeq ($(USE_CONTAINER),yes)
-	# Only pass --device /dev/kvm if KVM is available on the host
-	KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm)
+	# Only pass --device /dev/kvm if KVM is available on the host; also add
+	# the device's owning group so the (non-root) container user may open it
+	KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm --group-add $(shell stat -c %g /dev/kvm))
 	# Working directory as seen from inside the container
 	DEBOS_WORKDIR := /recipes
 	DEBOS_CMD := docker run --rm --interactive --tty \
