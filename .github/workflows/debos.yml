@@ -41,6 +41,7 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
+  OVERLAYS: ${{ inputs.overlays }}
   SUITE: ${{ inputs.suite }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   PREFIX: ${{ inputs.suite }}
@@ -138,7 +139,7 @@ jobs:
           esac
 
           debos \
-              -t overlays:'${{ inputs.overlays }}' \
+              -t "overlays:$OVERLAYS" \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackages:"$kernel_packages" \

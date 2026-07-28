@@ -110,9 +110,10 @@ jobs:
           persist-credentials: false
 
       - name: Update test definition ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
           # e.g. qrb2210-rb1/boot.yaml
-          TARGET="${{ matrix.target }}"
           TEMPLATE="${LAVA_CI}${TARGET}"
           # left-side – e.g. qrb2210-rb1
           DEVICE_TYPE="${TARGET%/*}"

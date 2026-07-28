@@ -120,8 +120,10 @@ jobs:
 
       - name: Prepare PR comment
         id: pr_comment_prep
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "## Test jobs for commit ${{ github.event.workflow_run.head_sha }}" > pr-comment.txt
+          echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
           for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
