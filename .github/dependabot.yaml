@@ -9,3 +9,7 @@ updates:
     directory: "/" # This points to .github/workflows
     schedule:
       interval: "daily"
+    # wait a week before proposing a new release, so a compromised or simply
+    # broken action version has time to be yanked before we adopt it
+    cooldown:
+      default-days: 7
