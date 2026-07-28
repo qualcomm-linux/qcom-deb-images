@@ -37,6 +37,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # make sure we have latest packages first, to get latest fixes, to avoid
       # an automated update while we're building, and to prevent version skews

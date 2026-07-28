@@ -69,6 +69,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
