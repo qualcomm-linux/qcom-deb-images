@@ -124,6 +124,13 @@ jobs:
           # stage artifacts in a directory
           mkdir -v artifacts
           cp -av `dcmd *.changes` artifacts
+          # also publish the unstripped vmlinux to help debug crashes: it
+          # carries the kernel symbol table so oops/panic backtraces can be
+          # symbolize. This matches the vmlinux artifact meta-qcom's Yocto CI
+          # publishes and is required by teams analyzing kernel crashes.
+          if [ -f linux/vmlinux ]; then
+            cp -av linux/vmlinux artifacts/
+          fi
 
       - name: Upload results to EFS
         run: |
