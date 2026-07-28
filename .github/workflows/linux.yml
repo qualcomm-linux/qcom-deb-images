@@ -94,7 +94,7 @@ jobs:
       volumes:
         - /efs/qli/qcom-deb-images:/efs
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -151,7 +151,7 @@ jobs:
           sync
 
       - name: Upload private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_artifacts
         with:
           path: artifacts

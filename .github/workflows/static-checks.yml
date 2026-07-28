@@ -26,7 +26,7 @@ jobs:
       - name: Install flake8
         run: sudo apt update && sudo apt -y install file flake8
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -45,7 +45,7 @@ jobs:
       - name: Install Pylint and dependencies
         run: sudo apt update && sudo apt -y install file pylint python3-voluptuous python3-defusedxml
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -64,7 +64,7 @@ jobs:
       - name: Install ShellCheck
         run: sudo apt update && sudo apt -y install shellcheck file
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false

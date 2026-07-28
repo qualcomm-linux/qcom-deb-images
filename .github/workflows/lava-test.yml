@@ -47,7 +47,7 @@ jobs:
       has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -112,7 +112,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -141,7 +141,7 @@ jobs:
 
       - name: Submit ${{ matrix.target }}
         timeout-minutes: 240
-        uses: foundriesio/lava-action@v13
+        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
@@ -174,12 +174,12 @@ jobs:
       # download-artifact tries to fetch stale artifacts from superseded
       # attempts (and the other suite) and 404s on the orphaned ones.
       - name: Download test results (this debian suite; latest per board)
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           pattern: test-results-${{ inputs.suite }}-*
       - name: Download job details (this debian suite, this run attempt)
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
@@ -190,7 +190,7 @@ jobs:
           ls -R $GITHUB_WORKSPACE
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           files: "${{ github.workspace }}/artifacts/**/*.xml"
 
