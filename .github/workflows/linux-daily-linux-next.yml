@@ -24,4 +24,5 @@ jobs:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
       lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
-    secrets: inherit
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml

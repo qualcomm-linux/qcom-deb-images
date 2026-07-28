@@ -67,7 +67,8 @@ jobs:
       contents: read # lava-test.yml
       packages: read # lava-test.yml
       pull-requests: write # lava-test.yml
-    secrets: inherit
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}

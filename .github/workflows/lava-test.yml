@@ -18,6 +18,12 @@ on:
         description: JSON array of board names to exclude (empty = none excluded)
         type: string
         default: ''
+    # this is the only workflow that consumes a secret; like permissions:, it
+    # has to be named again by every caller down the chain
+    secrets:
+      LAVATOKEN:
+        description: API token used to submit jobs to LAVA
+        required: true
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to

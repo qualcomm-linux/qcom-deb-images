@@ -38,6 +38,12 @@ on:
         required: false
         type: string
         default: ''
+    secrets:
+      LAVATOKEN:
+        description: API token used to submit jobs to LAVA
+        # only forwarded to lava-test.yml; callers passing skip_lava_tests
+        # never reach that job, so this stays optional
+        required: false
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -172,7 +178,8 @@ jobs:
       contents: read # lava-test.yml
       packages: read # lava-test.yml
       pull-requests: write # lava-test.yml
-    secrets: inherit
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: trixie

@@ -28,4 +28,5 @@ jobs:
       skip_qemu_tests: true
       skip_lava_tests: false
       lava_boards_include: '["glymur-crd"]'
-    secrets: inherit
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
