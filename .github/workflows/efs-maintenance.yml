@@ -46,9 +46,8 @@ on:
         type: string
         default: '30'
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 env:
   EFS_NEW_PATH: /efs/qli/qcom-deb-images
@@ -58,6 +57,8 @@ env:
 jobs:
   efs-maintenance:
     name: EFS maintenance
+    # only prunes files under /efs, never touches the repository
+    permissions: {}
     # don't run from forks of the main repository
     if: github.repository == 'qualcomm-linux/qcom-deb-images'
     runs-on: [self-hosted, qcom-u2404, amd64]

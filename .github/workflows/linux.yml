@@ -54,12 +54,10 @@ on:
         required: false
         type: string
 
-# implicitely set all other permissions to none
-permissions:
-  checks: write # lava-test.yml
-  contents: read # actions/checkout debos.yml lava-test.yml
-  packages: read # lava-test.yml
-  pull-requests: write # lava-test.yml
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   # github runs are only unique per repository and may also be re-run; create a
@@ -79,6 +77,8 @@ jobs:
   build-linux-deb:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read # actions/checkout
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
@@ -156,6 +156,8 @@ jobs:
   debos-linux-deb:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read # debos.yml
     with:
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
@@ -165,6 +167,11 @@ jobs:
     if: ${{ !inputs.skip_lava_tests }}
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
+    permissions:
+      checks: write # lava-test.yml
+      contents: read # lava-test.yml
+      packages: read # lava-test.yml
+      pull-requests: write # lava-test.yml
     secrets: inherit
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}

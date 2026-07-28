@@ -19,12 +19,10 @@ on:
         type: string
         default: ''
 
-# implicitely set all other permissions to none
-permissions:
-  checks: write # EnricoMi/publish-unit-test-result-action
-  contents: read # actions/checkout
-  packages: read # actions/download-artifact
-  pull-requests: write # EnricoMi/publish-unit-test-result-action
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   BUILD_URL: ${{ inputs.url }}
@@ -36,6 +34,8 @@ env:
 jobs:
   prepare-job-list:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     outputs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
       has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
@@ -98,6 +98,8 @@ jobs:
     needs: prepare-job-list
     if: needs.prepare-job-list.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     name: Submit ${{ matrix.name }}
     strategy:
       fail-fast: false
@@ -154,6 +156,11 @@ jobs:
     name: Publish Tests Results
     needs: submit-job
     runs-on: ubuntu-latest
+    permissions:
+      checks: write # EnricoMi/publish-unit-test-result-action
+      contents: read # EnricoMi/publish-unit-test-result-action
+      packages: read # actions/download-artifact
+      pull-requests: write # EnricoMi/publish-unit-test-result-action
 
     steps:
       # Artifacts live at the run level and persist across re-run attempts, so

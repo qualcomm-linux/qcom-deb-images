@@ -6,13 +6,15 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-permissions:
- contents: read
- security-events: write
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 jobs:
   preflight:
     name: Run QC Preflight Checks
+    permissions:
+      contents: read # reusable-qcom-preflight-checks-orchestrator.yml
+      security-events: write # reusable-qcom-preflight-checks-orchestrator.yml
     uses: qualcomm/qcom-reusable-workflows/.github/workflows/reusable-qcom-preflight-checks-orchestrator.yml@v2
     with:
       enable-semgrep-scan: true

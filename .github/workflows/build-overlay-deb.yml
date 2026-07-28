@@ -8,8 +8,13 @@ on:
         required: true
         type: string
 
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
 jobs:
   build:
+    permissions:
+      contents: read # actions/checkout
     strategy:
       matrix:
         arch: [amd64, arm64]

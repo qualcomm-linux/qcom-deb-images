@@ -8,9 +8,8 @@ on:
   push:
     branches: [main]
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # actions/checkout
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -21,6 +20,8 @@ jobs:
   flake8:
     name: Install and run Flake8 on Python scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install flake8
         run: sudo apt update && sudo apt -y install file flake8
@@ -38,6 +39,8 @@ jobs:
   pylint:
     name: Install and run Pylint on Python scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install Pylint and dependencies
         run: sudo apt update && sudo apt -y install file pylint python3-voluptuous python3-defusedxml
@@ -55,6 +58,8 @@ jobs:
   shellcheck:
     name: Install and run ShellCheck on shell scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install ShellCheck
         run: sudo apt update && sudo apt -y install shellcheck file

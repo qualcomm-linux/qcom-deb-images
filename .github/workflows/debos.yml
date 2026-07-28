@@ -33,9 +33,10 @@ on:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # actions/checkout
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   # image build id; used for SBOM generation
@@ -49,6 +50,8 @@ env:
 jobs:
   build-debos:
     name: Build and upload debos recipes (${{ inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
