@@ -141,18 +141,6 @@ actions:
 {{- end }}
       EOF
 
-{{- if $snapshot }}
-      # Derive snapshot_debian.sources from debian.sources by rewriting mirror URLs
-      sed \
-        -e "s#http://deb\.debian\.org/debian/#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#g" \
-        -e "s#http://deb\.debian\.org/debian-security/#https://snapshot.debian.org/archive/debian-security/${SNAPSHOT}/#g" \
-        -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
-        -e "/^Enabled:/a\\Check-Valid-Until: no" \
-        /etc/apt/sources.list.d/debian.sources \
-        > /etc/apt/sources.list.d/snapshot_debian.sources
-      apt-snapshot-toggle enable
-{{- end }}
-
 {{- if and (ne $suite "unstable") (ne $suite "testing") }}
 
 {{- /* prefer installing these packages from backports */}}
@@ -174,9 +162,6 @@ actions:
     chroot: true
     command: |
       set -eux
-{{- if $snapshot }}
-      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
-{{- end }}
       tee /etc/apt/sources.list.d/debian-backports.sources <<EOF
       # Debian backports
       Types: deb
@@ -187,17 +172,6 @@ actions:
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
       EOF
 
-{{- if $snapshot }}
-      # Derive snapshot_debian-backports.sources from debian-backports.sources by rewriting mirror URLs
-      sed \
-        -e "s#http://deb\.debian\.org/debian/#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#g" \
-        -e "s#http://deb\.debian\.org/debian\$#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#" \
-        -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
-        -e "/^Enabled:/a\\Check-Valid-Until: no" \
-        /etc/apt/sources.list.d/debian-backports.sources \
-        > /etc/apt/sources.list.d/snapshot_debian-backports.sources
-      apt-snapshot-toggle enable
-{{- end }}
       tee /etc/apt/preferences.d/debian-backports.pref <<EOF
       # for binary packages built from these source packages, score the version from
       # Debian backports higher as to get hardware enabled or better hardware support
@@ -256,9 +230,6 @@ actions:
     chroot: true
     command: |
       set -eux
-{{- if $snapshot }}
-      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
-{{- end }}
       tee /etc/apt/sources.list.d/qli.sources <<EOF
       # Qualcomm Linux repository
       Types: deb
@@ -277,17 +248,56 @@ actions:
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
       EOF
+{{- end }}
 
 {{- if $snapshot }}
-      # Derive snapshot_qli.sources from qli.sources by rewriting mirror URLs
-      sed \
-        -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#" \
-        -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
-        -e "/^Enabled:/a\\Check-Valid-Until: no" \
-        /etc/apt/sources.list.d/qli.sources \
-        > /etc/apt/sources.list.d/snapshot_qli.sources
+  - action: run
+    description: Derive snapshot_*.sources from live APT sources
+    chroot: true
+    command: |
+      set -eux
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+      for src in /etc/apt/sources.list.d/*.sources; do
+          name=$(basename "$src" .sources)
+          # skip already-derived snapshot files
+          case "$name" in snapshot_*) continue ;; esac
+          # table: per-source mirror URL (assert) -> snapshot rewrite (sed exprs);
+          # sources with no snapshot archive fall through and are skipped
+          case "$name" in
+            debian)
+              assert='http://deb.debian.org/debian'
+              set -- \
+                -e "s#http://deb\.debian\.org/debian/#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#g" \
+                -e "s#http://deb\.debian\.org/debian-security/#https://snapshot.debian.org/archive/debian-security/${SNAPSHOT}/#g"
+              ;;
+            debian-backports)
+              assert='http://deb.debian.org/debian'
+              set -- \
+                -e "s#http://deb\.debian\.org/debian\$#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#"
+              ;;
+            qli)
+              assert='https://deb.debusine.qualcomm.com/qualcomm/qli'
+              set -- \
+                -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#"
+              ;;
+            *)
+              echo "WARNING: skipping apt snapshot for $src" >&2
+              continue
+              ;;
+          esac
+          # fail loudly if the upstream mirror URL isn't what we expect
+          if ! grep -qF "$assert" "$src"; then
+              echo "ERROR: expected mirror '$assert' not found in $src" >&2
+              exit 1
+          fi
+          # rewrite the mirror URL to the dated snapshot archive and disable
+          # Check-Valid-Until (snapshots are static, so the Release becomes stale)
+          sed "$@" \
+              -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
+              -e "/^Enabled:/a\\Check-Valid-Until: no" \
+              "$src" > "/etc/apt/sources.list.d/snapshot_${name}.sources"
+      done
       apt-snapshot-toggle enable
-{{- end }}
 {{- end }}
 
   - action: run
