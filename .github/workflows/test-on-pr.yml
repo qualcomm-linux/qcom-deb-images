@@ -2,7 +2,12 @@ name: Test PR build
 
 run-name: "Tests triggered by PR: ${{ github.event.workflow_run.display_title }}"
 
-on:
+# workflow_run is required to comment on PRs from forks: pull_request runs
+# from a fork get a read-only token and cannot post a comment. This workflow
+# never checks out or executes PR-controlled code, it only reads artifacts and
+# the event payload, so the usual workflow_run privilege-escalation route does
+# not apply.
+on: # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: ["Build on PR"]
     types:
