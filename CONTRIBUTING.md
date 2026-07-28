@@ -59,8 +59,87 @@ Here are a few things you can do that will increase the likelihood of your pull 
 - Write tests.
 - Keep your change as focused as possible.
   If you want to make multiple independent changes, please consider submitting them as separate pull requests.
-- Write a [good commit message](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
+- Write well-formed commit messages for each change, following the [commit messages](#commit-messages) documentation below.
 - It's a good idea to arrange a discussion with other developers to ensure there is consensus on large features, architecture changes, and other core code changes. PR reviews will go much faster when there are no surprises.
+
+# Commit messages
+
+When writing commit messages, follow the [well-formed git commit message](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html) guide.
+
+This project also follows the guidelines from the [Conventional Commits](https://conventionalcommits.org) specification.
+
+The subject of each commit message (e.g. the first line) should be in the form:
+
+```
+<type>(<scope>): <description>
+```
+
+The `scope` is optional; please add one when the change is confined to a single area of the tree. Use the path-like scopes already in use in the history; for instance: `debos/flash`, `debos/rootfs`, `ci`, `ci/lava`, `kernel`, `kernel-configs`, `Makefile`, `README` or `scripts/build-linux-deb`.
+
+The common types used in this repository are:
+
+| Type       | Description                                                        |
+| ---------- | ------------------------------------------------------------------ |
+| `feat`     | a new feature, board, recipe or package                            |
+| `fix`      | a bug fix                                                          |
+| `refactor` | a change which neither fixes a bug nor adds a feature              |
+| `docs`     | documentation only changes                                         |
+| `ci`       | changes to the GitHub workflows or the LAVA test jobs              |
+| `test`     | adding or correcting tests                                         |
+| `chore`    | maintenance which does not change behaviour, e.g. dependency bumps |
+
+This list is not complete; do use your judgement when choosing type and scope in commit messages.
+
+Start the commit subject in lowercase, don't add a trailing full-stop and keep the subject line at 72 characters or less.
+
+Write the commit description in the imperative mood (e.g. `add`, not `added` or `adds`).
+
+Explain *why* the change is needed in the body (wrapped at 72 characters or less per line) and finish with the usual trailers, for example:
+`Fixes: #467`, `Assisted-by:` (see [AI-Assisted Contributions](#ai-assisted-contributions)) and your `Signed-off-by:`.
+
+Some examples taken from the history of this repository:
+
+```
+feat(debos/flash): add sm8750-mtp
+```
+
+```
+fix(debos/flash): skip multidtb SoCs with no FIT
+```
+
+```
+refactor(debos/rootfs): build backports pin package list from a template
+
+The `Package:` line for the backports pin lists all packages on a single
+long line which can be hard to review and amend.
+
+Instead build the package list from a Go template list with one package
+per line and join the list when generating the preferences file.
+
+Signed-off-by: Jane Smith <jane.smith@example.com>
+```
+
+## Breaking changes
+
+If a commit changes behaviour in a way which requires contributors or users to adapt, e.g. renaming a board field or a command line option, append a `!` after the type and scope, for example:
+
+```
+refactor(debos/flash)!: rename silicon_family to soc_id
+```
+
+Describe what breaks and how to migrate in the body and add a `BREAKING CHANGE:` footer when the migration deserves to stand out:
+
+```
+feat(kernel)!: install linux-headers along -image
+
+For kernels built locally via bindeb-pkg and staged on EFS, install the
+generated linux-headers-* packages in addition to linux-image-*.
+
+BREAKING CHANGE: the local APT repo must now also contain the
+linux-headers-* packages matching the installed kernel.
+
+Signed-off-by: Jane Smith <jane.smith@example.com>
+```
 
 # AI-Assisted Contributions
 
