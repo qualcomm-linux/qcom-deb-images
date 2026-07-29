@@ -39,8 +39,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install debos and dependencies of the recipes
-        run: apt -y install debian-archive-keyring debos make mmdebstrap
+      - name: Install debos and dependencies of the recipes and the boot test
+        run: apt -y install debian-archive-keyring debos e2fsprogs make mmdebstrap python3-pexpect python3-pytest qemu-system-arm qemu-utils
 
       # the runners cannot run armhf binaries, the fakemachine's emulated CPU can
       - name: Build rootfs with debos
@@ -48,3 +48,6 @@ jobs:
 
       - name: Build UFS and SD card images with debos
         run: make armhf FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Boot the armhf image in qemu
+        run: py.test-3 --verbose --capture=no -k armhf
