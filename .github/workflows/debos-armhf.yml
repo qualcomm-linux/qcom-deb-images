@@ -36,3 +36,8 @@ jobs:
         with:
           architecture: armhf
           suite: ${{ inputs.suite }}
+
+      # --verbose shows each test's full name and result, --capture=no streams
+      # the serial console live instead of printing it only on failure
+      - name: Boot the armhf image in qemu
+        run: py.test-3 --verbose --capture=no -k armhf
