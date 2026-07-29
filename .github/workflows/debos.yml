@@ -104,6 +104,8 @@ jobs:
           )
 
       - name: Build rootfs with debos
+        env:
+          OVERLAYS: ${{ inputs.overlays }}
         run: |
           set -ux
           kernel_packages="$KERNEL_PACKAGES"
@@ -137,7 +139,7 @@ jobs:
           esac
 
           debos \
-              -t overlays:'${{ inputs.overlays }}' \
+              -t overlays:"$OVERLAYS" \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackages:"$kernel_packages" \
