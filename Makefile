@@ -122,6 +122,10 @@ test: disk-ufs-arm64.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
+.PHONY: test-armhf
+test-armhf: disk-ufs-armhf.img
+	py.test-3 --ignore=rootfs -k armhf
+
 .PHONY: clean
 clean:
 	rm -f $(DISK_UFS_ARM64_IMAGES) $(DISK_UFS_ARMHF_IMAGES)
