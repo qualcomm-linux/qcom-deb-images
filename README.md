@@ -373,7 +373,7 @@ for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
 workflow submits.
 
 `build.yml` also builds armhf images of the `console` variant. These are not
-published.
+published; they are only booted in QEMU.
 
 ### Flash the image
 
