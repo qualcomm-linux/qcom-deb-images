@@ -3,17 +3,18 @@ name: Build on PR
 on:
   pull_request:
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # debos.yml lava-schema-check.yml
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 jobs:
   event-file:
     name: "Upload event file"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/upload-artifact
     steps:
     - name: Upload
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: Event File
         path: ${{ github.event_path }}
@@ -24,7 +25,11 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read # debos.yml
     with:
       suite: ${{ matrix.suite }}
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
+    permissions:
+      contents: read # lava-schema-check.yml

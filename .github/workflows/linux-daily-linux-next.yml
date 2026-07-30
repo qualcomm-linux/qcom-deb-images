@@ -7,19 +7,22 @@ on:
   # allow manual runs
   workflow_dispatch:
 
-permissions:
-  checks: write # linux.yml
-  contents: read # linux.yml
-  packages: read # linux.yml
-  pull-requests: write # linux.yml
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 jobs:
   build:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
+    permissions:
+      checks: write # linux.yml
+      contents: read # linux.yml
+      packages: read # linux.yml
+      pull-requests: write # linux.yml
     with:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
       lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
-    secrets: inherit
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml

@@ -18,13 +18,17 @@ on:
         description: JSON array of board names to exclude (empty = none excluded)
         type: string
         default: ''
+    # this is the only workflow that consumes a secret; like permissions:, it
+    # has to be named again by every caller down the chain
+    secrets:
+      LAVATOKEN:
+        description: API token used to submit jobs to LAVA
+        required: true
 
-# implicitely set all other permissions to none
-permissions:
-  checks: write # EnricoMi/publish-unit-test-result-action
-  contents: read # actions/checkout
-  packages: read # actions/download-artifact
-  pull-requests: write # EnricoMi/publish-unit-test-result-action
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   BUILD_URL: ${{ inputs.url }}
@@ -36,14 +40,17 @@ env:
 jobs:
   prepare-job-list:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     outputs:
       jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
       has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Print trigger
         run: |
           echo "Triggered by ${{ github.event_name }}"
@@ -97,20 +104,24 @@ jobs:
     needs: prepare-job-list
     if: needs.prepare-job-list.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     name: Submit ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Update test definition ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
           # e.g. qrb2210-rb1/boot.yaml
-          TARGET="${{ matrix.target }}"
           TEMPLATE="${LAVA_CI}${TARGET}"
           # left-side – e.g. qrb2210-rb1
           DEVICE_TYPE="${TARGET%/*}"
@@ -130,7 +141,7 @@ jobs:
 
       - name: Submit ${{ matrix.target }}
         timeout-minutes: 240
-        uses: foundriesio/lava-action@v13
+        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
@@ -151,6 +162,11 @@ jobs:
     name: Publish Tests Results
     needs: submit-job
     runs-on: ubuntu-latest
+    permissions:
+      checks: write # EnricoMi/publish-unit-test-result-action
+      contents: read # EnricoMi/publish-unit-test-result-action
+      packages: read # actions/download-artifact
+      pull-requests: write # EnricoMi/publish-unit-test-result-action
 
     steps:
       # Artifacts live at the run level and persist across re-run attempts, so
@@ -158,12 +174,12 @@ jobs:
       # download-artifact tries to fetch stale artifacts from superseded
       # attempts (and the other suite) and 404s on the orphaned ones.
       - name: Download test results (this debian suite; latest per board)
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           pattern: test-results-${{ inputs.suite }}-*
       - name: Download job details (this debian suite, this run attempt)
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
@@ -174,7 +190,7 @@ jobs:
           ls -R $GITHUB_WORKSPACE
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           files: "${{ github.workspace }}/artifacts/**/*.xml"
 

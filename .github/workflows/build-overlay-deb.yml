@@ -8,8 +8,13 @@ on:
         required: true
         type: string
 
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
 jobs:
   build:
+    permissions:
+      contents: read # actions/checkout
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -28,7 +33,9 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt -y full-upgrade
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install sbuild and dependencies
         run: |
@@ -92,7 +99,7 @@ jobs:
               --config "$CONFIG" --output-dir upload
 
       - name: Upload as private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         with:
           path: upload
           # these should be the defaults; or ought to reuse BUILD_ID

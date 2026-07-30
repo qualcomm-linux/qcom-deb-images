@@ -8,9 +8,8 @@ on:
   push:
     branches: [main]
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # actions/checkout
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 # cancel in progress builds for this workflow triggered by the same ref
 concurrency:
@@ -21,13 +20,16 @@ jobs:
   flake8:
     name: Install and run Flake8 on Python scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install flake8
         run: sudo apt update && sudo apt -y install file flake8
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Run Flake8 and dependencies
         run: |
@@ -37,13 +39,16 @@ jobs:
   pylint:
     name: Install and run Pylint on Python scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install Pylint and dependencies
         run: sudo apt update && sudo apt -y install file pylint python3-voluptuous python3-defusedxml
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Run Pylint (error mode)
         run: |
@@ -53,13 +58,16 @@ jobs:
   shellcheck:
     name: Install and run ShellCheck on shell scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     steps:
       - name: Install ShellCheck
         run: sudo apt update && sudo apt -y install shellcheck file
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Run ShellCheck
         run: |

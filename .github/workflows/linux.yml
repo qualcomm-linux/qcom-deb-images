@@ -38,6 +38,12 @@ on:
         required: false
         type: string
         default: ''
+    secrets:
+      LAVATOKEN:
+        description: API token used to submit jobs to LAVA
+        # only forwarded to lava-test.yml; callers passing skip_lava_tests
+        # never reach that job, so this stays optional
+        required: false
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -54,12 +60,10 @@ on:
         required: false
         type: string
 
-# implicitely set all other permissions to none
-permissions:
-  checks: write # lava-test.yml
-  contents: read # actions/checkout debos.yml lava-test.yml
-  packages: read # lava-test.yml
-  pull-requests: write # lava-test.yml
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   # github runs are only unique per repository and may also be re-run; create a
@@ -79,6 +83,8 @@ jobs:
   build-linux-deb:
     # don't run cron from forks of the main repository or from other branches
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read # actions/checkout
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
@@ -88,9 +94,10 @@ jobs:
       volumes:
         - /efs/qli/qcom-deb-images:/efs
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # make sure we have latest packages first, to get latest fixes, to avoid
       # an automated update while we're building, and to prevent version skews
@@ -144,7 +151,7 @@ jobs:
           sync
 
       - name: Upload private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_artifacts
         with:
           path: artifacts
@@ -155,6 +162,8 @@ jobs:
   debos-linux-deb:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read # debos.yml
     with:
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
@@ -164,7 +173,13 @@ jobs:
     if: ${{ !inputs.skip_lava_tests }}
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
-    secrets: inherit
+    permissions:
+      checks: write # lava-test.yml
+      contents: read # lava-test.yml
+      packages: read # lava-test.yml
+      pull-requests: write # lava-test.yml
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: trixie

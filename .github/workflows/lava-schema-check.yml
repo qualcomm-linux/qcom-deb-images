@@ -3,19 +3,23 @@ name: Check LAVA templates
 on:
   workflow_call:
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # actions/checkout
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 jobs:
   schema-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
     container: ghcr.io/linux-validation/lava/lava-server-amd64:2026.05-qualcomm-2026.05-22-d5988428c
     steps:
       - name: Clone repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Schema check
         run: |
           DEVICE_TYPE="my-device"

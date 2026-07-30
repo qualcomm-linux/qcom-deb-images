@@ -4,12 +4,8 @@ on:
   push:
     branches: [main]
 
-# implicitely set all other permissions to none
-permissions:
-  checks: write # lava-test.yml
-  contents: read # debos.yml lava-schema-check.yml lava-test.yml
-  packages: read # lava-test.yml
-  pull-requests: write # lava-test.yml
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
 
 jobs:
   build-daily:
@@ -18,14 +14,24 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read # debos.yml
     with:
       suite: ${{ matrix.suite }}
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
+    permissions:
+      contents: read # lava-schema-check.yml
   test:
     uses: ./.github/workflows/lava-test.yml
     needs: [build-daily, schema-check]
-    secrets: inherit
+    permissions:
+      checks: write # lava-test.yml
+      contents: read # lava-test.yml
+      packages: read # lava-test.yml
+      pull-requests: write # lava-test.yml
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       # monaco-evk only validated against the linux-next/qcom-next/arduino

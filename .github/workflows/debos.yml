@@ -33,14 +33,16 @@ on:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
 
-# implicitely set all other permissions to none
-permissions:
-  contents: read # actions/checkout
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
 
 env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
+  OVERLAYS: ${{ inputs.overlays }}
   SUITE: ${{ inputs.suite }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   PREFIX: ${{ inputs.suite }}
@@ -48,6 +50,8 @@ env:
 jobs:
   build-debos:
     name: Build and upload debos recipes (${{ inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
@@ -66,9 +70,10 @@ jobs:
           apt -y upgrade
           apt -y full-upgrade
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
@@ -137,7 +142,7 @@ jobs:
           esac
 
           debos \
-              -t overlays:'${{ inputs.overlays }}' \
+              -t "overlays:$OVERLAYS" \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackages:"$kernel_packages" \
@@ -181,7 +186,7 @@ jobs:
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_artifacts_s3
         with:
           path: debos-artifacts
@@ -237,7 +242,7 @@ jobs:
           done
 
       - name: Upload SBOMs as private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@aws-v4
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_sbom_artifacts
         with:
           path: sboms
@@ -255,7 +260,7 @@ jobs:
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build_url
           path: build_url
