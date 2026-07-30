@@ -1,10 +1,20 @@
 disk-sdcard.img*
 disk-ufs.img*
+# sparse images made from the disk images
+disk-*.simg*
 dtbs.tar.gz
-dtb-multidtb.bin
+# one multi-DTB FIT image per SoC
+dtb-multidtb*.bin
 dtb-combineddtb.bin
 *.deb
 *.buildinfo
 *.changes
 rootfs.tar*
+# root filesystem unpacked from the tarball, e.g. to generate an SBOM
+rootfs/
+# per-board flashing directories built by the flash recipe
+flash_*/
 fake-scratch.img.*
+# left behind by the test suite
+__pycache__/
+.pytest_cache/
