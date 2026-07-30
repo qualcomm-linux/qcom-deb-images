@@ -652,6 +652,37 @@ actions:
       - kmod
       - linux-base
 
+  # on 32-bit architectures, dracut-install silently drops the module
+  # directories the initramfs generators request, so name the storage
+  # modules the qemu boot test needs (https://bugs.debian.org/1110545)
+{{- if and (eq $architecture "armhf") (eq $initramfs "initramfs-tools") }}
+  - action: run
+    description: Name the modules the qemu boot test needs for initramfs-tools
+    chroot: true
+    command: |
+      set -eux
+      cat >>/etc/initramfs-tools/modules <<'EOF'
+
+      # storage drivers for the qemu boot test
+      sd_mod
+      virtio_blk
+      virtio_scsi
+      EOF
+{{- end }}
+
+{{- if and (eq $architecture "armhf") (eq $initramfs "dracut") }}
+  - action: run
+    description: Name the modules the qemu boot test needs for dracut
+    chroot: true
+    command: |
+      set -eux
+      mkdir -p /etc/dracut.conf.d
+      cat >/etc/dracut.conf.d/90-qemu-storage.conf <<'EOF'
+      # storage drivers for the qemu boot test
+      force_drivers+=" sd_mod virtio_blk virtio_scsi "
+      EOF
+{{- end }}
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
