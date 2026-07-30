@@ -88,22 +88,33 @@ To build flashable assets for all supported boards, follow these steps:
 
 1. build tarballs of the root filesystem and DTBs
     ```bash
-    make rootfs.tar
+    make rootfs-arm64.tar
 
     # (optional) if you've built a local kernel, copy it to `debos-recipes/local-debs/`
     # and run this instead:
-    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
+    #EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs-arm64.tar
     ```
 
 1. build disk and filesystem images from the root filesystem tarball
     ```bash
     # the default is to build a UFS image
-    make disk-ufs.img
+    make disk-ufs-arm64.img
 
     # (optional) if you want SD card images or support for eMMC boards, run
     # this as well:
-    make disk-sdcard.img
+    make disk-sdcard-arm64.img
+
+    # both of the above, plus the unsuffixed compatibility symlinks:
+    #make arm64
     ```
+
+    Build artifacts include the architecture they were built for
+    (`rootfs-arm64.tar`, `disk-ufs-arm64.img`, ...). arm64 was once the only
+    architecture and its artifacts had no architecture in their name, so
+    `make arm64` also creates symlinks under those names (`rootfs.tar`,
+    `disk-ufs.img`, ...) for the flashing pipeline and for existing scripts.
+    The artifacts published by CI are unaffected: they keep their historical
+    names.
 
 1. build flashable assets from downloaded boot binaries, the DTBs, and pointing at the UFS/SD card disk images
     ```bash
@@ -171,8 +182,8 @@ For the image recipe:
 - `dtb`: override the firmware provided device tree with one from the Linux
   kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
-  disk-ufs.img and use 4096-byte sectors and SD card images are named
-  disk-sdcard.img and use 512-byte sectors
+  disk-ufs-arm64.img and use 4096-byte sectors and SD card images are named
+  disk-sdcard-arm64.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
@@ -187,7 +198,7 @@ For the flash recipe:
   `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
   `qcs9100-ride-r3`, `qrb2210-rb1`.
 
-Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
+Note: Boards whose required device tree (.dtb) is not present in `dtbs-arm64.tar.gz` are automatically skipped during flash asset generation.
 
 Deprecated flash options:
 - `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
@@ -219,7 +230,7 @@ directory, notably to set large enough memory and scratchsize settings. To pass
 extra options to debos invocations, use `EXTRA_DEBOS_OPTS`, e.g.:
 
 ```
-make EXTRA_DEBOS_OPTS="-t xfcedesktop:true" disk-ufs.img
+make EXTRA_DEBOS_OPTS="-t xfcedesktop:true" disk-ufs-arm64.img
 ```
 
 #### Supported overlays
@@ -247,12 +258,12 @@ A profile selects the intended runtime configuration of the image. It is passed
 to the image recipe with `-t profile:<profile>`, e.g.:
 
 ```bash
-make EXTRA_DEBOS_OPTS="-t profile:<profile>" disk-ufs.img
+make EXTRA_DEBOS_OPTS="-t profile:<profile>" disk-ufs-arm64.img
 ```
 
 If no profile is passed, the `default` profile is used; there is no need to pass
 `-t profile:default`. The root filesystem is profile-independent, so the same
-`rootfs.tar` can be used to build every profile.
+`rootfs-arm64.tar` can be used to build every profile.
 
 The following profiles are supported:
 
@@ -283,9 +294,9 @@ The following profiles are supported:
 
 ### Flash the image
 
-The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
+The `disk-sdcard-arm64.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
 
-For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
+For UFS boards, if there is no need to update the boot firmware, the `disk-ufs-arm64.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
 
 Put the board in "emergency download mode" (EDL; see next section) and run:
 ```bash
@@ -389,7 +400,7 @@ Dependencies:
 
 Basic usage:
 ```bash
-# Auto-detects disk-ufs.img or disk-sdcard.img in the current directory
+# Auto-detects disk-ufs-arm64.img or disk-sdcard-arm64.img in the current directory
 scripts/run-qemu.py
 
 # Explicit storage type (sector size set accordingly)
@@ -397,7 +408,7 @@ scripts/run-qemu.py --storage ufs
 scripts/run-qemu.py --storage sdcard
 
 # Use a specific image path
-scripts/run-qemu.py --image /path/to/disk-ufs.img
+scripts/run-qemu.py --image /path/to/disk-ufs-arm64.img
 
 # Run headless (no GUI), with serial console on stdio
 scripts/run-qemu.py --headless
@@ -410,7 +421,7 @@ scripts/run-qemu.py --qemu-args "-smp 4 -m 4096"
 ```
 
 Notes:
-- If neither `disk-ufs.img` nor `disk-sdcard.img` is found and `--image` is not provided, the script will exit with an error.
+- If neither `disk-ufs-arm64.img` nor `disk-sdcard-arm64.img` is found and `--image` is not provided, the script will exit with an error.
 - On Linux, the script looks for `/usr/share/qemu-efi-aarch64/QEMU_EFI.fd`. On macOS with Homebrew, it uses `share/qemu/edk2-aarch64-code.fd` from the `qemu` formula.
 - The overlay is cleaned up automatically when QEMU exits. Use `--no-cow` to make changes persistent on the base image.
 
