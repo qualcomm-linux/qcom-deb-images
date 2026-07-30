@@ -27,6 +27,13 @@ on:
         description: Skip QEMU tests
         type: boolean
         default: false
+      build_armhf:
+        description: >
+          Also build an armhf rootfs and disk images; armhf always uses the
+          recipe's default kernel (Debian's linux-image-armmp) since the
+          kernelpackages input refers to arm64-only kernels
+        type: boolean
+        default: false
 
     outputs:
       artifacts_url:
@@ -104,6 +111,8 @@ jobs:
           )
 
       - name: Build rootfs with debos
+        env:
+          OVERLAYS: ${{ inputs.overlays }}
         run: |
           set -ux
           kernel_packages="$KERNEL_PACKAGES"
@@ -137,10 +146,28 @@ jobs:
           esac
 
           debos \
-              -t overlays:'${{ inputs.overlays }}' \
+              -t overlays:"$OVERLAYS" \
               -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackages:"$kernel_packages" \
+              -t "buildid:${BUILD_ID}" \
+              ${DEBOS_EXTRA_ARGS} \
+              --print-recipe \
+              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
+      - name: Build armhf rootfs with debos
+        if: ${{ inputs.build_armhf }}
+        env:
+          OVERLAYS: ${{ inputs.overlays }}
+        run: |
+          set -ux
+          # NB: no kernelpackages/aptlocalrepo here; the default-ci and EFS
+          # kernels are arm64 only, so armhf sticks to the recipe's default
+          # kernel (Debian's linux-image-armmp)
+          debos \
+              -t architecture:armhf \
+              -t overlays:"$OVERLAYS" \
+              -t xfcedesktop:true \
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
@@ -155,8 +182,18 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # builds both disk images and the unsuffixed compatibility symlinks
+          # the flashing pipeline expects
+          make arm64 FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Build armhf UFS and SD card images with debos
+        if: ${{ inputs.build_armhf }}
+        run: |
+          set -ux
+          # rootfs-armhf.tar was built by the armhf rootfs step above, so make
+          # only runs the image recipe here (same pattern as for arm64)
+          make disk-ufs-armhf.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard-armhf.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
@@ -169,11 +206,20 @@ jobs:
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
-          # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          # compress output files directly into the staging directory; the
+          # published arm64 artifacts keep the names they had before the build
+          # artifacts gained an architecture suffix
+          gzip -c rootfs-arm64.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
+          gzip -c disk-ufs-arm64.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
+          gzip -c disk-sdcard-arm64.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
+          cp -av dtbs-arm64.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          # armhf artifacts are only present when the build_armhf input is set
+          if [ -f rootfs-armhf.tar ]; then
+              gzip -c rootfs-armhf.tar >"${dir}/${PREFIX}-rootfs-armhf.tar.gz"
+              gzip -c disk-ufs-armhf.img >"${dir}/${PREFIX}-disk-ufs-armhf.img.gz"
+              gzip -c disk-sdcard-armhf.img >"${dir}/${PREFIX}-disk-sdcard-armhf.img.gz"
+              cp -av dtbs-armhf.tar.gz "${dir}/${PREFIX}-dtbs-armhf.tar.gz"
+          fi
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
           # generate sha256sums for all artifacts
@@ -190,7 +236,7 @@ jobs:
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Unpack rootfs to generate SBOM
-        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
+        run: mkdir -v rootfs && tar -C rootfs -xf rootfs-arm64.tar
 
       - name: Install cosign
         # Required so the syft installer can verify the release signature (-v).

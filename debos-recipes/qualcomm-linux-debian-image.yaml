@@ -1,16 +1,34 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $dtb := or .dtb "firmware" }}
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
-{{- $image := printf "disk-%s.img" $imagetype }}
 {{- $snapshot := or .snapshot "" }}
 
-architecture: arm64
+# only arm64 and armhf are supported architectures
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+# artifacts are named after the architecture they were built for; the root
+# filesystem name must match the one the root filesystem recipe writes
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $image := printf "disk-%s-%s.img" $imagetype $architecture }}
+
+# On Qualcomm platforms, armhf images have no ESP, so the root filesystem is
+# the first partition
+{{- $rootpartnum := 2 }}
+{{- if eq $architecture "armhf" }}
+{{- $rootpartnum = 1 }}
+{{- end }}
+
+architecture: {{ $architecture }}
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
   - action: unpack
     description: Unpack root filesystem
-    file: rootfs.tar
+    file: {{ $rootfs }}
 
 {{- if ne $dtb "firmware" }}
   - action: run
@@ -24,6 +42,26 @@ actions:
 
   # parttype values are from:
   # https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
+{{- if eq $architecture "armhf" }}
+  # the 32-bit Qualcomm platforms supported by these recipes are not booted by
+  # EFI, so their images have a single root partition and no ESP
+  - action: image-partition
+    description: Create an image file
+    imagename: {{ $image }}
+    imagesize: {{ $imagesize }}
+    partitiontype: gpt
+    partitions:
+      - name: root
+        # Root Partition (32-bit ARM)
+        parttype: 69dad710-2ce4-4e3c-b16c-21a1d49abed3
+        fs: ext4
+        start: 4MiB
+        end: 100%
+        fsck: true
+    mountpoints:
+      - mountpoint: /
+        partition: root
+{{- else }}
   - action: image-partition
     description: Create an image file
     imagename: {{ $image }}
@@ -71,6 +109,7 @@ actions:
           - errors=remount-ro
       - mountpoint: /
         partition: root
+{{- end }}
 
   # XXX these kernel options might be specific to a kernel version or board
   - action: filesystem-deploy
@@ -88,6 +127,9 @@ actions:
       apt-get update
 {{- end }}
 
+{{- if ne $architecture "armhf" }}
+  # On Qualcomm platforms, armhf images have no ESP to install a bootloader
+  # or DTBs into
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
@@ -124,6 +166,7 @@ actions:
       latest_kernel=$(echo "$kernel_list" | linux-version sort --reverse | head -1)
       dtb_path="/usr/lib/linux-image-${latest_kernel}"
       cp -LRT "$dtb_path" "/boot/efi/dtb"
+{{- end }}
 
   - action: run
     description: Create task to grow root filesystem on first boot
@@ -138,13 +181,13 @@ actions:
           awk '$2 == "/" {gsub("UUID=", "/dev/disk/by-uuid/"); print $1}' \
               /etc/fstab
           )
-      # generate systemd unit to grow the second partition with above UUID
+      # generate systemd unit to grow the root partition with above UUID
       cat >/etc/systemd/system/debos-grow-rootfs.service <<EOF
       [Unit]
       Description=Grow root partition and filesystem (debos)
       [Service]
       Type=oneshot
-      ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` 2'
+      ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` {{ $rootpartnum }}'
       ExecStart=resize2fs $ROOTFS_DEV
       ExecStartPost=/usr/bin/systemctl disable debos-grow-rootfs.service
       [Install]

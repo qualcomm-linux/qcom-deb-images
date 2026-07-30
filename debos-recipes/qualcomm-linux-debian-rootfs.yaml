@@ -1,9 +1,8 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
@@ -21,7 +20,27 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
-architecture: arm64
+# only arm64 and armhf are supported architectures
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+# Debian ships a dedicated kernel flavour for arm64 and a multiplatform one
+# for armhf
+{{- $defaultkernelpackages := "linux-image-arm64" }}
+{{- if eq $architecture "armhf" }}
+{{- $defaultkernelpackages = "linux-image-armmp" }}
+{{- end }}
+
+# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
+{{- $kernelpackages := or .kernelpackages .kernelpackage $defaultkernelpackages }}
+
+# output artifacts are named after the architecture they were built for
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
+
+architecture: {{ $architecture }}
 
 actions:
 {{- if .kernelpackage }}
@@ -336,11 +355,11 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if eq $suite "trixie" }}
+{{- if and (eq $suite "trixie") (eq $architecture "arm64") }}
 {{- if ne $overlays "none" }}
 {{- range $overlay := split "," $overlays }}
 {{- if eq $overlay "qsc-deb-releases" }}
-  # fastrpc-tests is only available in trixie-overlay
+  # fastrpc-tests is only available in trixie-overlay, and only for arm64
   - action: apt
     description: Install fastrpc-tests (trixie only)
     recommends: true
@@ -413,8 +432,10 @@ actions:
     packages:
       - alsa-utils
       - clinfo
-      # used to debug clock issues
+{{- if eq $architecture "arm64" }}
+      # used to debug clock issues; only built for arm64 in Debian
       - debugcc
+{{- end }}
       - device-tree-compiler
       - docker.io
       # used to debug ethernet speed auto-neg issues
@@ -640,6 +661,35 @@ actions:
       - kmod
       - linux-base
 
+{{- if eq $architecture "armhf" }}
+  # initramfs-tools asks dracut-install to install whole module directories
+  # (e.g. "=drivers/scsi"), which dracut-install expands with glibc's fts(3).
+  # fts reads directories with the 32-bit readdir(), which fails with
+  # EOVERFLOW on the 64-bit directory cookies ext4 hands out, so on 32-bit
+  # architectures every such directory looks empty and is skipped without an
+  # error, leaving an initramfs with no storage drivers at all:
+  #   https://bugs.debian.org/1110545 - missing modules break boot on armhf
+  #   https://bugs.debian.org/1079080 - the dracut-install failure is ignored
+  #   https://bugzilla.kernel.org/show_bug.cgi?id=205957 - the ext4 side
+  # Modules requested by name are unaffected, so name the ones the qemu boot
+  # test needs. Drivers for real hardware (MMC, UFS) are still missing, so
+  # this is a workaround for testing, not a fix.
+  - action: run
+    description: Name the modules the qemu boot test needs (see Debian #1110545)
+    chroot: true
+    command: |
+      set -eux
+      cat >>/etc/initramfs-tools/modules <<'EOF'
+
+      # Storage drivers for the qemu boot test; on 32-bit architectures they
+      # have to be named because the module directories initramfs-tools adds
+      # are silently dropped (https://bugs.debian.org/1110545)
+      sd_mod
+      virtio_blk
+      virtio_scsi
+      EOF
+{{- end }}
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
@@ -722,12 +772,12 @@ actions:
       tar \
           -C "${latest_kernel}" \
           --transform='s|^\./||' \
-          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          -cvzf "$ARTIFACTDIR/{{ $dtbs }}" \
           .
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar
+    file: {{ $rootfs }}
     compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
