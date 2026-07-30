@@ -11,7 +11,7 @@ Usage:
     run-qemu.py --storage sdcard
 
 - Set image file, detect storage type:
-    run-qemu.py --image /path/to/disk-ufs.img
+    run-qemu.py --image /path/to/disk-ufs-arm64.img
 
 - Disable COW overlay (write to disk image):
     run-qemu.py --no-cow
@@ -27,8 +27,8 @@ import platform
 import shlex
 from typing import Optional
 
-DEFAULT_UFS_IMAGE = "disk-ufs.img"
-DEFAULT_SDCARD_IMAGE = "disk-sdcard.img"
+DEFAULT_UFS_IMAGE = "disk-ufs-arm64.img"
+DEFAULT_SDCARD_IMAGE = "disk-sdcard-arm64.img"
 
 
 def find_bios_path() -> Optional[str]:
@@ -83,7 +83,7 @@ def main():
         "--image",
         help=(
             "Path to the base disk image (.img). Default is to auto-detect "
-            "disk-ufs.img or disk-sdcard.img."
+            "disk-ufs-arm64.img or disk-sdcard-arm64.img."
         ),
     )
     parser.add_argument(
