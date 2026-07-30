@@ -41,10 +41,10 @@ actions:
     "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
     "boot_binaries_download" (dict
         "description" "Glymur boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00079/Glymur_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00080/Glymur_bootbinaries.zip"
         "name" "glymur_boot-binaries"
         "filename" "glymur_boot-binaries.zip"
-        "sha256sum" "b8063fd1dff26bdc289d96ceb21edb6fcc0dbd604277a948df43699299b32649"
+        "sha256sum" "82abec551e305643ec0acfd9bff77b6fc27c410220ef0ce4b0bce30d268387de"
     )
     "cdt_download" (dict
         "description" "Glymur CRD CDT"
