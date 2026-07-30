@@ -3,22 +3,10 @@
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
-
-# only arm64 is supported so far
-{{- if ne $architecture "arm64" }}
-# Call an unexisting template to err out of the recipe
-{{ template "ERR" }}
-{{- end }}
-
-# output artifacts are named after the architecture they were built for
-{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
-{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -31,6 +19,26 @@
 {{- if eq $suite "sid" }}
 {{- $suite = "unstable" }}
 {{- end }}
+
+# only arm64 and armhf are supported architectures
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+# Debian ships a dedicated kernel flavour for arm64 and a multiplatform one
+# for armhf
+{{- $defaultkernelpackages := "linux-image-arm64" }}
+{{- if eq $architecture "armhf" }}
+{{- $defaultkernelpackages = "linux-image-armmp" }}
+{{- end }}
+
+# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
+{{- $kernelpackages := or .kernelpackages .kernelpackage $defaultkernelpackages }}
+
+# output artifacts are named after the architecture they were built for
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
 
 architecture: {{ $architecture }}
 
@@ -347,11 +355,11 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if eq $suite "trixie" }}
+{{- if and (eq $suite "trixie") (eq $architecture "arm64") }}
 {{- if ne $overlays "none" }}
 {{- range $overlay := split "," $overlays }}
 {{- if eq $overlay "qsc-deb-releases" }}
-  # fastrpc-tests is only available in trixie-overlay
+  # fastrpc-tests is only available in trixie-overlay, and only for arm64
   - action: apt
     description: Install fastrpc-tests (trixie only)
     recommends: true
@@ -424,8 +432,10 @@ actions:
     packages:
       - alsa-utils
       - clinfo
-      # used to debug clock issues
+{{- if eq $architecture "arm64" }}
+      # used to debug clock issues; only built for arm64 in Debian
       - debugcc
+{{- end }}
       - device-tree-compiler
       - docker.io
       # used to debug ethernet speed auto-neg issues

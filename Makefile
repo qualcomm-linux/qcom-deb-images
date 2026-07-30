@@ -64,8 +64,15 @@ all: arm64
 .PHONY: arm64
 arm64: disk-ufs-arm64.img disk-sdcard-arm64.img $(COMPAT_LINKS)
 
+# armhf images are not built by default; ask for them with `make armhf`
+.PHONY: armhf
+armhf: disk-ufs-armhf.img disk-sdcard-armhf.img
+
 rootfs-arm64.tar dtbs-arm64.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS_CMD) -t architecture:arm64 $<
+
+rootfs-armhf.tar dtbs-armhf.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
+	$(DEBOS_CMD) -t architecture:armhf $<
 
 DISK_UFS_ARM64_IMAGES := disk-ufs-arm64.img \
 	disk-ufs-arm64.img1 \
@@ -74,12 +81,25 @@ DISK_UFS_ARM64_IMAGES := disk-ufs-arm64.img \
 $(DISK_UFS_ARM64_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs-arm64.tar
 	$(DEBOS_CMD) -t architecture:arm64 $<
 
+# armhf images have no ESP, so there is no second partition to extract
+DISK_UFS_ARMHF_IMAGES := disk-ufs-armhf.img \
+	disk-ufs-armhf.img1
+
+$(DISK_UFS_ARMHF_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs-armhf.tar
+	$(DEBOS_CMD) -t architecture:armhf $<
+
 DISK_SDCARD_ARM64_IMAGES := disk-sdcard-arm64.img \
 	disk-sdcard-arm64.img1 \
 	disk-sdcard-arm64.img2
 
 $(DISK_SDCARD_ARM64_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs-arm64.tar
 	$(DEBOS_CMD) -t architecture:arm64 -t imagetype:sdcard $<
+
+DISK_SDCARD_ARMHF_IMAGES := disk-sdcard-armhf.img \
+	disk-sdcard-armhf.img1
+
+$(DISK_SDCARD_ARMHF_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs-armhf.tar
+	$(DEBOS_CMD) -t architecture:armhf -t imagetype:sdcard $<
 
 rootfs.tar: rootfs-arm64.tar
 	ln -sf $< $@
@@ -104,10 +124,10 @@ test: disk-ufs-arm64.img
 
 .PHONY: clean
 clean:
-	rm -f $(DISK_UFS_ARM64_IMAGES)
-	rm -f $(DISK_SDCARD_ARM64_IMAGES)
-	rm -f rootfs-arm64.tar
-	rm -f dtbs-arm64.tar.gz
+	rm -f $(DISK_UFS_ARM64_IMAGES) $(DISK_UFS_ARMHF_IMAGES)
+	rm -f $(DISK_SDCARD_ARM64_IMAGES) $(DISK_SDCARD_ARMHF_IMAGES)
+	rm -f rootfs-arm64.tar rootfs-armhf.tar
+	rm -f dtbs-arm64.tar.gz dtbs-armhf.tar.gz
 	rm -f $(COMPAT_LINKS)
 	rm -f dtb-multidtb.bin
 	rm -f dtb-combineddtb.bin
