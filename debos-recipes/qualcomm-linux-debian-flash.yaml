@@ -230,10 +230,10 @@ actions:
     "ptool_platforms" (list "qcs615-ride/ufs")
     "boot_binaries_download" (dict
         "description" "QCS615 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS615_bootbinaries.1.0/qcs615_bootbinaries.1.0-test-device-public/00123/QCS615_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS615_bootbinaries.1.0/qcs615_bootbinaries.1.0-test-device-public/00135/QCS615_bootbinaries.zip"
         "name" "qcs615_boot-binaries"
         "filename" "qcs615_boot-binaries.zip"
-        "sha256sum" "9693a9d6ceeb8ecd47f6d8f7a4e28180602973d7d47da77673023a6fa7ad5789"
+        "sha256sum" "8dcdbbedaf3ec0fc26cf438222e06d141c8c9a17ba87bbf7f888341145d9c8ef"
     )
     "cdt_download" (dict
         "description" "QCS615 Ride CDT"
@@ -253,10 +253,10 @@ actions:
     "ptool_platforms" (list "qcs6490-rb3gen2/ufs")
     "boot_binaries_download" (dict
         "description" "QCM6490 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCM6490_bootbinaries.1.0/qcm6490_bootbinaries.1.0-test-device-public/00123/QCM6490_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCM6490_bootbinaries.1.0/qcm6490_bootbinaries.1.0-test-device-public/00135/QCM6490_bootbinaries.zip"
         "name" "qcm6490_boot-binaries"
         "filename" "qcm6490_boot-binaries.zip"
-        "sha256sum" "df120b750128166c9f8f9ad28c7ecd30d3938c2750a250f2a12362757dc416b0"
+        "sha256sum" "43549a7dce32134f81706fd2d0e3550a655563ccdd708d11b89480281485003e"
     )
     "cdt_download" (dict
         "description" "RB3 Gen2 Vision Kit CDT"
@@ -276,10 +276,10 @@ actions:
     "ptool_platforms" (list "qcs8300-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00123/QCS8300_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip"
         "name" "qcs8300_boot-binaries"
         "filename" "qcs8300_boot-binaries.zip"
-        "sha256sum" "a0fca33863d5a665535717aa943d668d3ffa9e2970bbc10e7e5d04d9269a1b1f"
+        "sha256sum" "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
     )
     "cdt_download" (dict
         "description" "QCS8300 Ride SX EVK CDT"
@@ -297,10 +297,10 @@ actions:
     "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00123/QCS8300_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip"
         "name" "qcs8300_boot-binaries"
         "filename" "qcs8300_boot-binaries.zip"
-        "sha256sum" "a0fca33863d5a665535717aa943d668d3ffa9e2970bbc10e7e5d04d9269a1b1f"
+        "sha256sum" "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
     )
     "cdt_download" (dict
         "description" "IQ-8275 EVK CDT"
@@ -318,10 +318,10 @@ actions:
     "ptool_platforms" (list "qcs8275-monza/emmc")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00123/QCS8300_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip"
         "name" "qcs8300_boot-binaries"
         "filename" "qcs8300_boot-binaries.zip"
-        "sha256sum" "a0fca33863d5a665535717aa943d668d3ffa9e2970bbc10e7e5d04d9269a1b1f"
+        "sha256sum" "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
     )
     "cdt_download" (dict
         "description" "Monza CDT"
@@ -341,10 +341,10 @@ actions:
     "ptool_platforms" (list "qcs9100-ride-sx/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00123/QCS9100_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00135/QCS9100_bootbinaries.zip"
         "name" "qcs9100_boot-binaries"
         "filename" "qcs9100_boot-binaries.zip"
-        "sha256sum" "74bc46555034173a4d5282fe96b1e96e0874cfd7f874f4483d431eaa72300345"
+        "sha256sum" "2db1108f41ea9feddff0303be7e0b0af4fa66ce7405ee6e874749a9f4f266e82"
     )
     "cdt_download" (dict
         "description" "QCS9100 Ride Rev3 EVK CDT"
@@ -362,10 +362,10 @@ actions:
     "ptool_platforms" (list "iq-9075-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS9100 boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00123/QCS9100_bootbinaries.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00135/QCS9100_bootbinaries.zip"
         "name" "qcs9100_boot-binaries"
         "filename" "qcs9100_boot-binaries.zip"
-        "sha256sum" "74bc46555034173a4d5282fe96b1e96e0874cfd7f874f4483d431eaa72300345"
+        "sha256sum" "2db1108f41ea9feddff0303be7e0b0af4fa66ce7405ee6e874749a9f4f266e82"
     )
     "cdt_download" (dict
         "description" "QCS9100 RB8 Core Kit CDT"
