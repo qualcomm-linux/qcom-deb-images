@@ -661,6 +661,35 @@ actions:
       - kmod
       - linux-base
 
+{{- if eq $architecture "armhf" }}
+  # initramfs-tools asks dracut-install to install whole module directories
+  # (e.g. "=drivers/scsi"), which dracut-install expands with glibc's fts(3).
+  # fts reads directories with the 32-bit readdir(), which fails with
+  # EOVERFLOW on the 64-bit directory cookies ext4 hands out, so on 32-bit
+  # architectures every such directory looks empty and is skipped without an
+  # error, leaving an initramfs with no storage drivers at all:
+  #   https://bugs.debian.org/1110545 - missing modules break boot on armhf
+  #   https://bugs.debian.org/1079080 - the dracut-install failure is ignored
+  #   https://bugzilla.kernel.org/show_bug.cgi?id=205957 - the ext4 side
+  # Modules requested by name are unaffected, so name the ones the qemu boot
+  # test needs. Drivers for real hardware (MMC, UFS) are still missing, so
+  # this is a workaround for testing, not a fix.
+  - action: run
+    description: Name the modules the qemu boot test needs (see Debian #1110545)
+    chroot: true
+    command: |
+      set -eux
+      cat >>/etc/initramfs-tools/modules <<'EOF'
+
+      # Storage drivers for the qemu boot test; on 32-bit architectures they
+      # have to be named because the module directories initramfs-tools adds
+      # are silently dropped (https://bugs.debian.org/1110545)
+      sd_mod
+      virtio_blk
+      virtio_scsi
+      EOF
+{{- end }}
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
