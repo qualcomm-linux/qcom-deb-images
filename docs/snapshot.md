@@ -1,0 +1,236 @@
+# Reproducible builds with Debian snapshots
+
+This document describes the `snapshot` build option: what it does, how to use
+it to produce a repeatable build pinned to a point in time, and how it is
+implemented for developers working on the feature.
+
+It has two audiences:
+
+- **Users** who want to reproduce (or later re-create) a build as it would have
+  been on a particular date — see [Using snapshots](#using-snapshots).
+- **Developers** working on the snapshot feature itself — see
+  [How it works](#how-it-works) and [Design notes and caveats](#design-notes-and-caveats).
+
+## What problem it solves
+
+Without pinning, a build pulls whatever package versions are current in the APT
+archives *at build time*. Two builds from the same recipes a week apart can
+therefore differ. The `snapshot` option pins the APT sources to a dated
+[snapshot.debian.org](https://snapshot.debian.org) archive (and the equivalent
+dated Qualcomm Linux archive), so that a build performed today and a build
+performed months from now resolve to the *same* package versions.
+
+The snapshot date used is recorded in the image at `/etc/buildinfo` as
+`SNAPSHOT=<date>`, so any image can be traced back to the archive state it was
+built from.
+
+## Using snapshots
+
+### The `snapshot` option
+
+Pass a snapshot timestamp to the debos recipes via the `snapshot` variable. The
+value **must** be in the form `YYYYMMDDTHHMMSSZ` (UTC, e.g.
+`20260115T000000Z`). Any other format aborts the build with an error — this is
+deliberate. While snapshot.debian.org also supports `YYYYMMDD`, Debusine only
+supports the full form.
+
+### Building with the Makefile
+
+The `snapshot` variable is a debos template variable, so it is passed through
+`EXTRA_DEBOS_OPTS`. It must be supplied to **both** the rootfs build and the
+image build, because each recipe re-pins its own APT sources:
+
+```bash
+# 1. root filesystem + DTBs, pinned to the snapshot
+EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make rootfs.tar
+
+# 2. disk image, pinned to the same snapshot
+EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
+```
+
+Use the **same** timestamp for both steps. The flash recipe does not install
+packages and takes no `snapshot` option.
+
+You can combine `snapshot` with any other option, e.g. a desktop variant:
+
+```bash
+EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z -t gnomedesktop:true" make rootfs.tar
+```
+
+### Building by calling debos directly
+
+```bash
+debos -t snapshot:20260115T000000Z debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos -t snapshot:20260115T000000Z debos-recipes/qualcomm-linux-debian-image.yaml
+```
+
+(The Makefile is still recommended, as it sets memory/scratchsize defaults that
+these recipes need.)
+
+### Verifying a build
+
+After the image boots (or by inspecting the mounted root filesystem), check:
+
+```bash
+cat /etc/buildinfo
+# SNAPSHOT=20260115T000000Z
+# BUILD_ID=...        (if -t buildid: was passed)
+# VARIANT_ID=console  (console | xfce | gnome)
+```
+
+The presence of `SNAPSHOT=` confirms the build was pinned. Note that the
+*shipped* image points its APT sources back at the live mirrors (see
+[What the shipped image looks like](#what-the-shipped-image-looks-like)), so
+`apt update` on the device will fetch current packages, not the snapshot — the
+snapshot governs only what was installed *at build time*.
+
+### Reproducing a build later
+
+To re-create a build as it was on a given date:
+
+1. Check out the same commit of this repository that was used originally.
+2. Re-run the same `make` commands with the same `snapshot:` timestamp (and the
+   same other options).
+
+Because the APT sources are pinned to the dated archive, the same package
+versions are resolved. See [Design notes and caveats](#design-notes-and-caveats)
+for the sources that are **not** covered by snapshots and can therefore still
+drift.
+
+## How it works
+
+The feature spans the two build recipes. Line references are to the files as of
+this writing and are meant as a reading guide, not exact addresses.
+
+### Overview
+
+Debian ships APT sources as `deb822`-style `*.sources` files under
+`/etc/apt/sources.list.d/`, each with an `Enabled: yes|no` field. The snapshot
+implementation works entirely by:
+
+1. deriving a parallel set of `snapshot_*.sources` files whose mirror URLs point
+   at the dated archive, and
+2. flipping `Enabled:` on/off to switch the build between the *live* mirrors and
+   the *snapshot* mirrors at the right moments.
+
+A tiny helper, `apt-snapshot-toggle`, performs the flip.
+
+### The `apt-snapshot-toggle` helper
+
+`debos-recipes/qualcomm-linux-debian-rootfs.yaml` installs
+`/usr/local/bin/apt-snapshot-toggle` into the rootfs when `snapshot` is set. Its
+logic:
+
+```
+apt-snapshot-toggle enable   # snapshot_*.sources -> Enabled: yes, all others -> Enabled: no
+apt-snapshot-toggle disable  # snapshot_*.sources -> Enabled: no,  all others -> Enabled: yes
+```
+
+It walks every `*.sources` file, classifies it as a `snapshot_*` file or not,
+and rewrites its `Enabled:` line accordingly. Files with no `Enabled:` field
+produce a warning rather than being edited.
+
+### Root filesystem recipe (`qualcomm-linux-debian-rootfs.yaml`)
+
+When `snapshot` is non-empty, the following happens in order:
+
+1. **Install the toggle helper** (`chroot: false`, written into `${ROOTDIR}`).
+2. **Validate and record the date.** The timestamp is checked against
+   `^[0-9]{8}T[0-9]{6}Z$`; an invalid value aborts the build. The value is
+   written to `/etc/buildinfo` as `SNAPSHOT=<date>` (mode 644). `/etc/buildinfo`
+   is the single source of truth for the date in later steps — they read it back
+   with `grep '^SNAPSHOT=' /etc/buildinfo` rather than re-templating the
+   variable.
+3. **Create the normal live `*.sources`** for Debian, `debian-backports`,
+   `qsc-deb-releases`, and the Qualcomm Linux (`qli`) archive — exactly as a
+   non-snapshot build would.
+4. **Derive `snapshot_*.sources`.** For each existing `*.sources` (skipping any
+   already-derived `snapshot_*`), a per-source table maps the live mirror URL to
+   its dated-archive rewrite:
+
+   | Source | Live URL | Snapshot rewrite |
+   | --- | --- | --- |
+   | `debian` | `http://deb.debian.org/debian/` and `.../debian-security/` | `https://snapshot.debian.org/archive/debian/<SNAPSHOT>/` and `.../debian-security/<SNAPSHOT>/` |
+   | `debian-backports` | `http://deb.debian.org/debian` | `https://snapshot.debian.org/archive/debian/<SNAPSHOT>/` |
+   | `qli` | `https://deb.debusine.qualcomm.com/qualcomm/qli` | same URL with `/<SNAPSHOT>` appended |
+   | anything else | — | **skipped** with a warning |
+
+   Before rewriting, the step asserts the expected live URL is actually present
+   in the file and **fails loudly** if not — this prevents a silent
+   non-reproducible build if an upstream mirror URL changes. Each derived file
+   also gets `Check-Valid-Until: no` inserted, because a static snapshot's
+   `Release` file goes stale over time and APT would otherwise reject it.
+
+   Finally, `apt-snapshot-toggle enable` switches the build over to the snapshot
+   sources.
+5. **Warn about unpinned sources.** When removing the legacy `sources.list` and
+   before `apt-get update && apt-get full-upgrade`, any non-snapshot source that
+   is still `Enabled: yes` (i.e. one with no snapshot support, such as
+   `qsc-deb-releases`) triggers a warning that its packages will be "the latest
+   available".
+6. **All package installation** then happens against the snapshot archives.
+7. **Restore live mirrors** at the end: `apt-snapshot-toggle disable`. This
+   re-enables the live sources and disables the `snapshot_*` ones — but the
+   `snapshot_*.sources` files themselves are **kept** in the rootfs. This is
+   what carries the pinning information forward into the image build via
+   `rootfs.tar`.
+
+### Image recipe (`qualcomm-linux-debian-image.yaml`)
+
+The image recipe installs a few more packages (`systemd-boot`,
+`u-boot-efi-dtb`, `cloud-guest-utils`), so it must pin those too:
+
+1. After unpacking `rootfs.tar`, if `snapshot` is set: `apt-snapshot-toggle
+   enable` + `apt-get update`. This works because the `snapshot_*.sources` files
+   are still present from the rootfs build. (No re-derivation is needed here —
+   the image recipe only toggles.)
+2. Package installation proceeds against the snapshot.
+3. **Cleanup:** `apt-snapshot-toggle disable`, then delete
+   `/etc/apt/sources.list.d/snapshot_*.sources` and
+   `/usr/local/bin/apt-snapshot-toggle`.
+
+### What the shipped image looks like
+
+After a snapshot build, the final image:
+
+- has its APT sources pointing at the **live** mirrors (so on-device
+  `apt update` / upgrades work normally);
+- contains **no** `snapshot_*.sources` files and **no** `apt-snapshot-toggle`
+  helper (they are removed by the image recipe);
+- records the snapshot date in `/etc/buildinfo` (`SNAPSHOT=<date>`).
+
+In other words, the snapshot pins *what gets installed during the build*, then
+gets out of the way so the running system tracks live updates.
+
+## Design notes and caveats
+
+- The baseline mmdebstrap-generated rootfs is not yet snapshot-enabled. See
+  #498.
+- **Both recipes need the option.** rootfs and image builds each re-pin
+  independently; passing `snapshot` to only one leaves the other resolving live
+  packages.
+- **Not every source supports snapshots.** Only Debian (main + security),
+  `debian-backports`, and the Qualcomm Linux `qli` archive are rewritten. The
+  `qsc-deb-releases` Artifactory overlay and any `aptlocalrepo`/`localdebs`
+  sources are **not** pinned; packages from them are whatever is current, and
+  the build prints a warning. Reproducibility is therefore best-effort with
+  respect to those sources.
+- **Local kernels are not pinned.** A kernel built via
+  `scripts/build-linux-deb.py` or dropped into `local-debs/` is installed
+  as-is; it is not controlled by the snapshot.
+- **`Check-Valid-Until: no` is required** for snapshot sources because their
+  `Release` files become stale. The recipe leaves a `TODO` to drop this once
+  Debusine-based snapshots are available for the `qli` archive.
+- **`/etc/buildinfo` is the source of truth** for the date within a build. Steps
+  read it back rather than depending on the template variable being re-passed.
+- **snapshot.debian.org availability.** The service prunes and rate-limits;
+  very old or very fine-grained timestamps may be slow or unavailable, which can
+  make an old build harder to reproduce.
+
+## Related files
+
+- `debos-recipes/qualcomm-linux-debian-rootfs.yaml` — toggle helper, date
+  validation/recording, `snapshot_*.sources` derivation, live-mirror restore.
+- `debos-recipes/qualcomm-linux-debian-image.yaml` — re-enable snapshot for the
+  image's extra package installs, then clean up.
+- `README.md` — the user-facing summary of the `snapshot` recipe option.

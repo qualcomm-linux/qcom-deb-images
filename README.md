@@ -157,6 +157,7 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `snapshot`: use snapshot apt archives for a reproducible build
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
   Live mirrors are restored in the final image to allow upgrades.
+  See [docs/snapshot.md](docs/snapshot.md) for full usage and internals.
 
 For the image recipe:
 
