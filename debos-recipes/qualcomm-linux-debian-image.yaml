@@ -1,7 +1,9 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $dtb := or .dtb "firmware" }}
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
-{{- $image := printf "disk-%s.img" $imagetype }}
+{{- $image := printf "disk-%s-%s.img" $imagetype $architecture }}
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
 {{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
 
@@ -79,13 +81,17 @@
 {{- $kernelcmdline = printf "%s qcom_scm.download_mode=1" $kernelcmdline }}
 {{- end }}
 
-architecture: arm64
+{{- if ne $architecture "arm64" }}
+{{- fail (printf "only arm64 is supported for now, got architecture %q" $architecture) }}
+{{- end }}
+
+architecture: {{ $architecture }}
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
   - action: unpack
     description: Unpack root filesystem
-    file: rootfs.tar
+    file: {{ $rootfs }}
 
 {{- if ne $profile "default" }}
   - action: run

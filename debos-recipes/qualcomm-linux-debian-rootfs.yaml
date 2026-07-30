@@ -1,3 +1,6 @@
+{{- $architecture := or .architecture "arm64" }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $westonsession := or .westonsession "false" }}
@@ -12,6 +15,10 @@
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
+
+{{- if ne $architecture "arm64" }}
+{{- fail (printf "only arm64 is supported for now, got architecture %q" $architecture) }}
+{{- end }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -30,7 +37,7 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
-architecture: arm64
+architecture: {{ $architecture }}
 
 actions:
 {{- if .kernelpackage }}
@@ -1023,12 +1030,12 @@ actions:
       tar \
           -C "${latest_kernel}" \
           --transform='s|^\./||' \
-          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          -cvzf "$ARTIFACTDIR/{{ $dtbs }}" \
           .
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar
+    file: {{ $rootfs }}
     compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.

@@ -16,7 +16,7 @@ import pytest
 @pytest.fixture
 def vm():
     """A pexpect.spawn object attached to the serial console of a VM freshly
-    booting with a CoW base of disk-ufs.img"""
+    booting with a CoW base of disk-ufs-arm64.img"""
     with tempfile.TemporaryDirectory() as tmpdir:
         qcow_path = os.path.join(tmpdir, "disk1.qcow")
         subprocess.run(
@@ -24,7 +24,7 @@ def vm():
                 "qemu-img",
                 "create",
                 "-b",
-                os.path.join(os.getcwd(), "disk-ufs.img"),
+                os.path.join(os.getcwd(), "disk-ufs-arm64.img"),
                 "-f",
                 "qcow",
                 "-F",
