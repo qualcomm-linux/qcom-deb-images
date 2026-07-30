@@ -190,7 +190,12 @@ jobs:
           ls -R $GITHUB_WORKSPACE
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        # not pinned to a SHA: the enterprise allowed-actions policy matches
+        # this third-party action by version tag, so a bare commit SHA is
+        # rejected at workflow startup (startup_failure). See PR #503 / run
+        # https://github.com/qualcomm-linux/qcom-deb-images/actions/runs/30561677856
+        # nosemgrep: github-actions-mutable-action-tag
+        uses: EnricoMi/publish-unit-test-result-action@v2 # zizmor: ignore[unpinned-uses]
         with:
           files: "${{ github.workspace }}/artifacts/**/*.xml"
 
