@@ -1,3 +1,4 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $localdebs := or .localdebs "none" }}
@@ -8,6 +9,16 @@
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
+
+# only arm64 is supported so far
+{{- if ne $architecture "arm64" }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+# output artifacts are named after the architecture they were built for
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -21,7 +32,7 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
-architecture: arm64
+architecture: {{ $architecture }}
 
 actions:
 {{- if .kernelpackage }}
@@ -722,12 +733,12 @@ actions:
       tar \
           -C "${latest_kernel}" \
           --transform='s|^\./||' \
-          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          -cvzf "$ARTIFACTDIR/{{ $dtbs }}" \
           .
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar
+    file: {{ $rootfs }}
     compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.

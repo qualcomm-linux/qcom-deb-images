@@ -54,10 +54,13 @@ do
 done
 echo "multidtb_bins: $multidtb_bins"
 
+# the partition images are symlinks to the arm64 artifacts, and the rawprogram
+# XMLs in the flash directories refer to them under these names, so archive the
+# files they point at rather than the symlinks
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $multidtb_bins $emmc_dirs
+tar -chvzf "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $multidtb_bins $emmc_dirs
 
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $multidtb_bins $ufs_dirs
+tar -chvzf "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $multidtb_bins $ufs_dirs

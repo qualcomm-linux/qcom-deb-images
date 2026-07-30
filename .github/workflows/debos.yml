@@ -157,8 +157,9 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # builds both disk images and the unsuffixed compatibility symlinks
+          # the flashing pipeline expects
+          make arm64 FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
@@ -171,11 +172,13 @@ jobs:
           # create a directory for the current run
           dir="debos-artifacts"
           mkdir -v "${dir}"
-          # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          # compress output files directly into the staging directory; the
+          # published arm64 artifacts keep the names they had before the build
+          # artifacts gained an architecture suffix
+          gzip -c rootfs-arm64.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
+          gzip -c disk-ufs-arm64.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
+          gzip -c disk-sdcard-arm64.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
+          cp -av dtbs-arm64.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
           # generate sha256sums for all artifacts
@@ -192,7 +195,7 @@ jobs:
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Unpack rootfs to generate SBOM
-        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
+        run: mkdir -v rootfs && tar -C rootfs -xf rootfs-arm64.tar
 
       - name: Install cosign
         # Required so the syft installer can verify the release signature (-v).
