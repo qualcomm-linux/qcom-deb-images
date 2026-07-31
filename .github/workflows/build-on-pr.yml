@@ -26,10 +26,10 @@ jobs:
         suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
     permissions:
-      contents: read # debos.yml
+      contents: read
     with:
       suite: ${{ matrix.suite }}
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
     permissions:
-      contents: read # lava-schema-check.yml
+      contents: read

@@ -16,10 +16,10 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     permissions:
-      checks: write # linux.yml
-      contents: read # linux.yml
-      packages: read # linux.yml
-      pull-requests: write # linux.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     with:
       kernel_name: glymur
       build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc3-20260731 prune.config qcom.config'
@@ -29,4 +29,4 @@ jobs:
       skip_lava_tests: false
       lava_boards_include: '["glymur-crd"]'
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
