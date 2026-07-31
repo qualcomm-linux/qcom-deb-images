@@ -22,6 +22,6 @@ jobs:
       pull-requests: write # linux.yml
     with:
       kernel_name: qcom-next
-      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc3-20260722 prune.config qcom.config'
+      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc3-20260731 prune.config qcom.config'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
