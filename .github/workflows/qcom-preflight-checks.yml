@@ -23,4 +23,8 @@ jobs:
       enable-copyright-license-check: true
       enable-commit-email-check: true
       enable-commit-msg-check: false
+      # armor-checkers verifies source-level (API) and binary-level (ABI)
+      # backwards compatibility of source code. This repository contains
+      # image recipes and scripts rather than a library with a stable
+      # API/ABI.
       enable-armor-checkers: false
