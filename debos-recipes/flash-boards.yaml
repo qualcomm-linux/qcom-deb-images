@@ -1,0 +1,325 @@
+# Board definitions for debos-recipes/qualcomm-linux-debian-flash.yaml,
+# consumed by scripts/gen-flash-dirs.py.
+#
+# soc_id identifies the SoC/SKU each board is built on, using the same names as
+# qcom-dtb-metadata's /soc node (qcom-metadata.dts), so --soc can select the FIT
+# image configs for the boards this repo supports. Values are derived from IPCAT
+# and verified against the kernel's include/dt-bindings/arm/qcom,ids.h
+# QCOM_ID_* constants.
+#
+# dtb_bin_type is either multidtb (a per-SoC dtb-multidtb-<soc>.bin FIT image
+# shared at the artifact directory level) or combineddtb (a dtb-combineddtb.bin
+# holding this board's single DTB, local to its flash directory).
+
+boards:
+  - name: glymur-crd
+    soc_id: glymur
+    dtb: qcom/glymur-crd.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - glymur-crd/nvme
+      - glymur-crd/spinor
+    boot_binaries:
+      description: Glymur boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00080/Glymur_bootbinaries.zip
+      filename: glymur_boot-binaries.zip
+      sha256sum: "82abec551e305643ec0acfd9bff77b6fc27c410220ef0ce4b0bce30d268387de"
+    cdt:
+      description: Glymur CRD CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8480XP/cdt/sc8480xp-crd.zip
+      filename: glymur-crd_cdt.zip
+      sha256sum: "d694eedb0addcc5ee588d6993661cd23996fba1d1a43afc3b196dad12534bffc"
+      file: CRD/cdt_glymur_crd_0.1.0.bin
+
+  # IQ-X7181 and IQ-X5121 EVKs (hamoa / purwa SoCs) share the same qcom-ptool
+  # platform (iq-x7181-evk), boot binaries and CDT; they differ only in soc_id
+  # and DTB.
+  - name: hamoa-iot-evk
+    soc_id: hamoa
+    dtb: qcom/hamoa-iot-evk.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - iq-x7181-evk/ufs
+      - iq-x7181-evk/spinor
+    boot_binaries:
+      description: Hamoa (IQ-X EVK) boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip
+      filename: hamoa_boot-binaries.zip
+      sha256sum: "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    cdt:
+      description: IQ-X EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz
+      filename: iq-x-evk_cdt.tar.gz
+      sha256sum: "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+      file: IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin
+
+  - name: purwa-iot-evk
+    soc_id: purwa
+    dtb: qcom/purwa-iot-evk.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - iq-x7181-evk/ufs
+      - iq-x7181-evk/spinor
+    boot_binaries:
+      description: Purwa (IQ-X EVK) boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Hamoa_bootbinaries.1.0/hamoa_bootbinaries.1.0-test-device-public/00012/HAMOA_bootbinaries_00012.zip
+      filename: purwa_boot-binaries.zip
+      sha256sum: "6ad9222c475a7d544b92bd5038f5f06c1b3e4ac69a19e7468cf0e5b849d60dfe"
+    cdt:
+      description: IQ-X EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/X1E80100/cdt/IQ-X.1.2-EVK-CDT.tar.gz
+      filename: purwa_iq-x-evk_cdt.tar.gz
+      sha256sum: "279c47ff8f1a7f4300d296fcb7fbb3d025d903e4c16f62fbb74939804949584e"
+      file: IQ-X.1.2-EVK-CDT/spinor/IQ_X_EVK_CDT.bin
+
+  # Shikra EVK ships in three SKUs (CQM, CQS, IQS), each with its own soc_id
+  # (shikracqm / shikracqs / shikraiqs) and DTB. They share the same qcom-ptool
+  # platform (shikra-evk/emmc), boot binaries and CDT, so they get one board
+  # entry each differing only in name, soc_id and dtb.
+  - name: shikra-cqm-evk
+    soc_id: shikracqm
+    dtb: qcom/shikra-cqm-evk.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - shikra-evk/emmc
+    boot_binaries:
+      description: Shikra boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip
+      filename: shikra-cqm_boot-binaries.zip
+      sha256sum: "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    cdt:
+      description: Shikra EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip
+      filename: shikra-cqm-evk_cdt.zip
+      sha256sum: "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+      file: cdt_cq2390_itp_0.2.0.bin
+
+  - name: shikra-cqs-evk
+    soc_id: shikracqs
+    dtb: qcom/shikra-cqs-evk.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - shikra-evk/emmc
+    boot_binaries:
+      description: Shikra boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip
+      filename: shikra-cqs_boot-binaries.zip
+      sha256sum: "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    cdt:
+      description: Shikra EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip
+      filename: shikra-cqs-evk_cdt.zip
+      sha256sum: "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+      file: cdt_cq2390_itp_0.2.0.bin
+
+  - name: shikra-iqs-evk
+    soc_id: shikraiqs
+    dtb: qcom/shikra-iqs-evk.dtb
+    dtb_bin_type: multidtb
+    ptool_platforms:
+      - shikra-evk/emmc
+    boot_binaries:
+      description: Shikra boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip
+      filename: shikra-iqs_boot-binaries.zip
+      sha256sum: "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+    cdt:
+      description: Shikra EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip
+      filename: shikra-iqs-evk_cdt.zip
+      sha256sum: "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+      file: cdt_cq2390_itp_0.2.0.bin
+
+  - name: sm8750-mtp
+    soc_id: sm8750
+    dtb: qcom/sm8750-mtp.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - sm8750-mtp/ufs
+    boot_binaries:
+      description: SM8750 (Pakala) boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SM8750_bootbinaries.1.0/sm8750_bootbinaries.1.0-test-device-public/00043/pakala_bootbinaries_00043.zip
+      filename: sm8750_boot-binaries.zip
+      sha256sum: "e56b8cb82fd2566b9de9ca771e342dd7559bbfb51c94587a65c4ae395f605805"
+    cdt:
+      description: SM8750 MTP CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8750/cdt/sm8750-mtp_wcn7881.zip
+      filename: sm8750-mtp_cdt.zip
+      sha256sum: "474c35a6f06948808be118a8b0dac61ca53fd71182c1f03b92ca30d34dbb8a58"
+      file: cdt_pakala_mtp_0.4.0.bin
+
+  # Kaanapali reuses the SM8850 MTP CDT.
+  - name: kaanapali-mtp
+    soc_id: kaanapali
+    dtb: qcom/kaanapali-mtp.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - kaanapali-mtp/ufs
+    boot_binaries:
+      description: Kaanapali boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/software-product-family/Qualcomm_Linux.SPF.0.0/qualcomm_linux.spf.0.0-test-device-public/r0.0_00009.1/KAANAPALI.LE.0.0/common/build/ufs/bin/kaanapali_bootbinaries.zip
+      filename: kaanapali_boot-binaries.zip
+      sha256sum: "87b72830fd06ffd08ebc211301a254f4ef46325fde75bb6ff82ac558a5c26b12"
+    cdt:
+      description: Kaanapali MTP CDT (SM8850 MTP)
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SM8850/cdt/sm8850-mtp.zip
+      filename: kaanapali-mtp_cdt.zip
+      sha256sum: "41b15acaa06311c8c7500d7467a5d8adb9fdee05aed09d983d3dad045865b1d7"
+      file: cdt_kaanapali_mtp_0.4.0.bin
+
+  - name: qcs615-ride
+    soc_id: qcs615
+    dtb: qcom/qcs615-ride.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qcs615-ride/ufs
+    boot_binaries:
+      description: QCS615 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS615_bootbinaries.1.0/qcs615_bootbinaries.1.0-test-device-public/00135/QCS615_bootbinaries.zip
+      filename: qcs615_boot-binaries.zip
+      sha256sum: "8dcdbbedaf3ec0fc26cf438222e06d141c8c9a17ba87bbf7f888341145d9c8ef"
+    cdt:
+      description: QCS615 Ride CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS615/cdt/ADP_AIR_SA6155P_V2.zip
+      filename: qcs615-ride_cdt.zip
+      sha256sum: "37d99eb113e286400bce0d70aa12a74d05f93d01f045bf67e7a46b3c606c8fd0"
+      file: cdt_adp_air_sa6155p.bin
+
+  - name: qcs6490-rb3gen2-vision-kit
+    soc_id: qcs6490
+    dtb: qcom/qcs6490-rb3gen2.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qcs6490-rb3gen2/ufs
+    boot_binaries:
+      description: QCM6490 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCM6490_bootbinaries.1.0/qcm6490_bootbinaries.1.0-test-device-public/00135/QCM6490_bootbinaries.zip
+      filename: qcm6490_boot-binaries.zip
+      sha256sum: "43549a7dce32134f81706fd2d0e3550a655563ccdd708d11b89480281485003e"
+    cdt:
+      description: RB3 Gen2 Vision Kit CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS6490/cdt/rb3gen2-vision-kit.zip
+      filename: qcs6490-rb3gen2-vision-kit_cdt.zip
+      sha256sum: "a339e297b454c4dc3805fe8cd11d6d8dcb801aa8f0c2dc691561c2785019fa3c"
+      file: cdt_vision_kit.bin
+
+  - name: qcs8300-ride
+    soc_id: qcs8300
+    dtb: qcom/qcs8300-ride.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qcs8300-ride-sx/ufs
+    boot_binaries:
+      description: QCS8300 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip
+      filename: qcs8300_boot-binaries.zip
+      sha256sum: "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
+    cdt:
+      description: QCS8300 Ride SX EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/ride-sx.zip
+      filename: qcs8300-ride-sx_cdt.zip
+      sha256sum: "d7fc667372b28383a36d586333097d84b9d9c104f4dd1845d33904e2d6b39f80"
+      file: cdt_ride_sx.bin
+
+  - name: monaco-evk
+    soc_id: qcs8275
+    dtb: qcom/monaco-evk.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - iq-8275-evk/emmc
+      - iq-8275-evk/ufs
+    boot_binaries:
+      description: QCS8300 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip
+      filename: qcs8300_boot-binaries.zip
+      sha256sum: "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
+    cdt:
+      description: IQ-8275 EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-iq-8275-evk-pro-sku.zip
+      filename: qcs8275-iq-8275-evk-pro-sku.zip
+      sha256sum: "cbe2009c8ef7dbacd716141bf01b8e1b26788c4a4f3145e60fe3b4a6b3aabc04"
+      file: cdt_qcs8275_iq_8275_evk_pro_sku.bin
+
+  - name: monaco-arduino-monza
+    soc_id: qcs8300
+    dtb: qcom/monaco-arduino-monza.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qcs8275-monza/emmc
+    boot_binaries:
+      description: QCS8300 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip
+      filename: qcs8300_boot-binaries.zip
+      sha256sum: "67b023c4b18188ac5f4c0f50b656902501cf8c735982b7b099493bea85da4a21"
+    cdt:
+      description: Monza CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS8300/cdt/qcs8275-Monza_v1.zip
+      filename: qcs8275-monza.zip
+      sha256sum: "8484beb2ac1ff74a129c586f6d5331536765975dbabfb0600509f11010ec1c41"
+      file: cdt_qcs8275-Monza.bin
+
+  - name: qcs9100-ride-r3
+    soc_id: qcs9100
+    dtb: qcom/qcs9100-ride-r3.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qcs9100-ride-sx/ufs
+    boot_binaries:
+      description: QCS9100 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00135/QCS9100_bootbinaries.zip
+      filename: qcs9100_boot-binaries.zip
+      sha256sum: "2db1108f41ea9feddff0303be7e0b0af4fa66ce7405ee6e874749a9f4f266e82"
+    cdt:
+      description: QCS9100 Ride Rev3 EVK CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS9100/cdt/ride-sx_v3.zip
+      filename: qcs9100-ride-sx-v3_cdt.zip
+      sha256sum: "377a8405899ac82199deaf70bca3648c15b924a3fcef8f109555e661ed70f4b9"
+      file: cdt_ride_sx.bin
+
+  - name: lemans-evk
+    soc_id: qcs9075
+    dtb: qcom/lemans-evk.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - iq-9075-evk/ufs
+    boot_binaries:
+      description: QCS9100 boot binaries
+      url: https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS9100_bootbinaries.1.0/qcs9100_bootbinaries.1.0-test-device-public/00135/QCS9100_bootbinaries.zip
+      filename: qcs9100_boot-binaries.zip
+      sha256sum: "2db1108f41ea9feddff0303be7e0b0af4fa66ce7405ee6e874749a9f4f266e82"
+    cdt:
+      description: QCS9100 RB8 Core Kit CDT
+      url: https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QCS9100/cdt/rb8_core_kit.zip
+      filename: qcs9100-rb8-core-kit_cdt.zip
+      sha256sum: "a252244f800d7c9e15883e12935af4113f9f2ecba6490e46cd9b943169f15bfa"
+      file: cdt_rb8_core_kit.bin
+
+  # RB1 has no vendor boot image: its boot.img comes from a locally built
+  # U-Boot, so the board is only available when -t u_boot_rb1:<path> is set.
+  - name: qrb2210-rb1
+    soc_id: qcm2290
+    dtb: qcom/qrb2210-rb1.dtb
+    dtb_bin_type: combineddtb
+    u_boot_file_var: u_boot_rb1
+    ptool_platforms:
+      - qrb2210-rb1/emmc
+    boot_binaries:
+      description: RB1 rescue image
+      url: https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip
+      filename: qrb2210-rb1_rescue-image.zip
+      sha256sum: "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
+
+  - name: qrb2210-arduino-imola
+    soc_id: qcm2290
+    dtb: qcom/qrb2210-arduino-imola.dtb
+    dtb_bin_type: combineddtb
+    ptool_platforms:
+      - qrb2210-unoq/emmc-16GB
+    boot_binaries:
+      description: UNO Q boot binaries
+      url: https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip
+      filename: qrb2210-arduino-imola_boot-binaries.zip
+      sha256sum: "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

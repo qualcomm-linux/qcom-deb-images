@@ -43,7 +43,7 @@ jobs:
       contents: read # actions/checkout
     steps:
       - name: Install Pylint and dependencies
-        run: sudo apt update && sudo apt -y install file pylint python3-voluptuous python3-defusedxml
+        run: sudo apt update && sudo apt -y install file pylint python3-voluptuous python3-defusedxml python3-yaml
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
