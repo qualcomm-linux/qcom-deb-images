@@ -389,6 +389,8 @@ actions:
         umask 226
         echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
       )
+      # avoid unnecessary sudo hostname lookups
+      echo "Defaults !fqdn" >/etc/sudoers.d/disable-fqdn
 
   # NB: Recommends pull in way too many packages, and we don't need to follow
   # Recommends reaching outside of this Priority level
