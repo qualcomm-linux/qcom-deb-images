@@ -15,7 +15,7 @@ jobs:
         suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
     permissions:
-      contents: read # debos.yml
+      contents: read
     with:
       suite: ${{ matrix.suite }}
       # QLI targets qcom-next; consume the debs published to EFS by the
@@ -25,16 +25,16 @@ jobs:
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
     permissions:
-      contents: read # lava-schema-check.yml
+      contents: read
   test:
     uses: ./.github/workflows/lava-test.yml
     needs: [build-daily, schema-check]
     permissions:
-      checks: write # lava-test.yml
-      contents: read # lava-test.yml
-      packages: read # lava-test.yml
-      pull-requests: write # lava-test.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}

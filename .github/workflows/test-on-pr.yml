@@ -63,12 +63,12 @@ jobs:
   test:
     uses: ./.github/workflows/lava-test.yml
     permissions:
-      checks: write # lava-test.yml
-      contents: read # lava-test.yml
-      packages: read # lava-test.yml
-      pull-requests: write # lava-test.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
