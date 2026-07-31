@@ -1,11 +1,3 @@
-{{- $build_qcs615 := or .build_qcs615 "true" }}
-{{- $build_qcm6490 := or .build_qcm6490 "true" }}
-{{- $build_qcs8300 := or .build_qcs8300 "true" }}
-{{- $build_qcs9100 := or .build_qcs9100 "true" }}
-{{- $build_rb1 := "false" -}}
-{{- if .u_boot_rb1 -}}
-{{- $build_rb1 = "true" }}
-{{- end -}}
 {{- $buildid := or .buildid "" }}
 
 {{- $target_boards := or .target_boards "all" }}
@@ -223,7 +215,6 @@ actions:
     "cdt_filename" "cdt_kaanapali_mtp_0.4.0.bin"
     "dtb" "qcom/kaanapali-mtp.dtb"
 )}}
-{{- if eq $build_qcs615 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs615-ride"
     "soc_id" "qcs615"
@@ -245,8 +236,6 @@ actions:
     "cdt_filename" "cdt_adp_air_sa6155p.bin"
     "dtb" "qcom/qcs615-ride.dtb"
 )}}
-{{- end }}
-{{- if eq $build_qcm6490 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs6490-rb3gen2-vision-kit"
     "soc_id" "qcs6490"
@@ -268,8 +257,6 @@ actions:
     "cdt_filename" "cdt_vision_kit.bin"
     "dtb" "qcom/qcs6490-rb3gen2.dtb"
 )}}
-{{- end }}
-{{- if eq $build_qcs8300 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs8300-ride"
     "soc_id" "qcs8300"
@@ -333,8 +320,6 @@ actions:
     "cdt_filename" "cdt_qcs8275-Monza.bin"
     "dtb" "qcom/monaco-arduino-monza.dtb"
 )}}
-{{- end }}
-{{- if eq $build_qcs9100 "true" }}
 {{- $boards = append $boards (dict
     "name" "qcs9100-ride-r3"
     "soc_id" "qcs9100"
@@ -377,8 +362,7 @@ actions:
     "cdt_filename" "cdt_rb8_core_kit.bin"
     "dtb" "qcom/lemans-evk.dtb"
 )}}
-{{- end }}
-{{- if eq $build_rb1 "true" }}
+{{- if .u_boot_rb1 }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "soc_id" "qcm2290"

@@ -170,16 +170,14 @@ For the image recipe:
 For the flash recipe:
 
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format --
-  see below (NB: debos expects relative pathnames)
+  see below (NB: debos expects relative pathnames). The `qrb2210-rb1` board is
+  only built when this is set, as it has no other source for its boot image.
 - `target_boards`: comma-separated list of board names to build (default:
   `all`). Accepted values are the board names defined in the flash recipe, e.g.
   `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
   `qcs9100-ride-r3`, `qrb2210-rb1`.
 
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
-
-Deprecated flash options:
-- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
 
