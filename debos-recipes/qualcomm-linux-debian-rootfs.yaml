@@ -368,8 +368,7 @@ actions:
       set -eux
       # pre-emptively create a sudo group if sudo isn't installed
       getent group sudo >/dev/null 2>&1 || groupadd --system sudo
-      # the kvm group is normally created by udev; create it pre-emptively in
-      # case udev isn't installed, so /dev/kvm can be used without root
+      # pre-emptively create a kvm group if udev isn't installed
       getent group kvm >/dev/null 2>&1 || groupadd --system kvm
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
