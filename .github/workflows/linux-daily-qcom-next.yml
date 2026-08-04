@@ -16,12 +16,12 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     permissions:
-      checks: write # linux.yml
-      contents: read # linux.yml
-      packages: read # linux.yml
-      pull-requests: write # linux.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     with:
       kernel_name: qcom-next
       build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc3-20260731 prune.config qcom.config'
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}

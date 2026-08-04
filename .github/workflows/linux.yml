@@ -163,7 +163,7 @@ jobs:
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     permissions:
-      contents: read # debos.yml
+      contents: read
     with:
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
@@ -174,12 +174,12 @@ jobs:
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
     permissions:
-      checks: write # lava-test.yml
-      contents: read # lava-test.yml
-      packages: read # lava-test.yml
-      pull-requests: write # lava-test.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: trixie

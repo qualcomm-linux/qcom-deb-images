@@ -16,13 +16,13 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     permissions:
-      checks: write # linux.yml
-      contents: read # linux.yml
-      packages: read # linux.yml
-      pull-requests: write # linux.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     with:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
       lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
