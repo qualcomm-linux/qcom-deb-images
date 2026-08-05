@@ -43,9 +43,9 @@ jobs:
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
-      # qrb2210-rb1 can't boot forky pending a newer kernel; see #424
+      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
       # glymur-crd can't boot the distro kernel, only qcom-next
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far, not the distro kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: ${{ (matrix.suite == 'forky' && '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]') || '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]' }}
+      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
