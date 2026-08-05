@@ -44,7 +44,7 @@ jobs:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # qrb2210-rb1 can't boot forky pending a newer kernel; see #424
-      # glymur-crd can't boot anything
+      # glymur-crd can't boot the distro kernel, only qcom-next
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far, not the distro kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
