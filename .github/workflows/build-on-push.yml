@@ -34,7 +34,8 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
+      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
