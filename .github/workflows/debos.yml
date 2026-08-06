@@ -97,8 +97,22 @@ jobs:
           case "$KERNEL_PACKAGES" in
             efs/*)
               mkdir -v local-apt-repo/kernel
-              # get kernel from EFS
-              cp -av "/efs/${KERNEL_PACKAGES#efs/}/"*.deb local-apt-repo/kernel
+              # get kernel from EFS; the directory is a symlink published by
+              # the matching kernel workflow (linux.yml via e.g.
+              # linux-daily-qcom-next.yml), so report a missing or empty one
+              # rather than failing later with a confusing APT error
+              efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
+              if [ ! -d "$efs_kernel_dir" ]; then
+                  echo "ERROR: ${efs_kernel_dir} does not exist" >&2
+                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                  exit 1
+              fi
+              cp -av "${efs_kernel_dir}/"*.deb local-apt-repo/kernel
+              if ! ls local-apt-repo/kernel/linux-image-*.deb >/dev/null 2>&1; then
+                  echo "ERROR: ${efs_kernel_dir} contains no linux-image-*.deb" >&2
+                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                  exit 1
+              fi
             ;;
           esac
 
