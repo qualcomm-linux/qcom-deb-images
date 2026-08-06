@@ -272,4 +272,8 @@ jobs:
            # instead but all at once. See #74 and #159.
 
            # rootfs/ is a build artifact, so should not be scanned for tests
-           py.test-3 --ignore=rootfs
+           # --verbose enables verbose output which shows each test's full name
+           #   and full result which makes CI failures much easier to diagnose
+           # --capture=no so pytest doesn't swallow stdout and only prints it
+           #   after a job fails. Instead, stream the log live.
+           py.test-3 --verbose --capture=no --ignore=rootfs
