@@ -393,10 +393,12 @@ actions:
       set -eux
       # pre-emptively create a sudo group if sudo isn't installed
       getent group sudo >/dev/null 2>&1 || groupadd --system sudo
+      # pre-emptively create a kvm group if udev isn't installed
+      getent group kvm >/dev/null 2>&1 || groupadd --system kvm
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
-      groups="adm,audio,render,sudo,users,video"
+      groups="adm,audio,kvm,render,sudo,users,video"
       # fastrpc group only exists when fastrpc-support is installed (Debian)
       if getent group fastrpc >/dev/null 2>&1; then
         groups="${groups},fastrpc"
