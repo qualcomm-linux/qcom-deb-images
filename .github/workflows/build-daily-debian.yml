@@ -7,9 +7,11 @@
 name: Daily Build (Vanilla Debian)
 
 on:
-  # run daily at 6:30am
+  # run daily at 10:30am, last of the daily builds: this tracks upstream Debian
+  # rather than what QLI ships, so it gets the LAVA queue once the kernel builds
+  # are done with it
   schedule:
-    - cron: '30 6 * * *'
+    - cron: '30 10 * * *'
   # allow manual runs
   workflow_dispatch:
 

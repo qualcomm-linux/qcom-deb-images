@@ -1,9 +1,14 @@
 name: Daily qcom-next linux build
 
 on:
-  # run daily at 6:30am
+  # run daily at 2:30am. qcom-next is what QLI ships, so it goes first of the
+  # scheduled builds and gets an empty LAVA queue; the rest of the day's builds
+  # are staggered behind it (arduino 6:30am, linux-next 8:30am, vanilla Debian
+  # images 10:30am) so that they don't all submit LAVA jobs at once. The "Daily
+  # Build" workflow chains onto this one, so its LAVA jobs land later still,
+  # around 5:30am.
   schedule:
-    - cron: '30 6 * * *'
+    - cron: '30 2 * * *'
   # allow manual runs
   workflow_dispatch:
 
