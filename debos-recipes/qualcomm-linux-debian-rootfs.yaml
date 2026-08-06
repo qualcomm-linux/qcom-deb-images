@@ -361,20 +361,14 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if eq $suite "trixie" }}
-{{- if ne $overlays "none" }}
-{{- range $overlay := split "," $overlays }}
-{{- if eq $overlay "qsc-deb-releases" }}
-  # fastrpc-tests is only available in trixie-overlay
+{{- if ne $suite "unstable" }}
+  # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
-    description: Install fastrpc-tests (trixie only)
+    description: Install fastrpc-tests from QLI overlay
     recommends: true
     packages:
-      # fastrpc support. fastrpc-tests pulls in the required stack
+      # fastrpc-tests pulls in fastrpc-support
       - fastrpc-tests
-{{- end }}
-{{- end }}
-{{- end }}
 {{- end }}
 
   - action: run
