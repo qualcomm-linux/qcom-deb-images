@@ -361,6 +361,19 @@ actions:
       # /etc/hosts is created by netbase
       sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
 
+  # The fastrpc system group used to be created when the fastrpc package was
+  # installed, but is now created at boot time from a systemd sysusers.d
+  # fragment. Precreate it here from that same fragment so the "debian" user
+  # can be added to it in the next action.
+  - action: run
+    description: Precreate the fastrpc group from its sysusers.d fragment
+    chroot: true
+    command: |
+      set -eux
+      if [ -f /usr/lib/sysusers.d/fastrpc.conf ]; then
+          systemd-sysusers /usr/lib/sysusers.d/fastrpc.conf
+      fi
+
   - action: run
     description: Add a "debian" user, add it to sudoers and various groups
     chroot: true
@@ -372,7 +385,7 @@ actions:
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
       groups="adm,audio,render,sudo,users,video"
-      # fastrpc group only exists when fastrpc-support is installed (Debian)
+      # fastrpc group is precreated above when fastrpc-support is installed
       if getent group fastrpc >/dev/null 2>&1; then
         groups="${groups},fastrpc"
       fi
