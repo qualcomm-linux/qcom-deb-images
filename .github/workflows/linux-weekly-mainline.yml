@@ -22,6 +22,9 @@ jobs:
       pull-requests: write # linux.yml
     with:
       kernel_name: mainline
+      # reference build: we want the debs and the LAVA results to compare
+      # against, but its failures must not gate qcom-deb-images work
+      lava_report_test_results_externally: false
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440

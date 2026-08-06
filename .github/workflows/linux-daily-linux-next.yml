@@ -23,6 +23,9 @@ jobs:
     with:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
+      # reference build: we want the debs and the LAVA results to compare
+      # against, but its failures must not gate qcom-deb-images work
+      lava_report_test_results_externally: false
       lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
