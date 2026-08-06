@@ -154,9 +154,10 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
 - `suite`: Debian suite to use, defaults to `trixie`.
-- `snapshot`: use a Debian snapshot archive for a reproducible build (`YYYYMMDD`
-  or `YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
+- `snapshot`: use snapshot apt archives for a reproducible build
+  (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
   Live mirrors are restored in the final image to allow upgrades.
+  See [docs/snapshot.md](docs/snapshot.md) for full usage and internals.
 
 For the image recipe:
 
