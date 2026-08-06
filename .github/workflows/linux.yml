@@ -18,6 +18,13 @@ on:
         required: false
         type: string
         default: ''
+      skip_image_build:
+        description: >
+          Skip building image. The LAVA tests boot that image, so the test
+          job is skipped along with it
+        required: false
+        type: boolean
+        default: false
       skip_qemu_tests:
         description: Skip QEMU tests
         required: false
@@ -160,6 +167,7 @@ jobs:
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
   debos-linux-deb:
+    if: ${{ !inputs.skip_image_build }}
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     permissions:
