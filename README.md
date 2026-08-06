@@ -59,23 +59,12 @@ scripts/build-u-boot-rb1.sh
 
 ### (optional) Build custom kernel
 
-Building a Linux kernel deb requires the following build-dependencies:
-```bash
-apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev debhelper-compat kmod python3 rsync coreutils
-```
+By default the image recipes will install the kernel provided by Debian.
 
-Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
-enable arm64 as a foreign architecture first by running
-`dpkg --add-architecture arm64 && apt update`.
-
-Then, you can build a local Linux kernel deb from mainline with recommended config fragments:
-
-```bash
-scripts/build-linux-deb.py kernel-configs/*.config
-
-# or from linux-next:
-scripts/build-linux-deb.py --linux-next kernel-configs/*.config
-```
+Build a custom kernel if you want to run `qcom-next`, the kernel which the CI
+images use and recommended for maximum hardware compatibility, `mainline` or
+`linux-next`. See the [Kernel](#kernel) section for the build-dependencies and
+the build instructions, then come back here.
 
 ### Build the image
 
@@ -149,8 +138,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
-  apt; defaults to `Debian’s linux-image-arm64`. Can (and should) be set to
-  `none` if you are providing local kernel package instead.
+  apt; defaults to `linux-image-arm64`. Set it to `none` when you are installing
+  a local kernel package. See the [Kernel](#kernel) section below for
+  more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
 - `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
@@ -273,6 +263,62 @@ NB: It's also possible to run qdl from the host while the board is not connected
 Once the image has booted, you can log in as the `debian` user, with the
 default `debian` password. The image should then ask you to change this default
 password to a safe one.
+
+## Kernel
+
+When building an image locally, by default the recipe will install the latest
+kernel from Debian.
+
+All of the CI-built images instead install
+[`qcom-next`](https://github.com/qualcomm-linux/kernel/tree/qcom-next), the
+Qualcomm Linux integration branch, which carries additional platform support.
+
+Build it yourself to get the same kernel the CI images use.
+
+Building a Linux kernel deb requires the following build-dependencies:
+```bash
+apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev debhelper-compat kmod python3 rsync coreutils
+```
+
+Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
+enable arm64 as a foreign architecture first by running
+`dpkg --add-architecture arm64 && apt update`.
+
+Then build `qcom-next` with the recommended config fragments:
+
+```bash
+# CI pins an exact version with `--ref`; without one this builds the qcom-next
+# branch tip.
+scripts/build-linux-deb.py --qcom-next prune.config qcom.config kernel-configs/*.config
+```
+
+Other trees can be built for comparison, for instance to check whether a
+problem also affects upstream:
+
+```bash
+# mainline
+scripts/build-linux-deb.py kernel-configs/*.config
+
+# linux-next
+scripts/build-linux-deb.py --linux-next kernel-configs/*.config
+```
+
+To build an image with a locally-built kernel, copy the resulting debs to
+`debos-recipes/local-debs/` and disable the apt-installed kernel when building
+the root filesystem:
+
+```bash
+EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
+```
+
+Prebuilt Qualcomm kernel packages are also available from the overlay apt
+repository, as an alternative to building one:
+
+```bash
+# the trailing plus sign is doubled because apt reads a single one in a package
+# name as a request to install the package
+EXTRA_DEBOS_OPTS="-t kernelpackages:linux-image-<version>-qcom1++" make rootfs.tar
+```
 
 ## Development
 
