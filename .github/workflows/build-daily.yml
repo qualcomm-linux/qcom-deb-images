@@ -1,3 +1,9 @@
+# Builds & Tests QLI Debian images:
+#  - qcom-next kernel
+#  - Qualcomm overlay repos and packages
+#
+# This workflow tracks the state of QLI Debian on supported boards.
+
 name: Daily Build
 
 on:
@@ -23,6 +29,10 @@ jobs:
       contents: read # debos.yml
     with:
       suite: ${{ matrix.suite }}
+      # QLI targets qcom-next; consume the debs published to EFS by the
+      # "Daily qcom-next linux build" workflow rather than a kernel from an
+      # APT repository
+      kernelpackages: efs/qcom-next
 
   test-daily:
     # don't run cron from forks of the main repository or from other branches
@@ -43,9 +53,3 @@ jobs:
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
-      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
-      # glymur-crd can't boot the distro kernel, only qcom-next
-      # monaco-evk only validated against the linux-next/qcom-next/arduino
-      # kernels so far, not the distro kernel; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
