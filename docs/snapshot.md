@@ -102,6 +102,41 @@ drift.
 The feature spans the two build recipes. Line references are to the files as of
 this writing and are meant as a reading guide, not exact addresses.
 
+### Archive-side model
+
+Before looking at the recipes, it helps to understand what happens on the *APT
+archive* side — this is the same for both the Debian archive
+([snapshot.debian.org](https://snapshot.debian.org)) and the Debusine-hosted
+Qualcomm Linux archive.
+
+Each time an archive is published, it produces a fresh set of indexes
+(`InRelease`, `Release`, `Packages`, etc.). Rather than discarding the previous
+indexes on each new publication, the archive **retains** them. When a snapshot
+is requested at a particular timestamp, the infrastructure works out which set
+of indexes was *live* at that moment — in practice, the most recent publication
+at or before the requested time — and serves that set.
+
+Several consequences follow from this model:
+
+- **Any timestamp is valid.** You do not have to pick a timestamp that
+  coincides with a publication; the archive resolves any timestamp back to the
+  most recent publication before it. There is no "snapshot not found" for a
+  well-formed timestamp.
+- **The same timestamp works for both archives simultaneously.** Because both
+  the Debian and Debusine archives resolve a timestamp the same way — back to
+  their own most-recent-prior publication — a single snapshot timestamp pins
+  both archives coherently. This is why the recipes can use one `snapshot:`
+  value across all sources.
+- **Indexes are served as-is, not re-signed.** The archive returns the original
+  `InRelease` exactly as it was published; it is not regenerated or re-signed
+  for the snapshot. This is what makes the previous point possible, but it also
+  means the served `InRelease` is, by definition, *old* — its `Valid-Until`
+  will typically be in the past.
+- **`Check-Valid-Until` must be disabled.** Because the served `InRelease` is an
+  old, un-re-signed file, its `Valid-Until` window will usually have expired.
+  APT would reject such an archive by default, so snapshot sources must set
+  `Check-Valid-Until: no` (see the `snapshot_*.sources` derivation below).
+
 ### Overview
 
 Debian ships APT sources as `deb822`-style `*.sources` files under
