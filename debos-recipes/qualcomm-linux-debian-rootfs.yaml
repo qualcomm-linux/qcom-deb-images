@@ -5,6 +5,7 @@
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
 {{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "qsc-deb-releases" }}
+{{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
@@ -224,7 +225,9 @@ actions:
 {{- end }}
 
 # Qualcomm Linux maintains overlays for trixie/forky
-{{- if ne $suite "unstable" }}
+# but only configure the sources when enabled. Some builds (e.g. Vanilla Debian)
+# may not want to setup the QLI repo.
+{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
   - action: run
     description: Create Qualcomm Linux APT sources for {{ $suite }}
     chroot: true

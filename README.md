@@ -153,6 +153,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `none` if you are providing local kernel package instead.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
+- `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
+  filesystem; defaults to `true`. Set it to `false` to leave the image with no
+  Qualcomm Linux APT sources.
 - `suite`: Debian suite to use, defaults to `trixie`.
 - `snapshot`: use snapshot apt archives for a reproducible build
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
