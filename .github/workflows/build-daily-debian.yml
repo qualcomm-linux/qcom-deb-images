@@ -1,0 +1,67 @@
+# Builds & Tests Vanilla Debian images:
+#  - kernel installed from the Debian archive
+#  - no Qualcomm overlay repos or packages
+#
+# This workflow tracks the state of upstream Debian on supported boards.
+
+name: Daily Build (Vanilla Debian)
+
+on:
+  # run daily at 6:30am
+  schedule:
+    - cron: '30 6 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  build-daily-debian:
+    # don't run cron from forks of the main repository or from other branches
+    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read # debos.yml
+    with:
+      suite: ${{ matrix.suite }}
+      # plain Debian kernel: the Debian kernel and none of the Qualcomm overlays
+      # so that we simply test the state of upstream Debian
+      overlays: none
+      kernelpackages: linux-image-arm64
+      # ... and none of the Qualcomm APT sources either, so that the upgrade
+      # which follows the bootstrap only ever pulls in packages from Debian
+      debos_extra_args: -t qliaptrepo:false
+
+  test-daily-debian:
+    # don't run cron from forks of the main repository or from other branches
+    if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: ./.github/workflows/lava-test.yml
+    needs: build-daily-debian
+    permissions:
+      checks: write # lava-test.yml
+      contents: read # lava-test.yml
+      packages: read # lava-test.yml
+      pull-requests: write # lava-test.yml
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
+    with:
+      url: ${{ needs.build-daily-debian.outputs.artifacts_url }}
+      suite: ${{ matrix.suite }}
+      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
+      # glymur-crd can't boot the distro kernel, only qcom-next
+      # monaco-evk only validated against the linux-next/qcom-next/arduino
+      # kernels so far, not the distro kernel; see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      # failures here are about upstream Debian, not about qcom-deb-images;
+      # they are reported through this workflow instead of gating our work
+      report_test_results_externally: false
