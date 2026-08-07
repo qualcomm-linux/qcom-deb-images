@@ -31,5 +31,7 @@ jobs:
       # stop after publishing the debs to EFS; the "Daily Build" workflow
       # picks them up and builds and tests the images on every suite
       skip_image_build: true
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
+      lava_boards_exclude: '["monaco-arduino-monza"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
