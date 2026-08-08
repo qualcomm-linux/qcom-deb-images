@@ -1,6 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $westonsession := or .westonsession "false" }}
+{{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -17,6 +18,9 @@
 {{- $variantid = "gnome" }}
 {{- else if eq $westonsession "true" }}
 {{- $variantid = "weston" }}
+{{- end }}
+{{- if eq $multimedia "true" }}
+{{- $variantid = printf "%s-multimedia" $variantid }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -764,6 +768,62 @@ actions:
     packages:
       # marks the current Android boot partition as booted successfully
       - qbootctl
+
+{{- if eq $multimedia "true" }}
+# The accelerated multimedia stack, modelled on meta-qcom's
+# qcom-multimedia-proprietary-image: out-of-tree kernel drivers and closed
+# source userspace from the Qualcomm Linux APT repository.
+
+  - action: apt
+    description: Install accelerated multimedia stack
+    recommends: false
+    packages:
+      # adreno
+      # adreno-egl depends on adreno-common
+      #- adreno-common
+      - adreno-egl1
+      # adreno-egl1 depends on adreno-gles1
+      #- adreno-gles1
+      # adreno-egl1 depends on adreno-gles2
+      #- adreno-gles2
+      - adreno-opencl-icd
+      - adreno-vulkan-icd
+
+      # camx-dkms
+      # dkms packages are not installed; building modules at image build time takes too long
+      #- camx-dkms
+
+      # camx-firmware-glymur
+      - camx-firmware-glymur
+
+      # camx-firmware-hamoa
+      - camx-firmware-hamoa
+
+      # fastrpc
+      - fastrpc-tests
+      # fastrpc-support recommends hexagon-dsp-binaries
+      - hexagon-dsp-binaries
+      # fastrpc-tests depends on fastrpc-support
+      #- fastrpc-support
+      # fastrpc-tests depends on libfastrpc1
+      #- libfastrpc1
+
+      # gbm-msm-backend
+      - libgbm-msm1
+
+      # iris-vpu
+      # dkms packages are not installed; building modules at image build time takes too long
+      #- iris-vpu-dkms
+
+      # kgsl
+      # dkms packages are not installed; building modules at image build time takes too long
+      #- kgsl-dkms
+
+      # qcom-sensing-hub
+      - sensinghub-session-client
+      # sensinghub-session-client depends on libsensinghub1
+      #- libsensinghub1
+{{- end }}
 
 {{- if ne $localdebs "none" }}
   - action: overlay
