@@ -1,5 +1,6 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
+{{- $westonsession := or .westonsession "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -14,6 +15,8 @@
 {{- $variantid = "xfce" }}
 {{- else if eq $gnomedesktop "true" }}
 {{- $variantid = "gnome" }}
+{{- else if eq $westonsession "true" }}
+{{- $variantid = "weston" }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -412,8 +415,15 @@ actions:
           --groups "$groups" debian
       # set password to "debian"
       echo debian:debian | chpasswd
+
+      # Leave the password unexpired for the Weston session as greetd 0.10.3
+      # cannot handle expired password changes.
+      # Support for changing expired passwords was added later in greetd:
+      # https://git.sr.ht/~kennylevinsen/greetd/commit/43832c2a58e511bb4093b21e28047968125d7c61
+{{- if ne $westonsession "true" }}
       # password must be changed on first login
       chage --lastday 0 debian
+{{- end }}
       # add to sudoers
       mkdir -v --mode 755 --parents /etc/sudoers.d
       # subshell to override umask
@@ -632,6 +642,66 @@ actions:
       - gstreamer1.0-libcamera
       - libcamera-tools
       - libcamera-v4l2
+{{- end }}
+
+{{- if eq $westonsession "true" }}
+# Install Weston, a lightweight Wayland compositor.
+#
+# The Weston package does not have any mechanism to start automatically at boot
+# so greetd is used to create a user session and start Weston.
+#
+# The agreety text greeter provides a console login interface similar to getty,
+# authenticates the user through PAM then launches Weston after login.
+#
+# greetd/agreety does not discover the installed compositors from
+# /usr/share/wayland-sessions/*.desktop so Weston is set as the command to run
+# after login.
+#
+# Weston logs to "$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR usually resolves
+# to "/run/user/<UID>", so the log is only kept for the lifetime of the user's
+# login session.
+
+  - action: apt
+    description: Install weston session packages
+    recommends: false
+    packages:
+      - weston
+      - greetd
+
+  - action: run
+    description: Configure weston and greetd
+    chroot: true
+    command: |
+      set -eux
+
+      # Configure Weston.
+      mkdir -p /etc/xdg/weston/
+      tee /etc/xdg/weston/weston.ini <<EOF
+      [core]
+      # desktop shell is used if no shell is specified
+      #shell=desktop
+
+      # start even when no input devices are detected
+      require-input=false
+
+      # keep the display active
+      # this also disables desktop-shell's screensaver
+      idle-time=0
+      EOF
+
+      # Configure greetd to start Weston via agreety.
+      tee /etc/greetd/config.toml <<EOF
+      [terminal]
+      vt = 7
+
+      [default_session]
+      # Start agreety to provide the login prompt, then launch Weston.
+      # Set Weston to log to "\$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR
+      # usually resolves to "/run/user/<UID>", so the log is only kept for the
+      # lifetime of the user's login session.
+      command = "/usr/sbin/agreety --cmd 'weston --log=$XDG_RUNTIME_DIR/weston.log'"
+      user = "_greetd"
+      EOF
 {{- end }}
 
   - action: run
