@@ -24,9 +24,11 @@
 name: EFS Maintenance
 
 on:
-  # run every Monday at 5:00am UTC, before the other workflows
+  # run every Monday at 00:30am UTC, before the other workflows: the earliest of
+  # those is the daily qcom-next kernel build at 2:30am, and pruning artifacts
+  # while a build is publishing to EFS is best avoided
   schedule:
-    - cron: '0 5 * * 1'
+    - cron: '30 0 * * 1'
   workflow_dispatch:
     inputs:
       create_new_location:

@@ -1,9 +1,10 @@
 name: Build U-Boot for RB1
 
 on:
-  # run weekly on Monday at 8:30am
+  # run weekly on Monday at 12:30pm, once the daily builds are done with the
+  # self-hosted runners for the day
   schedule:
-    - cron: '30 6 * * 1'
+    - cron: '30 12 * * 1'
   # allow manual runs
   workflow_dispatch:
 

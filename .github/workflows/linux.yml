@@ -18,6 +18,13 @@ on:
         required: false
         type: string
         default: ''
+      skip_image_build:
+        description: >
+          Skip building image. The LAVA tests boot that image, so the test
+          job is skipped along with it
+        required: false
+        type: boolean
+        default: false
       skip_qemu_tests:
         description: Skip QEMU tests
         required: false
@@ -38,6 +45,15 @@ on:
         required: false
         type: string
         default: ''
+      lava_report_test_results_externally:
+        description: >
+          Report LAVA results as a check run on the commit and a comment on
+          associated pull requests. Set false for kernels we track for
+          reference but don't gate development on; their results then stay in
+          the job summary
+        required: false
+        type: boolean
+        default: true
     secrets:
       LAVATOKEN:
         description: API token used to submit jobs to LAVA
@@ -160,6 +176,7 @@ jobs:
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
   debos-linux-deb:
+    if: ${{ !inputs.skip_image_build }}
     needs: build-linux-deb
     uses: ./.github/workflows/debos.yml
     permissions:
@@ -185,3 +202,4 @@ jobs:
       suite: trixie
       boards_include: ${{ inputs.lava_boards_include }}
       boards_exclude: ${{ inputs.lava_boards_exclude }}
+      report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

@@ -1,9 +1,11 @@
 name: Weekly mainline linux build
 
 on:
-  # run weekly on Monday at 6:30am
+  # run weekly on Monday at 2:30pm, after the daily builds and the weekly u-boot
+  # build have finished for the day, so this doesn't add its LAVA jobs on top of
+  # theirs
   schedule:
-    - cron: '30 6 * * 1'
+    - cron: '30 14 * * 1'
   # allow manual runs
   workflow_dispatch:
 
@@ -22,6 +24,9 @@ jobs:
       pull-requests: write # linux.yml
     with:
       kernel_name: mainline
+      # reference build: we want the debs and the LAVA results to compare
+      # against, but its failures must not gate qcom-deb-images work
+      lava_report_test_results_externally: false
       # monaco-evk only validated against the linux-next/qcom-next/arduino
       # kernels so far; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440

@@ -17,7 +17,7 @@ on:
           repositories (e.g. linux-image-arm64) or name of a EFS kernel
           package directory (e.g. efs/mainline)
         type: string
-        default: default-ci
+        default: linux-image-arm64
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
@@ -43,7 +43,6 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  SUITE: ${{ inputs.suite }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   PREFIX: ${{ inputs.suite }}
 
@@ -97,8 +96,22 @@ jobs:
           case "$KERNEL_PACKAGES" in
             efs/*)
               mkdir -v local-apt-repo/kernel
-              # get kernel from EFS
-              cp -av "/efs/${KERNEL_PACKAGES#efs/}/"*.deb local-apt-repo/kernel
+              # get kernel from EFS; the directory is a symlink published by
+              # the matching kernel workflow (linux.yml via e.g.
+              # linux-daily-qcom-next.yml), so report a missing or empty one
+              # rather than failing later with a confusing APT error
+              efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
+              if [ ! -d "$efs_kernel_dir" ]; then
+                  echo "ERROR: ${efs_kernel_dir} does not exist" >&2
+                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                  exit 1
+              fi
+              cp -av "${efs_kernel_dir}/"*.deb local-apt-repo/kernel
+              if ! ls local-apt-repo/kernel/linux-image-*.deb >/dev/null 2>&1; then
+                  echo "ERROR: ${efs_kernel_dir} contains no linux-image-*.deb" >&2
+                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                  exit 1
+              fi
             ;;
           esac
 
@@ -112,7 +125,6 @@ jobs:
         run: |
           set -ux
           kernel_packages="$KERNEL_PACKAGES"
-          suite="$SUITE"
           case "$kernel_packages" in
             # NB: this is slightly weak as we collapse
             # kernelpackages which is potentially a list and only
@@ -125,19 +137,6 @@ jobs:
             # 
             efs/*)
               kernel_packages="$(find local-apt-repo/kernel -type f \( -name 'linux-image-*' -o -name 'linux-headers-*' \) -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|sort|paste -sd,)"
-              ;;
-            default-ci)
-              case "$suite" in
-                trixie)
-                  # the package name will be passed to APT which interprets the trailing
-                  # plus sign in the package name as a request to install the package, so
-                  # use two plus signs
-                  kernel_packages="linux-image-6.16.7-qcom1++"
-                  ;;
-                *)
-                  kernel_packages="linux-image-arm64"
-                  ;;
-              esac
               ;;
           esac
 
@@ -273,4 +272,8 @@ jobs:
            # instead but all at once. See #74 and #159.
 
            # rootfs/ is a build artifact, so should not be scanned for tests
-           py.test-3 --ignore=rootfs
+           # --verbose enables verbose output which shows each test's full name
+           #   and full result which makes CI failures much easier to diagnose
+           # --capture=no so pytest doesn't swallow stdout and only prints it
+           #   after a job fails. Instead, stream the log live.
+           py.test-3 --verbose --capture=no --ignore=rootfs

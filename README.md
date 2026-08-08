@@ -1,11 +1,5 @@
 # Qualcomm Linux deb images
 
-[![build on push status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-on-push.yml?label=build%20on%20push)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-on-push.yml)
-[![daily build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily.yml?label=daily%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml)
-[![daily qcom-next build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-qcom-next.yml?label=daily%20qcom-next%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-qcom-next.yml)
-[![daily linux-next build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-linux-next.yml?label=daily%20linux-next%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-linux-next.yml)
-[![weekly mainline build status](https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-weekly-mainline.yml?label=weekly%20mainline%20build)](https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-weekly-mainline.yml)
-
 A collection of recipes to build Qualcomm Linux images for deb based
 operating systems.
 
@@ -23,6 +17,18 @@ recipes based on Debian trixie for boards such as:
 
 We are also working towards providing ready-to-use, pre-built images – stay
 tuned!
+
+## CI Status
+
+| Variant | Kernel build | Image build & boot test |
+| ------- | --- | --- |
+| Qualcomm Linux | [![qcom-next kernel, daily][qcom-next-badge]][qcom-next] | [![images, daily][images-badge]][images] |
+| Debian | *uses kernel from Debian Archive* | [![Vanilla Debian images, daily][debian-images-badge]][debian-images] |
+| Reference upstream kernels | [![linux-next, daily][linux-next-badge]][linux-next] [![mainline, weekly][mainline-badge]][mainline] | *covered by the kernel build* [^1] |
+| Project-specific builds | [![arduino, daily][arduino-badge]][arduino] | *covered by the kernel build* [^1] |
+
+[^1]: these builds compile the kernel, build an image and boot test the image in a single workflow, so the Kernel build reports all three.
+
 
 ## Requirements
 
@@ -59,23 +65,12 @@ scripts/build-u-boot-rb1.sh
 
 ### (optional) Build custom kernel
 
-Building a Linux kernel deb requires the following build-dependencies:
-```bash
-apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev debhelper-compat kmod python3 rsync coreutils
-```
+By default the image recipes will install the kernel provided by Debian.
 
-Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
-enable arm64 as a foreign architecture first by running
-`dpkg --add-architecture arm64 && apt update`.
-
-Then, you can build a local Linux kernel deb from mainline with recommended config fragments:
-
-```bash
-scripts/build-linux-deb.py kernel-configs/*.config
-
-# or from linux-next:
-scripts/build-linux-deb.py --linux-next kernel-configs/*.config
-```
+Build a custom kernel if you want to run `qcom-next`, the kernel which the CI
+images use and recommended for maximum hardware compatibility, `mainline` or
+`linux-next`. See the [Kernel](#kernel) section for the build-dependencies and
+the build instructions, then come back here.
 
 ### Build the image
 
@@ -149,10 +144,14 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
-  apt; defaults to `Debian’s linux-image-arm64`. Can (and should) be set to
-  `none` if you are providing local kernel package instead.
+  apt; defaults to `linux-image-arm64`. Set it to `none` when you are installing
+  a local kernel package. See the [Kernel](#kernel) section below for
+  more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
+- `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
+  filesystem; defaults to `true`. Set it to `false` to leave the image with no
+  Qualcomm Linux APT sources.
 - `suite`: Debian suite to use, defaults to `trixie`.
 - `snapshot`: use snapshot apt archives for a reproducible build
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
@@ -271,6 +270,62 @@ Once the image has booted, you can log in as the `debian` user, with the
 default `debian` password. The image should then ask you to change this default
 password to a safe one.
 
+## Kernel
+
+When building an image locally, by default the recipe will install the latest
+kernel from Debian.
+
+All of the CI-built images instead install
+[`qcom-next`](https://github.com/qualcomm-linux/kernel/tree/qcom-next), the
+Qualcomm Linux integration branch, which carries additional platform support.
+
+Build it yourself to get the same kernel the CI images use.
+
+Building a Linux kernel deb requires the following build-dependencies:
+```bash
+apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev debhelper-compat kmod python3 rsync coreutils
+```
+
+Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to
+enable arm64 as a foreign architecture first by running
+`dpkg --add-architecture arm64 && apt update`.
+
+Then build `qcom-next` with the recommended config fragments:
+
+```bash
+# CI pins an exact version with `--ref`; without one this builds the qcom-next
+# branch tip.
+scripts/build-linux-deb.py --qcom-next prune.config qcom.config kernel-configs/*.config
+```
+
+Other trees can be built for comparison, for instance to check whether a
+problem also affects upstream:
+
+```bash
+# mainline
+scripts/build-linux-deb.py kernel-configs/*.config
+
+# linux-next
+scripts/build-linux-deb.py --linux-next kernel-configs/*.config
+```
+
+To build an image with a locally-built kernel, copy the resulting debs to
+`debos-recipes/local-debs/` and disable the apt-installed kernel when building
+the root filesystem:
+
+```bash
+EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
+```
+
+Prebuilt Qualcomm kernel packages are also available from the overlay apt
+repository, as an alternative to building one:
+
+```bash
+# the trailing plus sign is doubled because apt reads a single one in a package
+# name as a request to install the package
+EXTRA_DEBOS_OPTS="-t kernelpackages:linux-image-<version>-qcom1++" make rootfs.tar
+```
+
 ## Development
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
@@ -321,3 +376,19 @@ We'd love to hear if you run into issues or have ideas for improvements. [Report
 ## License
 
 This project is licensed under the [BSD-3-clause License](https://spdx.org/licenses/BSD-3-Clause.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
+
+<!-- link targets for the CI status badges at the top of this file; each
+     workflow needs two: the shields.io image and the Actions page it links to -->
+
+[qcom-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-qcom-next.yml
+[qcom-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-qcom-next.yml?label=qcom-next%20daily
+[images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily.yml
+[images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily.yml?label=images%20daily
+[debian-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-daily-debian.yml
+[debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-daily-debian.yml?label=Vanilla%20Debian%20images%20daily
+[linux-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-linux-next.yml
+[linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-linux-next.yml?label=linux-next%20daily
+[mainline]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-weekly-mainline.yml
+[mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-weekly-mainline.yml?label=mainline%20weekly
+[arduino]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-daily-arduino.yml
+[arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-daily-arduino.yml?label=arduino%20daily

@@ -1,9 +1,10 @@
 name: Daily linux-next linux build
 
 on:
-  # run daily at 7:30am
+  # run daily at 8:30am, two hours behind the arduino kernel build, so that our
+  # LAVA jobs don't queue up behind its own
   schedule:
-    - cron: '30 7 * * *'
+    - cron: '30 8 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -23,6 +24,9 @@ jobs:
     with:
       kernel_name: linux-next
       build_linux_deb_extra_args: '--linux-next'
+      # reference build: we want the debs and the LAVA results to compare
+      # against, but its failures must not gate qcom-deb-images work
+      lava_report_test_results_externally: false
       lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml

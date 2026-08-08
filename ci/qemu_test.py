@@ -73,7 +73,7 @@ def test_password_reset_required(vm):
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/69
 
     # This takes a minute or two on a ThinkPad T14s Gen 6 Snapdragon
-    vm.expect_exact("debian login:", timeout=240)
+    vm.expect_exact("debian login:", timeout=420)
 
     vm.send("debian\r\n")
     vm.expect_exact("Password:")

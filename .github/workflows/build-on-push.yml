@@ -18,6 +18,10 @@ jobs:
       contents: read # debos.yml
     with:
       suite: ${{ matrix.suite }}
+      # QLI targets qcom-next; consume the debs published to EFS by the
+      # "Daily qcom-next linux build" workflow rather than a kernel from an
+      # APT repository
+      kernelpackages: efs/qcom-next
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
     permissions:
@@ -34,8 +38,3 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }} # lava-test.yml
     with:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
-      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
-      # monaco-evk only validated against the linux-next/qcom-next/arduino
-      # kernels so far; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'

@@ -76,11 +76,6 @@ jobs:
       # however the publish job below hard-codes this in its artifact
       # download patterns, so keep them in sync if this changes.
       suite: trixie
-      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
-      # monaco-evk only validated against the linux-next/qcom-next/arduino
-      # kernels so far; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
 
   publish-test-results:
     name: "Publish Tests Results"
