@@ -1,5 +1,6 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
+{{- $westonsession := or .westonsession "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -15,6 +16,8 @@
 {{- $variantid = "xfce" }}
 {{- else if eq $gnomedesktop "true" }}
 {{- $variantid = "gnome" }}
+{{- else if eq $westonsession "true" }}
+{{- $variantid = "weston" }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -688,6 +691,39 @@ actions:
       - gstreamer1.0-libcamera
       - libcamera-tools
       - libcamera-v4l2
+{{- end }}
+
+{{- if eq $westonsession "true" }}
+# Install Weston, a lightweight Wayland compositor.
+#
+# The Weston package does not have any mechanism to start automatically at boot
+# so greetd is used to create a user session and start Weston.
+#
+# The agreety text greeter provides a console login interface similar to getty,
+# authenticates the user through PAM then launches Weston after login.
+#
+# greetd/agreety does not discover the installed compositors from
+# /usr/share/wayland-sessions/*.desktop so Weston is set as the command to run
+# after login.
+#
+# Weston logs to "$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR usually resolves
+# to "/run/user/<UID>", so the log is only kept for the lifetime of the user's
+# login session.
+#
+# greetd is configured through /etc/greetd/weston-session.toml rather than
+# /etc/greetd/config.toml - the latter is a dpkg conffile shipped by the
+# greetd package and may be overwritten on package upgrades.
+
+  - action: apt
+    description: Install Weston session packages
+    recommends: false
+    packages:
+      - weston
+      - greetd
+
+  - action: overlay
+    description: Configure Weston session
+    source: overlays/weston-session
 {{- end }}
 
   - action: run

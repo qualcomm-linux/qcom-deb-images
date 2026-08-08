@@ -1,0 +1,11 @@
+# greetd configuration for the Weston session.
+[terminal]
+vt = 7
+
+[default_session]
+# Start agreety to provide a login prompt, then launch Weston.
+# Set Weston to log to "$XDG_RUNTIME_DIR/weston.log"
+# XDG_RUNTIME_DIR usually resolves to "/run/user/<UID>" so the log is only kept
+# for the lifetime of the user's login session.
+command = "/usr/sbin/agreety --cmd 'weston --log=$XDG_RUNTIME_DIR/weston.log'"
+user = "_greetd"

@@ -141,6 +141,7 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `xfcedesktop`: install an Xfce desktop environment; default: console only
   environment
 - `gnomedesktop`: install a GNOME desktop environment; default: console only environment
+- `westonsession`: install a Weston session; default: console only environment
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
