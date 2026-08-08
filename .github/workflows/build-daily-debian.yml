@@ -64,7 +64,7 @@ jobs:
       # linux-next/qcom-next/arduino
       # kernels so far, not the distro kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["qrb2210-rb1", "glymur-crd", "monaco-arduino-monza", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      boards_exclude: '["glymur-crd", "lemans-evk", "monaco-arduino-monza", "monaco-evk", "qcs615-ride", "qcs8300-ride", "qrb2210-rb1"]'
       # failures here are about upstream Debian, not about qcom-deb-images;
       # they are reported through this workflow instead of gating our work
       report_test_results_externally: false
