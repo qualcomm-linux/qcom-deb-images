@@ -18,10 +18,10 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     permissions:
-      checks: write # linux.yml
-      contents: read # linux.yml
-      packages: read # linux.yml
-      pull-requests: write # linux.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     with:
       kernel_name: mainline
       # reference build: we want the debs and the LAVA results to compare
@@ -32,4 +32,4 @@ jobs:
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
       lava_boards_exclude: '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}

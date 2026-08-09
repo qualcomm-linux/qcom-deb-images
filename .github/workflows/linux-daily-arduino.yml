@@ -17,10 +17,10 @@ jobs:
     if: github.repository == 'qualcomm-linux/qcom-deb-images' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/linux.yml
     permissions:
-      checks: write # linux.yml
-      contents: read # linux.yml
-      packages: read # linux.yml
-      pull-requests: write # linux.yml
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
     with:
       kernel_name: arduino
       build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/arduino'
@@ -33,4 +33,4 @@ jobs:
       debos_extra_args: '-t overlays:qsc-deb-releases,workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
       lava_boards_include: '["monaco-arduino-monza", "monaco-evk"]'
     secrets:
-      LAVATOKEN: ${{ secrets.LAVATOKEN }} # linux.yml
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}

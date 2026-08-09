@@ -26,7 +26,7 @@ jobs:
         suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
     permissions:
-      contents: read # debos.yml
+      contents: read
     with:
       suite: ${{ matrix.suite }}
       # QLI targets qcom-next; consume the debs published to EFS by the
@@ -36,4 +36,4 @@ jobs:
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
     permissions:
-      contents: read # lava-schema-check.yml
+      contents: read
