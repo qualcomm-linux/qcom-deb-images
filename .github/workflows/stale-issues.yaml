@@ -20,6 +20,6 @@ jobs:
             days-before-close: -1
             days-before-issue-stale: 30
             days-before-pr-stale: 30
-            stale-pr-message: "This PR is stale. Add a nice message, can mention maintainers or maintainer team to draw attention"
-            stale-issue-message: "This issue is stale. Add a nice message, can mention maintainers or maintainer team to draw attention"
+            stale-pr-message: "This pull request has been marked as stale after 30 days of inactivity. Consider updating it or commenting on it if it's still active."
+            stale-issue-message: "This issue has been marked as stale after 30 days of inactivity. Consider commenting on it or providing a pull request if one is not already being worked on."
 
