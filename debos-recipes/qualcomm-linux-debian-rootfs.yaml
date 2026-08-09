@@ -56,10 +56,41 @@ actions:
       - contrib
       - non-free
       - non-free-firmware
+{{- if $snapshot }}
+    # bootstrap from the snaphot archive
+    mirrors: ['https://snapshot.debian.org/archive/debian/{{ $snapshot }}/']
+    # a static snapshot's Release may be stale relax the Valid-Until check
+    apt-opts: ['Acquire::Check-Valid-Until "false"']
+{{- else }}
     mirrors: ['http://deb.debian.org/debian']
+{{- end }}
     variant: minbase
     # ca-certificates required in early bootstrap for possible https apt overlays later
     include: [ca-certificates]
+
+{{- if $snapshot }}
+  - action: run
+    description: Drop mmdebstrap APT configuration
+    chroot: false
+    command: |
+      set -eux
+      conf="${ROOTDIR}/etc/apt/apt.conf.d/99mmdebstrap"
+
+      # mmdebstrap persists `apt-opts` in the rootfs
+
+      # Check the generated config only contains the requested options.
+      [ -f "$conf" ] || exit 1
+      unexpected=$(grep -vFx 'Acquire::Check-Valid-Until "false";' "$conf" || true)
+      if [ -n "$unexpected" ]; then
+        echo "ERROR: unexpected content in ${conf}: ${unexpected}" >&2
+        exit 1
+      fi
+
+      # Remove the generated config to not disable `Check-Valid-Until` globally;
+      # the later generated snapshot_*.sources config disables it for the
+      # relevant sources.
+      rm -v "$conf"
+{{- end }}
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
