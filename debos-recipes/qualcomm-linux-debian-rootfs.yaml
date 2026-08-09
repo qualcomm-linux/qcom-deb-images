@@ -337,6 +337,8 @@ actions:
       - e2fsprogs
       # tools to read/write EFI variables
       - efivar
+      # support for Qualcomm xDSPs
+      - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # defaults to "systemd-sysv"; perhaps not needed
