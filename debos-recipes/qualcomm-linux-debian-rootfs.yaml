@@ -36,6 +36,18 @@ actions:
       sleep 10
 {{- end }}
 
+{{- if $snapshot }}
+  - action: run
+    description: Validate snapshot timestamp
+    chroot: false
+    command: |
+      set -eu
+      if ! echo "{{ $snapshot }}" | grep -qE '^[0-9]{8}T[0-9]{6}Z$'; then
+        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDDTHHMMSSZ" >&2
+        exit 1
+      fi
+{{- end }}
+
   - action: mmdebstrap
     description: Bootstrap initial filesystem
     suite: {{ $suite }}
@@ -104,14 +116,9 @@ actions:
     command: |
       set -eux
 {{- if $snapshot }}
-      if echo "{{ $snapshot }}" | grep -qE '^[0-9]{8}T[0-9]{6}Z$'; then
-        SNAPSHOT="{{ $snapshot }}"
-      else
-        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDDTHHMMSSZ" >&2
-        exit 1
-      fi
+      # format already validated before the bootstrap
       touch /etc/buildinfo && chmod 644 /etc/buildinfo
-      echo "SNAPSHOT=${SNAPSHOT}" >> /etc/buildinfo
+      echo "SNAPSHOT={{ $snapshot }}" >> /etc/buildinfo
 {{- end }}
       tee /etc/apt/sources.list.d/debian.sources <<EOF
       # Debian archive
