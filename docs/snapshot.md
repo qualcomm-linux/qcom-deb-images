@@ -169,17 +169,36 @@ produce a warning rather than being edited.
 
 When `snapshot` is non-empty, the following happens in order:
 
-1. **Install the toggle helper** (`chroot: false`, written into `${ROOTDIR}`).
-2. **Validate and record the date.** The timestamp is checked against
-   `^[0-9]{8}T[0-9]{6}Z$`; an invalid value aborts the build. The value is
-   written to `/etc/buildinfo` as `SNAPSHOT=<date>` (mode 644). `/etc/buildinfo`
-   is the single source of truth for the date in later steps — they read it back
-   with `grep '^SNAPSHOT=' /etc/buildinfo` rather than re-templating the
-   variable.
-3. **Create the normal live `*.sources`** for Debian, `debian-backports`,
+1. **Validate the date.** The timestamp is checked against
+   `^[0-9]{8}T[0-9]{6}Z$`; an invalid value aborts the build.
+2. **Bootstrap from the snapshot.** The `mmdebstrap` action points its mirror at
+   `https://snapshot.debian.org/archive/debian/<SNAPSHOT>/` instead of
+   `http://deb.debian.org/debian`. Without this the baseline packages come from
+   the live archive. A static snapshot's `Release` may become stale, so the
+   bootstrap also disables this check with
+   `apt-opts: ['Acquire::Check-Valid-Until "false"']`.
+
+   Note that `mmdebstrap` writes `--aptopt` **permanently** into
+   `/etc/apt/apt.conf.d/99mmdebstrap` in the target. The recipe deletes that
+   file in the next step, so the shipped image does not carry a global
+   `Check-Valid-Until` override; the derived `snapshot_*.sources` set the field
+   per-source instead.
+
+   Only the main Debian archive is passed. `mmdebstrap` auto-adds `-updates` and
+   `-security` entries *only when no mirror argument is given at all*.
+   Since we always pass a mirror, the bootstrap sources are just `<suite> main
+   contrib non-free non-free-firmware`, matching the non-snapshot behaviour. The
+   `-updates` and `-security` suites are picked up by the full `*.sources` set
+   later.
+3. **Install the toggle helper** (`chroot: false`, written into `${ROOTDIR}`).
+4. **Record the date.** The value is written to `/etc/buildinfo` as
+   `SNAPSHOT=<date>` (mode 644). `/etc/buildinfo` is the single source of truth
+   for the date in later steps — they read it back with
+   `grep '^SNAPSHOT=' /etc/buildinfo` rather than re-templating the variable.
+5. **Create the normal live `*.sources`** for Debian, `debian-backports`,
    `qsc-deb-releases`, and the Qualcomm Linux (`qli`) archive — exactly as a
    non-snapshot build would.
-4. **Derive `snapshot_*.sources`.** For each existing `*.sources` (skipping any
+6. **Derive `snapshot_*.sources`.** For each existing `*.sources` (skipping any
    already-derived `snapshot_*`), a per-source table maps the live mirror URL to
    its dated-archive rewrite:
 
@@ -198,13 +217,13 @@ When `snapshot` is non-empty, the following happens in order:
 
    Finally, `apt-snapshot-toggle enable` switches the build over to the snapshot
    sources.
-5. **Warn about unpinned sources.** When removing the legacy `sources.list` and
+7. **Warn about unpinned sources.** When removing the legacy `sources.list` and
    before `apt-get update && apt-get full-upgrade`, any non-snapshot source that
    is still `Enabled: yes` (i.e. one with no snapshot support, such as
    `qsc-deb-releases`) triggers a warning that its packages will be "the latest
    available".
-6. **All package installation** then happens against the snapshot archives.
-7. **Restore live mirrors** at the end: `apt-snapshot-toggle disable`. This
+8. **All package installation** then happens against the snapshot archives.
+9. **Restore live mirrors** at the end: `apt-snapshot-toggle disable`. This
    re-enables the live sources and disables the `snapshot_*` ones — but the
    `snapshot_*.sources` files themselves are **kept** in the rootfs. This is
    what carries the pinning information forward into the image build via
@@ -239,8 +258,14 @@ gets out of the way so the running system tracks live updates.
 
 ## Design notes and caveats
 
-- The baseline mmdebstrap-generated rootfs is not yet snapshot-enabled. See
-  #498.
+- **The bootstrap resolves on the build host, not in the chroot.** Unlike the
+  other snapshot sources, the `mmdebstrap` mirror is fetched by the host's APT
+  before the rootfs exists, so the build host needs working HTTPS access to
+  snapshot.debian.org (i.e. a CA bundle).
+- **Very old snapshots may need more relaxation.** The bootstrap disables
+  `Check-Valid-Until` but still requires a currently-valid archive signing key.
+  Reaching back far enough that the key of the day has expired would
+  additionally need `Apt::Key::gpgvcommand`; this is deliberately not enabled.
 - **Both recipes need the option.** rootfs and image builds each re-pin
   independently; passing `snapshot` to only one leaves the other resolving live
   packages.
