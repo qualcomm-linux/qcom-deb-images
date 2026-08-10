@@ -219,22 +219,16 @@ Multiple overlays are available to include additional files not provided by
 Debian packages into the image’s root file system. They are located in
 `debos-recipes/overlays/`.
 
-By default, the *qsc-deb-releases* overlay is used if no overlays are specified
-using the `-t overlays:<value>` option. Multiple overlays can be specified,
-separated by a comma (`,`).
+By default, no overlays are used. Overlays can be selected with the
+`-t overlays:<value>` option; multiple overlays can be specified, separated by a
+comma (`,`).
 
 Here is the list of supported overlays:
 
 <dl>
     <dt>none</dt>
     <dd>
-        Special value to disable all overlays.
-    </dd>
-    <dt>qsc-deb-releases</dt>
-    <dd>
-        Enable our overlay apt repository that contains some package delta that
-        isn't fully upstreamed and backported to trixie in Debian yet.
-        Including this overlay will also select the fastrpc-test package.
+        Special value to disable all overlays; this is the default.
     </dd>
 </dl>
 

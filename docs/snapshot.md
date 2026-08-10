@@ -195,9 +195,8 @@ When `snapshot` is non-empty, the following happens in order:
    `SNAPSHOT=<date>` (mode 644). `/etc/buildinfo` is the single source of truth
    for the date in later steps — they read it back with
    `grep '^SNAPSHOT=' /etc/buildinfo` rather than re-templating the variable.
-5. **Create the normal live `*.sources`** for Debian, `debian-backports`,
-   `qsc-deb-releases`, and the Qualcomm Linux (`qli`) archive — exactly as a
-   non-snapshot build would.
+5. **Create the normal live `*.sources`** for Debian, `debian-backports` and the
+   Qualcomm Linux (`qli`) archive — exactly as a non-snapshot build would.
 6. **Derive `snapshot_*.sources`.** For each existing `*.sources` (skipping any
    already-derived `snapshot_*`), a per-source table maps the live mirror URL to
    its dated-archive rewrite:
@@ -219,9 +218,8 @@ When `snapshot` is non-empty, the following happens in order:
    sources.
 7. **Warn about unpinned sources.** When removing the legacy `sources.list` and
    before `apt-get update && apt-get full-upgrade`, any non-snapshot source that
-   is still `Enabled: yes` (i.e. one with no snapshot support, such as
-   `qsc-deb-releases`) triggers a warning that its packages will be "the latest
-   available".
+   is still `Enabled: yes` (i.e. one with no snapshot support) triggers a warning
+   that its packages will be "the latest available".
 8. **All package installation** then happens against the snapshot archives.
 9. **Restore live mirrors** at the end: `apt-snapshot-toggle disable`. This
    re-enables the live sources and disables the `snapshot_*` ones — but the
@@ -270,11 +268,10 @@ gets out of the way so the running system tracks live updates.
   independently; passing `snapshot` to only one leaves the other resolving live
   packages.
 - **Not every source supports snapshots.** Only Debian (main + security),
-  `debian-backports`, and the Qualcomm Linux `qli` archive are rewritten. The
-  `qsc-deb-releases` Artifactory overlay and any `aptlocalrepo`/`localdebs`
-  sources are **not** pinned; packages from them are whatever is current, and
-  the build prints a warning. Reproducibility is therefore best-effort with
-  respect to those sources.
+  `debian-backports`, and the Qualcomm Linux `qli` archive are rewritten. Any
+  `aptlocalrepo`/`localdebs` sources are **not** pinned; packages from them are
+  whatever is current, and the build prints a warning. Reproducibility is
+  therefore best-effort with respect to those sources.
 - **Local kernels are not pinned.** A kernel built via
   `scripts/build-linux-deb.py` or dropped into `local-debs/` is installed
   as-is; it is not controlled by the snapshot.
