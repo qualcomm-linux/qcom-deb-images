@@ -534,6 +534,7 @@ actions:
               if "${QCOM_DTB_METADATA}/build-dtb-image.sh" \
                   --dtb-src build/dtbs/qcom \
                   --soc {{ $soc }} \
+                  --size 2 \
                   --out "${dtb_bin}" \
                   --prune; then
                   echo "Multi-DTB FIT image generated: ${dtb_bin}"
