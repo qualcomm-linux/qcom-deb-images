@@ -27,6 +27,8 @@ jobs:
       # reference build: we want the debs and the LAVA results to compare
       # against, but its failures must not gate qcom-deb-images work
       lava_report_test_results_externally: false
-      lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      # qrb2210-rb1 doesn't boot with mainline, only qcom-next; see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/424
+      lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk", "qrb2210-rb1"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
