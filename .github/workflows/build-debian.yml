@@ -4,7 +4,7 @@
 #
 # This workflow tracks the state of upstream Debian on supported boards.
 
-name: Build (Vanilla Debian)
+name: Build Debian
 
 on:
   # run daily at 10:30am, last of the daily builds: this tracks upstream Debian

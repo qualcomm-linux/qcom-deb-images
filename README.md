@@ -23,7 +23,7 @@ tuned!
 | Variant | Kernel build | Image build & boot test |
 | ------- | --- | --- |
 | Qualcomm Linux | [![qcom-next kernel][qcom-next-badge]][qcom-next] | [![images][images-badge]][images] |
-| Debian | *uses kernel from Debian Archive* | [![Vanilla Debian images][debian-images-badge]][debian-images] |
+| Debian | *uses kernel from Debian Archive* | [![Debian images][debian-images-badge]][debian-images] |
 | Reference upstream kernels | [![linux-next][linux-next-badge]][linux-next] [![mainline][mainline-badge]][mainline] | *covered by the kernel build* [^1] |
 | Project-specific builds | [![arduino][arduino-badge]][arduino] | *covered by the kernel build* [^1] |
 
@@ -385,7 +385,7 @@ This project is licensed under the [BSD-3-clause License](https://spdx.org/licen
 [images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build.yml
 [images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build.yml?label=images
 [debian-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-debian.yml
-[debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-debian.yml?label=Vanilla%20Debian%20images
+[debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-debian.yml?label=Debian%20images
 [linux-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-next.yml
 [linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-next.yml?label=linux-next
 [mainline]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-mainline.yml
