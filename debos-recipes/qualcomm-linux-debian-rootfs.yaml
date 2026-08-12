@@ -36,6 +36,18 @@ actions:
       sleep 10
 {{- end }}
 
+{{- if $snapshot }}
+  - action: run
+    description: Validate snapshot timestamp
+    chroot: false
+    command: |
+      set -eu
+      if ! echo "{{ $snapshot }}" | grep -qE '^[0-9]{8}T[0-9]{6}Z$'; then
+        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDDTHHMMSSZ" >&2
+        exit 1
+      fi
+{{- end }}
+
   - action: mmdebstrap
     description: Bootstrap initial filesystem
     suite: {{ $suite }}
@@ -44,10 +56,41 @@ actions:
       - contrib
       - non-free
       - non-free-firmware
+{{- if $snapshot }}
+    # bootstrap from the snaphot archive
+    mirrors: ['https://snapshot.debian.org/archive/debian/{{ $snapshot }}/']
+    # a static snapshot's Release may be stale relax the Valid-Until check
+    apt-opts: ['Acquire::Check-Valid-Until "false"']
+{{- else }}
     mirrors: ['http://deb.debian.org/debian']
+{{- end }}
     variant: minbase
     # ca-certificates required in early bootstrap for possible https apt overlays later
     include: [ca-certificates]
+
+{{- if $snapshot }}
+  - action: run
+    description: Drop mmdebstrap APT configuration
+    chroot: false
+    command: |
+      set -eux
+      conf="${ROOTDIR}/etc/apt/apt.conf.d/99mmdebstrap"
+
+      # mmdebstrap persists `apt-opts` in the rootfs
+
+      # Check the generated config only contains the requested options.
+      [ -f "$conf" ] || exit 1
+      unexpected=$(grep -vFx 'Acquire::Check-Valid-Until "false";' "$conf" || true)
+      if [ -n "$unexpected" ]; then
+        echo "ERROR: unexpected content in ${conf}: ${unexpected}" >&2
+        exit 1
+      fi
+
+      # Remove the generated config to not disable `Check-Valid-Until` globally;
+      # the later generated snapshot_*.sources config disables it for the
+      # relevant sources.
+      rm -v "$conf"
+{{- end }}
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
@@ -95,6 +138,23 @@ actions:
       chmod +x "${ROOTDIR}/usr/local/bin/apt-snapshot-toggle"
 {{- end }}
 
+  - action: run
+    description: Store build metadata in /etc/buildinfo
+    chroot: true
+    command: |
+      set -eux
+      touch /etc/buildinfo
+      chmod 644 /etc/buildinfo
+{{- if $buildid }}
+      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
+{{- end }}
+{{- if $variantid }}
+      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
+{{- end }}
+{{- if $snapshot }}
+      echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
+{{- end }}
+
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
   # modern etc/apt/sources.list.d/*.sources; sources.list is removed after
   # applying all overlays, and followed by an APT update and full-upgrade
@@ -103,16 +163,6 @@ actions:
     chroot: true
     command: |
       set -eux
-{{- if $snapshot }}
-      if echo "{{ $snapshot }}" | grep -qE '^[0-9]{8}T[0-9]{6}Z$'; then
-        SNAPSHOT="{{ $snapshot }}"
-      else
-        echo "ERROR: invalid snapshot '{{ $snapshot }}'. Use: YYYYMMDDTHHMMSSZ" >&2
-        exit 1
-      fi
-      touch /etc/buildinfo && chmod 644 /etc/buildinfo
-      echo "SNAPSHOT=${SNAPSHOT}" >> /etc/buildinfo
-{{- end }}
       tee /etc/apt/sources.list.d/debian.sources <<EOF
       # Debian archive
       Types: deb
@@ -650,18 +700,6 @@ actions:
           locale-gen
           update-locale LANG=en_US.UTF-8
       fi
-
-{{- if ne $buildid "" }}
-  - action: run
-    description: Set build and variant ID in /etc/buildinfo
-    chroot: true
-    command: |
-      set -eux
-      touch /etc/buildinfo
-      chmod 644 /etc/buildinfo
-      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
-      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
-{{- end }}
 
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
