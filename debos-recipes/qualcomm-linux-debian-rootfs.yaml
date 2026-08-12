@@ -107,6 +107,23 @@ actions:
       chmod +x "${ROOTDIR}/usr/local/bin/apt-snapshot-toggle"
 {{- end }}
 
+  - action: run
+    description: Store build metadata in /etc/buildinfo
+    chroot: true
+    command: |
+      set -eux
+      touch /etc/buildinfo
+      chmod 644 /etc/buildinfo
+{{- if $buildid }}
+      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
+{{- end }}
+{{- if $variantid }}
+      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
+{{- end }}
+{{- if $snapshot }}
+      echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
+{{- end }}
+
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
   # modern etc/apt/sources.list.d/*.sources; sources.list is removed after
   # applying all overlays, and followed by an APT update and full-upgrade
@@ -115,11 +132,6 @@ actions:
     chroot: true
     command: |
       set -eux
-{{- if $snapshot }}
-      # format already validated before the bootstrap
-      touch /etc/buildinfo && chmod 644 /etc/buildinfo
-      echo "SNAPSHOT={{ $snapshot }}" >> /etc/buildinfo
-{{- end }}
       tee /etc/apt/sources.list.d/debian.sources <<EOF
       # Debian archive
       Types: deb
@@ -656,18 +668,6 @@ actions:
           locale-gen
           update-locale LANG=en_US.UTF-8
       fi
-
-{{- if ne $buildid "" }}
-  - action: run
-    description: Set build and variant ID in /etc/buildinfo
-    chroot: true
-    command: |
-      set -eux
-      touch /etc/buildinfo
-      chmod 644 /etc/buildinfo
-      echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
-      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
-{{- end }}
 
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
