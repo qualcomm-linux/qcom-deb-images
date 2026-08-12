@@ -399,6 +399,8 @@ actions:
       - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
+      # firmware for the Qualcomm xDSPs
+      - hexagon-dsp-binaries
       # defaults to "systemd-sysv"; perhaps not needed
       - init
       # Bluetooth audio support in PipeWire
