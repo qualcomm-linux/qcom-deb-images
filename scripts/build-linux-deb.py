@@ -118,28 +118,23 @@ def check_package_installed(pkg):
 
 def check_dependencies():
     packages = [
-        # needed to clone repository
-        "git",
-        # will pull gcc-aarch64-linux-gnu; should pull a native compiler on
-        # arm64 and a cross-compiler on other architectures
-        "crossbuild-essential-arm64",
-        # linux build-dependencies; see linux/scripts/package/mkdebian
-        "make",
-        "flex",
-        "bison",
         "bc",
+        "bison",
+        "build-essential",
+        "coreutils",  # nproc
+        "crossbuild-essential-arm64",  # cross or native arm64 compiler
+        "debhelper",
+        "dpkg-dev",
+        "flex",
+        "git",
+        "kmod",
         "libdw-dev",
         "libelf-dev",
         "libssl-dev",
         "libssl-dev:arm64",
-        # linux build-dependencies for debs
-        "dpkg-dev",
-        "debhelper",
-        "kmod",
+        "make",
         "python3",
         "rsync",
-        # for nproc
-        "coreutils",
     ]
 
     log_i(f"Checking build-dependencies ({' '.join(packages)})")
