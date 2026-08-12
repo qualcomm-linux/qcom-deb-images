@@ -218,7 +218,8 @@ jobs:
         run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
 
       - name: Install cosign
-        # Required so the syft installer can verify the release signature (-v).
+        # Required so the syft and grype installers can verify the release
+        # signature (-v).
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       # Syft is not packaged in Debian; it's available as a binary tarball or
@@ -252,12 +253,69 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
-      - name: Stage SBOMs for publishing
+      # Grype is not packaged in Debian; like Syft it's available as a binary
+      # tarball or as container image from upstream, on arm64 and x86
+      - name: Install Grype
+        run: |
+          set -ux
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -v
+
+      # the vulnerability database is downloaded separately from the scan so
+      # that a transient download failure is reported as its own step, and so
+      # the database metadata (built date, schema) shows up in the logs; it also
+      # lists the data providers, which is where the Debian Security Tracker
+      # data comes from (provider "debian")
+      - name: Update Grype vulnerability database
+        run: |
+          set -ux
+          bin/grype --version
+          bin/grype db update -v
+          bin/grype db status
+          bin/grype db providers
+
+      # scan the SBOM generated above by Syft rather than the rootfs directory:
+      # it's much faster and it guarantees both reports describe exactly the
+      # same set of packages
+      #
+      # the distro is not overridden with --distro: the SBOM already records the
+      # Debian release from the rootfs' os-release, and that is what Grype needs
+      # to select the Debian provider's data. passing a codename Grype doesn't
+      # map to a release (e.g. forky while it's still testing) would silently
+      # match nothing at all
+      #
+      # --by-cve reports CVE identifiers instead of Debian-specific DSA/DLA ids,
+      # which is what downstream tooling and reports expect
+      #
+      # no --fail-on: a Debian image always carries known unfixed CVEs, so
+      # failing the build on severity would make every build red; the reports
+      # are published as artifacts for review instead
+      - name: Scan SBOM for vulnerabilities with Grype
+        run: |
+          set -ux
+          bin/grype \
+              -o json=rootfs-vulns.grype.json \
+              -o table=rootfs-vulns.grype.txt \
+              -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
+              -o sarif=rootfs-vulns.grype.sarif \
+              --by-cve \
+              --sort-by severity \
+              -v \
+              sbom:rootfs-sbom.syft.json
+          # every -o above writes to a file, so echo the table to the log too
+          cat rootfs-vulns.grype.txt
+
+      - name: Summarize Grype findings in the job summary
+        run: |
+          set -ux
+          scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json |
+              tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage SBOMs and Vulnerability report for publishing
         run: |
           set -ux
           dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.*; do
+          for f in rootfs-sbom.* rootfs-vulns.*; do
               gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
           done
 
