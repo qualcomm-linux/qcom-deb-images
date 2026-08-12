@@ -36,6 +36,6 @@ jobs:
       # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
       debos_extra_args: '-t overlays:qsc-deb-releases,workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
-      lava_boards_include: '["monaco-arduino-monza", "monaco-evk"]'
+      lava_boards_include: '["monaco-arduino-monza", "monaco-evk", "qrb2210-arduino-imola"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}

@@ -77,7 +77,7 @@ jobs:
       # download patterns, so keep them in sync if this changes.
       suite: trixie
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
-      boards_exclude: '["monaco-arduino-monza"]'
+      boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
 
   publish-test-results:
     name: "Publish Tests Results"
