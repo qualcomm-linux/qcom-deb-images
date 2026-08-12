@@ -55,6 +55,25 @@ jobs:
           . scripts/functions
           scan_files text/x-script.python pylint --errors-only
 
+  unit-tests:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      - name: Install pytest and dependencies
+        run: sudo apt update && sudo apt -y install python3-pytest python3-yaml
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # only the tests that need no built artifacts run here; ci/qemu_test.py
+      # needs a disk image and stays in the debos workflow
+      - name: Run unit tests
+        run: py.test-3 --verbose ci/gen_flash_dirs_test.py
+
   shellcheck:
     name: Install and run ShellCheck on shell scripts
     runs-on: ubuntu-latest

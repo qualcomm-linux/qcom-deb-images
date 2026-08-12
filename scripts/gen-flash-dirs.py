@@ -18,6 +18,7 @@ import argparse
 import glob
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -139,11 +140,165 @@ def unpack_boot_binaries(archive, dest):
     unpack_dir.rmdir()
 
 
+# Board fields, split by whether they are required. Unknown fields are
+# rejected: a typo like "sha256sums" would otherwise be silently ignored and
+# only surface as a failed download deep into a build.
+BOARD_REQUIRED = ("name", "soc_id", "dtb", "ptool_platforms", "boot_binaries")
+BOARD_OPTIONAL = ("cdt", "dtb_bin_type", "u_boot_file_var")
+# fields of a downloaded archive, see download()
+DOWNLOAD_REQUIRED = ("description", "url", "filename", "sha256sum")
+# a CDT archive additionally names the file to extract from it
+CDT_REQUIRED = DOWNLOAD_REQUIRED + ("file",)
+DTB_BIN_TYPES = ("combineddtb", "multidtb")
+DEFAULT_DTB_BIN_TYPE = "combineddtb"
+
+
+def check_keys(errors, where, mapping, required, optional=()):
+    """Check a mapping has every required key and no unknown ones.
+
+    Returns False when it isn't a mapping at all, in which case the caller
+    has nothing left worth checking.
+    """
+    if not isinstance(mapping, dict):
+        errors.append(
+            f"{where}: expected a mapping, got {type(mapping).__name__}"
+        )
+        return False
+    for key in required:
+        if key not in mapping:
+            errors.append(f"{where}: missing required key '{key}'")
+    for key in sorted(set(mapping) - set(required) - set(optional)):
+        errors.append(f"{where}: unknown key '{key}'")
+    return True
+
+
+def check_str(errors, where, mapping, key):
+    """Check an optional key is a non-empty string; True when usable.
+
+    A missing key is not an error here: check_keys() has already reported it
+    if it was required, and optional keys are simply absent.
+    """
+    if key not in mapping:
+        return False
+    value = mapping[key]
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{where}: '{key}' must be a non-empty string")
+        return False
+    return True
+
+
+def check_download(errors, where, spec, required):
+    """Check one downloadable archive definition."""
+    if not check_keys(errors, where, spec, required):
+        return
+    for key in required:
+        check_str(errors, where, spec, key)
+    # download() refuses to fetch anything else, so catch it here instead
+    if check_str(errors, where, spec, "url"):
+        if not spec["url"].startswith("https://"):
+            errors.append(f"{where}: 'url' must be an https:// URL")
+    # the sum is compared against sha256_file() output, which is lowercase hex
+    if check_str(errors, where, spec, "sha256sum"):
+        if not re.fullmatch(r"[0-9a-f]{64}", spec["sha256sum"]):
+            errors.append(
+                f"{where}: 'sha256sum' must be 64 lowercase hex digits"
+            )
+    # filename becomes a single path component under the download directory
+    if check_str(errors, where, spec, "filename"):
+        if "/" in spec["filename"]:
+            errors.append(f"{where}: 'filename' must not contain '/'")
+
+
+def check_ptool_platforms(errors, where, board):
+    """Check the qcom-ptool platform list.
+
+    generate_flash_dir() splits each entry on '/' to derive the storage type,
+    so both halves have to be there.
+    """
+    platforms = board.get("ptool_platforms")
+    if platforms is None:
+        return
+    if not isinstance(platforms, list) or not platforms:
+        errors.append(f"{where}: 'ptool_platforms' must be a non-empty list")
+        return
+    for platform in platforms:
+        if not isinstance(platform, str) or not platform.strip():
+            errors.append(
+                f"{where}: 'ptool_platforms' entries must be non-empty strings"
+            )
+            continue
+        board_dir, _, storage = platform.partition("/")
+        if not board_dir or not storage:
+            errors.append(
+                f"{where}: ptool platform '{platform}' must be of the form "
+                "<platform>/<storage>"
+            )
+
+
+def validate_boards(boards):
+    """Check the parsed board definitions, reporting every problem at once."""
+    if not isinstance(boards, list) or not boards:
+        raise SystemExit("error: boards: must be a non-empty list")
+
+    errors = []
+    seen = set()
+    for index, board in enumerate(boards):
+        where = f"board #{index + 1}"
+        if not check_keys(
+            errors, where, board, BOARD_REQUIRED, BOARD_OPTIONAL
+        ):
+            continue
+
+        # name the board in the remaining messages once we know it is usable
+        if check_str(errors, where, board, "name"):
+            where = f"board '{board['name']}'"
+            if board["name"] in seen:
+                errors.append(f"{where}: duplicate board name")
+            seen.add(board["name"])
+
+        check_str(errors, where, board, "soc_id")
+        check_str(errors, where, board, "u_boot_file_var")
+        # the dtb is extracted from dtbs.tar.gz by this name
+        if check_str(errors, where, board, "dtb"):
+            if not board["dtb"].endswith(".dtb"):
+                errors.append(f"{where}: 'dtb' must name a .dtb file")
+        if check_str(errors, where, board, "dtb_bin_type"):
+            if board["dtb_bin_type"] not in DTB_BIN_TYPES:
+                errors.append(
+                    f"{where}: 'dtb_bin_type' must be one of "
+                    f"{', '.join(DTB_BIN_TYPES)}"
+                )
+
+        check_ptool_platforms(errors, where, board)
+
+        if "boot_binaries" in board:
+            check_download(
+                errors,
+                f"{where}: boot_binaries",
+                board["boot_binaries"],
+                DOWNLOAD_REQUIRED,
+            )
+        if "cdt" in board:
+            check_download(
+                errors, f"{where}: cdt", board["cdt"], CDT_REQUIRED
+            )
+
+    if errors:
+        raise SystemExit(
+            "error: invalid board definitions:\n"
+            + "\n".join(f"  {error}" for error in errors)
+        )
+
+
 def load_boards(path):
     with open(path) as f:
-        boards = yaml.safe_load(f)["boards"]
+        document = yaml.safe_load(f)
+    if not isinstance(document, dict) or "boards" not in document:
+        raise SystemExit(f"error: {path}: no 'boards' key")
+    boards = document["boards"]
+    validate_boards(boards)
     for board in boards:
-        board.setdefault("dtb_bin_type", "combineddtb")
+        board.setdefault("dtb_bin_type", DEFAULT_DTB_BIN_TYPE)
     return boards
 
 

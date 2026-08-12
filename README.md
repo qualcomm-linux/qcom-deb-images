@@ -183,7 +183,13 @@ Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` a
 
 The board definitions (boot binaries, CDT, device tree and qcom-ptool
 platforms) live in `boards.yaml` at the top of the tree. Adding a board (or
-updating an existing board) is a matter of adding an entry to that file.
+updating an existing board) is a matter of adding an entry to that file. The
+entry is validated when the flash recipe runs; `make unit-test` checks it
+without building anything:
+
+```bash
+make unit-test
+```
 
 Here are some example invocations:
 
