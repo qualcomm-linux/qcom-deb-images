@@ -62,6 +62,41 @@ Here are a few things you can do that will increase the likelihood of your pull 
 - Write well-formed commit messages for each change, following the [commit messages](#commit-messages) documentation below.
 - It's a good idea to arrange a discussion with other developers to ensure there is consensus on large features, architecture changes, and other core code changes. PR reviews will go much faster when there are no surprises.
 
+## Running the GitHub workflows
+
+Pull requests automatically run the `*-on-pr.yml` workflows.
+
+The remaining workflows - the daily and weekly builds - are ran only for the `main` branch, driven by `schedule` and by the completion of other workflows, so they are never ran for a pull request.
+
+To exercise them, run them manually against a branch pushed directly to this repository (branches from forks are not supported):
+
+```bash
+BRANCH=my-branch-name
+
+# run the workflows
+gh workflow run build-daily-debian.yml --ref "$BRANCH"
+gh workflow run build-daily.yml --ref "$BRANCH"
+gh workflow run linux-daily-arduino.yml --ref "$BRANCH"
+gh workflow run linux-daily-linux-next.yml --ref "$BRANCH"
+gh workflow run linux-daily-qcom-next.yml --ref "$BRANCH"
+gh workflow run linux-weekly-mainline.yml --ref "$BRANCH"
+gh workflow run u-boot.yml --ref "$BRANCH"
+
+# list the workflows ran on this branch
+gh run list --branch "$BRANCH"
+```
+
+They can also be run from the *Actions* tab on GitHub: pick the workflow, *Run workflow* and select the branch.
+
+A few things to keep in mind:
+
+- The branch has to be pushed to the `qualcomm-linux/qcom-deb-images` repository; branches on a fork cannot be used, as the workflows check that they are running from the main repository and the LAVA credentials are not available elsewhere.
+  This requires write access, so ask a maintainer to run the workflow for you if you are working from a fork.
+- The workflow file must already exist with a `workflow_dispatch:` trigger on `main`, but the version that runs is the one on the branch you select.
+  Changes to an existing workflow can be tested before they are merged but a brand new workflow cannot be run until it lands on `main`.
+- Changes to a `schedule:`, `push:` or `workflow_run:` trigger itself cannot be tested this way, as GitHub always reads those from `main`.
+- These builds use the self-hosted runners and the LAVA boards, which are shared and limited. A full run takes a while; avoid queueing more of them than you need.
+
 # Commit messages
 
 When writing commit messages, follow the [well-formed git commit message](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html) guide.
