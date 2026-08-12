@@ -4,7 +4,7 @@ actions:
     overlay_path: /
     qcomflash:
       headers:
-        Authorization: Q_S3_TOKEN
+        QLIAuthorization: Q_QLI_S3_TOKEN
       url: "{{BUILD_DOWNLOAD_URL}}/{{SUITE}}-flash-ufs.tar.gz"
       apply-overlay: true
     timeout:
