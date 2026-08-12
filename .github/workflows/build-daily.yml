@@ -77,4 +77,4 @@ jobs:
       url: ${{ needs.build-daily.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
-      boards_exclude: '["monaco-arduino-monza"]'
+      boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
