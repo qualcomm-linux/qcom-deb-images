@@ -4,7 +4,7 @@
 #
 # This workflow tracks the state of QLI Debian on supported boards.
 
-name: Daily Build
+name: Build
 
 # runs once the daily qcom-next kernel build is done, so that the images are
 # built from the debs it has just published to EFS; this also runs when that
@@ -20,7 +20,7 @@ name: Daily Build
 # route does not apply.
 on: # zizmor: ignore[dangerous-triggers]
   workflow_run:
-    workflows: ["Daily qcom-next linux build"]
+    workflows: ["qcom-next linux build"]
     types:
       - completed
   # allow manual runs
@@ -30,7 +30,7 @@ on: # zizmor: ignore[dangerous-triggers]
 permissions: {}
 
 jobs:
-  build-daily:
+  build:
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -48,11 +48,11 @@ jobs:
     with:
       suite: ${{ matrix.suite }}
       # QLI targets qcom-next; consume the debs published to EFS by the
-      # "Daily qcom-next linux build" workflow rather than a kernel from an
+      # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository
       kernelpackages: efs/qcom-next
 
-  test-daily:
+  test:
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -65,7 +65,7 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
-    needs: build-daily
+    needs: build
     permissions:
       checks: write
       contents: read
@@ -74,7 +74,7 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      url: ${{ needs.build-daily.outputs.artifacts_url }}
+      url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'

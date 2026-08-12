@@ -74,12 +74,12 @@ To exercise them, run them manually against a branch pushed directly to this rep
 BRANCH=my-branch-name
 
 # run the workflows
-gh workflow run build-daily-debian.yml --ref "$BRANCH"
-gh workflow run build-daily.yml --ref "$BRANCH"
-gh workflow run linux-daily-arduino.yml --ref "$BRANCH"
-gh workflow run linux-daily-linux-next.yml --ref "$BRANCH"
-gh workflow run linux-daily-qcom-next.yml --ref "$BRANCH"
-gh workflow run linux-weekly-mainline.yml --ref "$BRANCH"
+gh workflow run build-debian.yml --ref "$BRANCH"
+gh workflow run build.yml --ref "$BRANCH"
+gh workflow run linux-arduino.yml --ref "$BRANCH"
+gh workflow run linux-next.yml --ref "$BRANCH"
+gh workflow run linux-qcom-next.yml --ref "$BRANCH"
+gh workflow run linux-mainline.yml --ref "$BRANCH"
 gh workflow run u-boot.yml --ref "$BRANCH"
 
 # list the workflows ran on this branch
