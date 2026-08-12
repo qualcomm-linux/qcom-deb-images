@@ -1,7 +1,6 @@
 actions:
 - deploy:
     rootfs_image: disk-ufs.img2
-    overlay_path: /
     qcomflash:
       headers:
         QLIAuthorization: Q_QLI_S3_TOKEN
