@@ -156,7 +156,8 @@ actions:
       "src:linux:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
-      "src:u-boot-efi-dtb" }}
+      "src:u-boot-efi-dtb"
+      "src:wireplumber:any" }}
 
   - action: run
     description: Add Debian {{ $suite }}-backports APT configuration
