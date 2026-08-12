@@ -1,10 +1,11 @@
-name: Daily linux-next linux build
+name: mainline linux build
 
 on:
-  # run daily at 8:30am, two hours behind the arduino kernel build, so that our
-  # LAVA jobs don't queue up behind its own
+  # run weekly on Monday at 2:30pm, after the daily builds and the weekly u-boot
+  # build have finished for the day, so this doesn't add its LAVA jobs on top of
+  # theirs
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '30 14 * * 1'
   # allow manual runs
   workflow_dispatch:
 
@@ -27,11 +28,13 @@ jobs:
       packages: read
       pull-requests: write
     with:
-      kernel_name: linux-next
-      build_linux_deb_extra_args: '--linux-next'
+      kernel_name: mainline
       # reference build: we want the debs and the LAVA results to compare
       # against, but its failures must not gate qcom-deb-images work
       lava_report_test_results_externally: false
-      lava_boards_exclude: '["glymur-crd", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      # monaco-evk only validated against the linux-next/qcom-next/arduino
+      # kernels so far; see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+      lava_boards_exclude: '["glymur-crd", "monaco-evk", "qcs615-ride", "qcs8300-ride", "lemans-evk"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}

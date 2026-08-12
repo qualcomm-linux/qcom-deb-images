@@ -98,7 +98,7 @@ jobs:
               mkdir -v local-apt-repo/kernel
               # get kernel from EFS; the directory is a symlink published by
               # the matching kernel workflow (linux.yml via e.g.
-              # linux-daily-qcom-next.yml), so report a missing or empty one
+              # linux-qcom-next.yml), so report a missing or empty one
               # rather than failing later with a confusing APT error
               efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
               if [ ! -d "$efs_kernel_dir" ]; then
