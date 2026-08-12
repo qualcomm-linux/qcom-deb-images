@@ -1,6 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $westonsession := or .westonsession "false" }}
+{{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -18,6 +19,9 @@
 {{- $variantid = "gnome" }}
 {{- else if eq $westonsession "true" }}
 {{- $variantid = "weston" }}
+{{- end }}
+{{- if eq $multimedia "true" }}
+{{- $variantid = printf "%s-multimedia" $variantid }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -774,6 +778,64 @@ actions:
     packages:
       # marks the current Android boot partition as booted successfully
       - qbootctl
+
+{{- if eq $multimedia "true" }}
+# Install the accelerated multimedia stack: out-of-tree kernel drivers and
+# closed source user-space from the Qualcomm Linux APT repository.
+
+{{- if ne $qliaptrepo "true" }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+  - action: apt
+    description: Install DKMS
+    packages:
+      - gcc
+      - dkms
+
+  # CI does not use fakemachine. Limit DKMS build parallelism when
+  # running under fakemachine, where the default 1GB memory can be exhausted
+  # by multiple compiler jobs running in parallel.
+  # $IN_FAKE_MACHINE is only set when not running in chroot.
+  - action: run
+    description: Configure DKMS for low-memory fakemachine builds
+    chroot: false
+    command: |
+      set -eux
+      if [ "${IN_FAKE_MACHINE:-}" = "yes" ]; then
+        mkdir -p "${ROOTDIR}/etc/dkms/framework.conf.d"
+        echo "parallel_jobs=1" > "${ROOTDIR}/etc/dkms/framework.conf.d/fakemachine.conf"
+      fi
+
+  - action: apt
+    description: Install accelerated multimedia stack
+    recommends: false
+    packages:
+      # Adreno GPU driver
+      - kgsl-dkms
+      - adreno-gles2
+      - adreno-egl1
+      - libgbm-msm1
+      - adreno-opencl-icd
+      - adreno-vulkan-icd
+
+      # CamX - only firmware available for now
+      # camx-dkms fails to build in fakemachine; see https://github.com/qualcomm-linux/pkg-camx-dkms/pull/42
+      #- camx-dkms
+      - camx-firmware-glymur
+      - camx-firmware-hamoa
+
+      # Iris Video Processing Unit
+      - iris-vpu-dkms
+
+  - action: run
+    description: Remove temporary DKMS configuration
+    chroot: true
+    command: |
+      set -eux
+      rm -rf /etc/dkms/framework.conf.d/fakemachine.conf
+{{- end }}
 
 {{- if ne $localdebs "none" }}
   - action: overlay
