@@ -32,6 +32,7 @@ jobs:
       # picks them up and builds and tests the images on every suite
       skip_image_build: true
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
-      lava_boards_exclude: '["monaco-arduino-monza"]'
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/XXX
+      lava_boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
