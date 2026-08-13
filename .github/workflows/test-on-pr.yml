@@ -61,6 +61,10 @@ jobs:
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
 
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
     permissions:
       checks: write
@@ -72,10 +76,7 @@ jobs:
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
-      # trixie is default in lava-test so this is a no-op
-      # however the publish job below hard-codes this in its artifact
-      # download patterns, so keep them in sync if this changes.
-      suite: trixie
+      suite: ${{ matrix.suite }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
 
