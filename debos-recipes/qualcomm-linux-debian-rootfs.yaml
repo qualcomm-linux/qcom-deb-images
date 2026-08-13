@@ -119,6 +119,12 @@ actions:
       Suites: /
       Trusted: true
       EOF
+      cat >/etc/apt/preferences.d/apt-local-repo.pref <<EOF
+      # Packages in a local APT repo are preferred over all other APT repositories
+      Package: *
+      Pin: origin ""
+      Pin-Priority: 1002
+      EOF
 {{- end }}
 
 {{- if $snapshot }}
@@ -860,6 +866,7 @@ actions:
     command: |
       set -eux
       rm -v /etc/apt/sources.list.d/apt-local-repo.sources
+      rm -v /etc/apt/preferences.d/apt-local-repo.pref
       apt-get update
 {{- end }}
 
