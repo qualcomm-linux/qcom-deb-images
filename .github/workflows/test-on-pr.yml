@@ -94,18 +94,19 @@ jobs:
     steps:
       # Scope to the test suite's current results so a re-run doesn't pull stale
       # artifacts from superseded attempts and 404 on the orphaned ones. These
-      # patterns must match the names set in lava-test.yml (suite: trixie above).
-      - name: Download test results (latest per board)
+      # patterns must match the names set in lava-test.yml, which prefixes them
+      # with the suite (trixie and forky, per the test job above).
+      - name: Download test results (latest per suite and board)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-trixie-*
+          pattern: test-results-*
 
       - name: Download job details (this run attempt)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: trixie-${{ github.run_attempt }}-test-job-*
+          pattern: '*-${{ github.run_attempt }}-test-job-*'
 
       - name: Download event file
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -132,15 +133,26 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
-          do
-              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
-              URL=$(cat "$json_file" | jq -r ".url")
-              JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
-          done
+          {
+              echo "## Test jobs for commit ${HEAD_SHA}"
+              # job details are downloaded into a directory named after their
+              # artifact, which lava-test.yml prefixes with the suite and the
+              # run attempt; keep this list in sync with the test job's matrix
+              for suite in trixie forky
+              do
+                  echo ""
+                  echo "### ${suite}"
+                  find "${GITHUB_WORKSPACE}" -name "*test-job-*.json" \
+                          -path "*/${suite}-${GITHUB_RUN_ATTEMPT}-*" |
+                      while read -r json_file
+                      do
+                          DEVICE_TYPE=$(jq -r ".requested_device_type" "$json_file")
+                          URL=$(jq -r ".url" "$json_file")
+                          JOB_ID=$(jq -r ".id" "$json_file")
+                          echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
+                      done
+              done
+          } | tee pr-comment.txt
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
