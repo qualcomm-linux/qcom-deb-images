@@ -304,12 +304,6 @@ jobs:
           # every -o above writes to a file, so echo the table to the log too
           cat rootfs-vulns.grype.txt
 
-      - name: Summarize Grype findings in the job summary
-        run: |
-          set -ux
-          scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json |
-              tee -a "$GITHUB_STEP_SUMMARY"
-
       - name: Stage SBOMs and Vulnerability report for publishing
         run: |
           set -ux
@@ -337,6 +331,10 @@ jobs:
           echo "${build_url}" > build_url
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+          # append the Grype summary after the download link, so the link stays
+          # at the top of the job summary
+          scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
+              >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
