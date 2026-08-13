@@ -79,10 +79,8 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      # gettext-base is needed by cosign-installer, which uses envsubst internally
-      # curl is needed by cosign-installer and the Syft install script
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install curl debian-archive-keyring debos file gettext-base make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
 
       - name: Setup local APT repo
         run: |
@@ -217,22 +215,19 @@ jobs:
       - name: Unpack rootfs to generate SBOM
         run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
 
-      - name: Install cosign
-        # Required so the syft installer can verify the release signature (-v).
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      # Syft is not packaged in Debian; it's available as a binary tarball or
-      # as container image from upstream; it's available on arm64 and x86
+      # Use the "download-syft" sub-action to install Syft and keep it
+      # updated via Dependabot.
       - name: Install Syft
-        run: |
-          set -ux
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -v
+        id: syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
 
       - name: Generate SBOMs with Syft
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
         run: |
           set -ux
-          bin/syft --version
-          SYFT_FORMAT_PRETTY=true bin/syft \
+          "$SYFT" --version
+          SYFT_FORMAT_PRETTY=true "$SYFT" \
               -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
               -o spdx-json=rootfs-sbom.spdx.json \
               -o syft-json=rootfs-sbom.syft.json \
@@ -252,12 +247,66 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
-      - name: Stage SBOMs for publishing
+      # Use the "download-grype" sub-action to install Grype and keep it
+      # updated via Dependabot.
+      - name: Install Grype
+        id: grype
+        uses: anchore/scan-action/download-grype@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+
+      # the vulnerability database is downloaded separately from the scan so
+      # that a transient download failure is reported as its own step, and so
+      # the database metadata (built date, schema) shows up in the logs; it also
+      # lists the data providers, which is where the Debian Security Tracker
+      # data comes from (provider "debian")
+      - name: Update Grype vulnerability database
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
+        run: |
+          set -ux
+          "$GRYPE" --version
+          "$GRYPE" db update -v
+          "$GRYPE" db status
+          "$GRYPE" db providers
+
+      # scan the SBOM generated above by Syft rather than the rootfs directory:
+      # it's much faster and it guarantees both reports describe exactly the
+      # same set of packages
+      #
+      # the distro is not overridden with --distro: the SBOM already records the
+      # Debian release from the rootfs' os-release, and that is what Grype needs
+      # to select the Debian provider's data. passing a codename Grype doesn't
+      # map to a release (e.g. forky while it's still testing) would silently
+      # match nothing at all
+      #
+      # --by-cve reports CVE identifiers instead of Debian-specific DSA/DLA ids,
+      # which is what downstream tooling and reports expect
+      #
+      # no --fail-on: a Debian image always carries known unfixed CVEs, so
+      # failing the build on severity would make every build red; the reports
+      # are published as artifacts for review instead
+      - name: Scan SBOM for vulnerabilities with Grype
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
+        run: |
+          set -ux
+          "$GRYPE" \
+              -o json=rootfs-vulns.grype.json \
+              -o table=rootfs-vulns.grype.txt \
+              -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
+              -o sarif=rootfs-vulns.grype.sarif \
+              --by-cve \
+              --sort-by severity \
+              -v \
+              sbom:rootfs-sbom.syft.json
+          # every -o above writes to a file, so echo the table to the log too
+          cat rootfs-vulns.grype.txt
+
+      - name: Stage SBOMs and Vulnerability report for publishing
         run: |
           set -ux
           dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.*; do
+          for f in rootfs-sbom.* rootfs-vulns.*; do
               gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
           done
 
@@ -279,6 +328,10 @@ jobs:
           echo "${build_url}" > build_url
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+          # append the Grype summary after the download link, so the link stays
+          # at the top of the job summary
+          scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
+              >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
