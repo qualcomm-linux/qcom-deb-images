@@ -276,6 +276,26 @@ actions:
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
       EOF
+      tee /etc/apt/preferences.d/qli.pref <<EOF
+      # Prefer packages from the QLI repository over Debian.
+      #
+      # The Debusine-generated Release file carries no Origin or Label fields;
+      # its Suite and Codename fields are identical to Debian's so there is
+      # nothing for "Pin: release o=/l=/n=" to match on so we have to pin on the
+      # hostname instead. This matches the host as a whole rather than the
+      # archive path, so it covers both qli and qli-staging and any future
+      # repositories served from the same hostname.
+      #
+      # Pin-Priority outranks package versions; any priority above Debian's
+      # default of 500 makes the QLI version the candidate. Only a priority of
+      # at least 1000 lets APT replace a package already installed from Debian
+      # at a higher version.
+      #
+      # Backports have a priority of 900; less than the QLI repository.
+      Package: *
+      Pin: origin "deb.debusine.qualcomm.com"
+      Pin-Priority: 1001
+      EOF
 {{- end }}
 
 {{- if $snapshot }}
