@@ -253,12 +253,11 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
-      # Grype is not packaged in Debian; like Syft it's available as a binary
-      # tarball or as container image from upstream, on arm64 and x86
+      # Use the "download-grype" sub-action to install Grype and keep it
+      # updated via Dependabot.
       - name: Install Grype
-        run: |
-          set -ux
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -v
+        id: grype
+        uses: anchore/scan-action/download-grype@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
 
       # the vulnerability database is downloaded separately from the scan so
       # that a transient download failure is reported as its own step, and so
@@ -266,12 +265,14 @@ jobs:
       # lists the data providers, which is where the Debian Security Tracker
       # data comes from (provider "debian")
       - name: Update Grype vulnerability database
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
           set -ux
-          bin/grype --version
-          bin/grype db update -v
-          bin/grype db status
-          bin/grype db providers
+          "$GRYPE" --version
+          "$GRYPE" db update -v
+          "$GRYPE" db status
+          "$GRYPE" db providers
 
       # scan the SBOM generated above by Syft rather than the rootfs directory:
       # it's much faster and it guarantees both reports describe exactly the
@@ -290,9 +291,11 @@ jobs:
       # failing the build on severity would make every build red; the reports
       # are published as artifacts for review instead
       - name: Scan SBOM for vulnerabilities with Grype
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
           set -ux
-          bin/grype \
+          "$GRYPE" \
               -o json=rootfs-vulns.grype.json \
               -o table=rootfs-vulns.grype.txt \
               -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
