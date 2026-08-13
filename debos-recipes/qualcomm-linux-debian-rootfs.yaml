@@ -366,7 +366,10 @@ actions:
 {{- end }}
       # APT update and upgrade to pickup changes from overlays
       apt-get -y update
-      apt-get -y full-upgrade
+      # the bootstrapped package set predates the QLI sources, so this upgrade
+      # is where packages move to their pinned QLI version; that can be a
+      # downgrade, which apt refuses to perform non-interactively by default
+      apt-get -y --allow-downgrades full-upgrade
 
   - action: apt
     description: Install foundational packages
