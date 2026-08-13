@@ -79,10 +79,8 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      # gettext-base is needed by cosign-installer, which uses envsubst internally
-      # curl is needed by cosign-installer and the Syft install script
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install curl debian-archive-keyring debos file gettext-base make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
 
       - name: Setup local APT repo
         run: |
@@ -217,23 +215,19 @@ jobs:
       - name: Unpack rootfs to generate SBOM
         run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
 
-      - name: Install cosign
-        # Required so the syft and grype installers can verify the release
-        # signature (-v).
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      # Syft is not packaged in Debian; it's available as a binary tarball or
-      # as container image from upstream; it's available on arm64 and x86
+      # Use the "download-syft" sub-action to install Syft and keep it
+      # updated via Dependabot.
       - name: Install Syft
-        run: |
-          set -ux
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -v
+        id: syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
 
       - name: Generate SBOMs with Syft
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
         run: |
           set -ux
-          bin/syft --version
-          SYFT_FORMAT_PRETTY=true bin/syft \
+          "$SYFT" --version
+          SYFT_FORMAT_PRETTY=true "$SYFT" \
               -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
               -o spdx-json=rootfs-sbom.spdx.json \
               -o syft-json=rootfs-sbom.syft.json \
