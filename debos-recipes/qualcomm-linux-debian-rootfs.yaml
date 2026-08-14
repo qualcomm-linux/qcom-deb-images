@@ -825,7 +825,7 @@ actions:
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
 # closed source user-space from the Qualcomm Linux APT repository.
 
-{{- if ne $qliaptrepo "true" }}
+{{- if eq $qliaptrepo "false" }}
 # Call an unexisting template to err out of the recipe
 {{ template "ERR" }}
 {{- end }}
