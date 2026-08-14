@@ -467,10 +467,9 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if and (ne $qliaptrepo "false") (or (eq $suite "trixie") (eq $suite "forky")) }}
-  # fastrpc-tests is available from QLI overlays for trixie and forky
+{{- if ne $qliaptrepo "false" }}
   - action: apt
-    description: Install fastrpc-tests from QLI overlay
+    description: Install fastrpc-tests from QLI APT repository
     recommends: true
     packages:
       # fastrpc-tests pulls in fastrpc-support
