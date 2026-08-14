@@ -1,5 +1,7 @@
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
+{{- $westonsession := or .westonsession "false" }}
+{{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -15,6 +17,11 @@
 {{- $variantid = "xfce" }}
 {{- else if eq $gnomedesktop "true" }}
 {{- $variantid = "gnome" }}
+{{- else if eq $westonsession "true" }}
+{{- $variantid = "weston" }}
+{{- end }}
+{{- if eq $multimedia "true" }}
+{{- $variantid = printf "%s-multimedia" $variantid }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -392,6 +399,8 @@ actions:
       - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
+      # firmware for the Qualcomm xDSPs
+      - hexagon-dsp-binaries
       # defaults to "systemd-sysv"; perhaps not needed
       - init
       # Bluetooth audio support in PipeWire
@@ -690,6 +699,39 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
+{{- if eq $westonsession "true" }}
+# Install Weston, a lightweight Wayland compositor.
+#
+# The Weston package does not have any mechanism to start automatically at boot
+# so greetd is used to create a user session and start Weston.
+#
+# The agreety text greeter provides a console login interface similar to getty,
+# authenticates the user through PAM then launches Weston after login.
+#
+# greetd/agreety does not discover the installed compositors from
+# /usr/share/wayland-sessions/*.desktop so Weston is set as the command to run
+# after login.
+#
+# Weston logs to "$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR usually resolves
+# to "/run/user/<UID>", so the log is only kept for the lifetime of the user's
+# login session.
+#
+# greetd is configured through /etc/greetd/weston-session.toml rather than
+# /etc/greetd/config.toml - the latter is a dpkg conffile shipped by the
+# greetd package and may be overwritten on package upgrades.
+
+  - action: apt
+    description: Install Weston session packages
+    recommends: false
+    packages:
+      - weston
+      - greetd
+
+  - action: overlay
+    description: Configure Weston session
+    source: overlays/weston-session
+{{- end }}
+
   - action: run
     description: Set default locale
     chroot: true
@@ -738,6 +780,64 @@ actions:
     packages:
       # marks the current Android boot partition as booted successfully
       - qbootctl
+
+{{- if eq $multimedia "true" }}
+# Install the accelerated multimedia stack: out-of-tree kernel drivers and
+# closed source user-space from the Qualcomm Linux APT repository.
+
+{{- if ne $qliaptrepo "true" }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+  - action: apt
+    description: Install DKMS
+    packages:
+      - gcc
+      - dkms
+
+  # CI does not use fakemachine. Limit DKMS build parallelism when
+  # running under fakemachine, where the default 1GB memory can be exhausted
+  # by multiple compiler jobs running in parallel.
+  # $IN_FAKE_MACHINE is only set when not running in chroot.
+  - action: run
+    description: Configure DKMS for low-memory fakemachine builds
+    chroot: false
+    command: |
+      set -eux
+      if [ "${IN_FAKE_MACHINE:-}" = "yes" ]; then
+        mkdir -p "${ROOTDIR}/etc/dkms/framework.conf.d"
+        echo "parallel_jobs=1" > "${ROOTDIR}/etc/dkms/framework.conf.d/fakemachine.conf"
+      fi
+
+  - action: apt
+    description: Install accelerated multimedia stack
+    recommends: false
+    packages:
+      # Adreno GPU driver
+      - kgsl-dkms
+      - adreno-gles2
+      - adreno-egl1
+      - libgbm-msm1
+      - adreno-opencl-icd
+      - adreno-vulkan-icd
+
+      # CamX - only firmware available for now
+      # camx-dkms fails to build in fakemachine; see https://github.com/qualcomm-linux/pkg-camx-dkms/pull/42
+      #- camx-dkms
+      - camx-firmware-glymur
+      - camx-firmware-hamoa
+
+      # Iris Video Processing Unit
+      - iris-vpu-dkms
+
+  - action: run
+    description: Remove temporary DKMS configuration
+    chroot: true
+    command: |
+      set -eux
+      rm -rf /etc/dkms/framework.conf.d/fakemachine.conf
+{{- end }}
 
 {{- if ne $localdebs "none" }}
   - action: overlay

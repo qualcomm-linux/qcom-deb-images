@@ -42,11 +42,13 @@ jobs:
       fail-fast: false
       matrix:
         suite: [trixie, forky]
+        variant: [default, weston-multimedia]
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       # QLI targets qcom-next; consume the debs published to EFS by the
       # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository

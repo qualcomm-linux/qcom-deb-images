@@ -22,6 +22,15 @@ on:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
         default: ''
+      variant:
+        description: >
+          Name of the image variant to build (e.g. multimedia); it selects the
+          debos arguments listed in the "Select debos arguments for the image
+          variant" step below and is appended to the name of every published
+          artifact, so that variants of the same suite don't overwrite each
+          other. Empty or "default" builds the default image.
+        type: string
+        default: ''
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -44,11 +53,12 @@ env:
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
-  PREFIX: ${{ inputs.suite }}
+  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
+  PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes (${{ inputs.suite }})
+    name: Build and upload debos recipes (${{ inputs.variant && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -60,6 +70,33 @@ jobs:
         - /efs/qli/qcom-deb-images:/efs
       options: --privileged
     steps:
+      # runs first so that an unknown variant fails the job in seconds rather
+      # than after a full image build
+      - name: Select debos arguments for the image variant
+        env:
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          set -u
+          # debos arguments building each image variant, keyed on its name; to
+          # add a variant, add a case here and pass its name as the "variant"
+          # input; its artifacts are named after it (see PREFIX above)
+          case "$VARIANT" in
+            ''|default)
+              variant_args='-t xfcedesktop:true'
+              ;;
+            weston-multimedia)
+              # configures a Weston session and installs the accelerated multimedia stack
+              variant_args='-t westonsession:true -t multimedia:true'
+              ;;
+            *)
+              echo "ERROR: unknown image variant '${VARIANT}'" >&2
+              echo "add it to this step to build it" >&2
+              exit 1
+              ;;
+          esac
+          # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
+          echo "DEBOS_VARIANT_ARGS=${variant_args}" >>"$GITHUB_ENV"
+
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
       - name: Update OS packages
@@ -155,11 +192,11 @@ jobs:
 
           debos \
               -t "overlays:$OVERLAYS" \
-              -t xfcedesktop:true \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t kernelpackages:"$kernel_packages" \
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
+              ${DEBOS_VARIANT_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
@@ -172,13 +209,13 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
