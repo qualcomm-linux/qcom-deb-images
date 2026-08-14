@@ -155,7 +155,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   filesystem; either `qli` (the default) for the release archive alone, or
   `qli-staging` which configures both the staging archive and the release
   archive it is layered on top of. Set it to  `false` to leave the image with
-  no Qualcomm Linux APT sources. Any other value aborts the build.
+  no Qualcomm Linux APT sources. Any other value aborts the build, as does
+  enabling the repositories on a suite other than `trixie` or `forky`, which
+  are the only suites the Qualcomm Linux archives are published for.
 - `suite`: Debian suite to use, defaults to `trixie`.
 - `snapshot`: use snapshot apt archives for a reproducible build
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.

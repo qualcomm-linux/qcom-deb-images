@@ -43,6 +43,11 @@
 {{ template "ERR" }}
 {{- end }}
 
+# The QLI repositories are only available for trixie and forky.
+{{- if and (ne $qliaptrepo "false") (and (ne $suite "trixie") (ne $suite "forky")) }}
+{{ template "ERR" }}
+{{- end }}
+
 architecture: arm64
 
 actions:
@@ -269,10 +274,8 @@ actions:
 {{- end }}
 {{- end }}
 
-# Qualcomm Linux maintains overlays for trixie/forky
-# but only configure the sources when enabled. Some builds (e.g. Vanilla Debian)
-# may not want to setup the QLI repo.
-{{- if and (ne $qliaptrepo "false") (ne $suite "unstable") }}
+# Configure Qualcomm Linux APT repositories
+{{- if ne $qliaptrepo "false" }}
 {{- range $qlirepo := $qlirepos }}
   - action: run
     description: Create Qualcomm Linux APT sources {{ $qlirepo }} for {{ $suite }}
@@ -464,7 +467,7 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if and (ne $qliaptrepo "false") (ne $suite "unstable") }}
+{{- if and (ne $qliaptrepo "false") (or (eq $suite "trixie") (eq $suite "forky")) }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
     description: Install fastrpc-tests from QLI overlay
