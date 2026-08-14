@@ -2,10 +2,6 @@
 {{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_qcs8300 := or .build_qcs8300 "true" }}
 {{- $build_qcs9100 := or .build_qcs9100 "true" }}
-{{- $build_rb1 := "false" -}}
-{{- if .u_boot_rb1 -}}
-{{- $build_rb1 = "true" }}
-{{- end -}}
 {{- $buildid := or .buildid "" }}
 
 {{- $target_boards := or .target_boards "all" }}
@@ -378,7 +374,6 @@ actions:
     "dtb" "qcom/lemans-evk.dtb"
 )}}
 {{- end }}
-{{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "soc_id" "qcm2290"
@@ -390,10 +385,8 @@ actions:
         "filename" "qrb2210-rb1_rescue-image.zip"
         "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
     )
-    "u_boot_file" .u_boot_rb1
     "dtb" "qcom/qrb2210-rb1.dtb"
 )}}
-{{- end }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
     "soc_id" "qcm2290"
