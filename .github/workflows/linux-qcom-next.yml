@@ -32,7 +32,7 @@ jobs:
       pull-requests: write
     with:
       kernel_name: qcom-next
-      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc5-20260812 prune.config qcom.config'
+      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc5-20260812 prune.config qcom.config qcom_debug.config'
       # stop after publishing the debs to EFS; the "Build" workflow
       # picks them up and builds and tests the images on every suite
       skip_image_build: true
