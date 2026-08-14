@@ -11,8 +11,8 @@ from pathlib import Path
 
 GIT_UPSTREAM = {
     "linux": {
-        "repo": "https://github.com/torvalds/linux",
-        "ref": "master",
+        "repo": "https://github.com/obbardc/linux",
+        "ref": "wip/obbardc/rb1-adsp-fix",
         "ref_prefix": None,
     },
     "linux-next": {
