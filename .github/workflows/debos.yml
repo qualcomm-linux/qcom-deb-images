@@ -31,6 +31,17 @@ on:
           other. Empty or "default" builds the default image.
         type: string
         default: ''
+      upload_artifacts:
+        description: >
+          Upload the built artifacts to the S3 artifact store. Set to
+          false for builds which are only ran to exercise the recipes and
+          whose output nothing downloads or tests: compressing the images is
+          then skipped as well, the artifacts_url output is empty, so
+          such a build cannot be chained to lava-test.yml. The images are
+          still built and the SBOM and vulnerability reports still generated
+          and summarised in the job summary.
+        type: boolean
+        default: true
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -39,7 +50,9 @@ on:
 
     outputs:
       artifacts_url:
-        description: "URL to retrieve build artifacts"
+        description: >
+          URL to retrieve build artifacts; empty when upload_artifacts is
+          false
         value: ${{ jobs.build-debos.outputs.url }}
 
 # grant nothing by default; every job below declares the scopes it needs. these
@@ -218,6 +231,7 @@ jobs:
           make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
 
       - name: Stage debos artifacts for publishing
+        if: ${{ inputs.upload_artifacts }}
         run: |
           set -ux
           # create a directory for the current run
@@ -241,6 +255,7 @@ jobs:
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
+        if: ${{ inputs.upload_artifacts }}
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_artifacts_s3
         with:
@@ -339,6 +354,7 @@ jobs:
           cat rootfs-vulns.grype.txt
 
       - name: Stage SBOMs and Vulnerability report for publishing
+        if: ${{ inputs.upload_artifacts }}
         run: |
           set -ux
           dir="sboms"
@@ -348,6 +364,7 @@ jobs:
           done
 
       - name: Upload SBOMs as private artifacts
+        if: ${{ inputs.upload_artifacts }}
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         id: upload_sbom_artifacts
         with:
@@ -360,16 +377,24 @@ jobs:
         env:
           build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
         run: |
-          echo "Downloads URL: ${build_url}"
-          echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
-          echo "${build_url}" > build_url
-          echo "## Download URL" >> $GITHUB_STEP_SUMMARY
-          echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+          # empty when the artifacts were not uploaded (upload_artifacts: false)
+          if [ -n "${build_url}" ]; then
+              echo "Downloads URL: ${build_url}"
+              echo "url=\"${build_url}\"" >> $GITHUB_OUTPUT
+              echo "${build_url}" > build_url
+              echo "## Download URL" >> $GITHUB_STEP_SUMMARY
+              echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+          else
+              echo "artifacts were not uploaded"
+              echo "## Artifacts were not uploaded" >> $GITHUB_STEP_SUMMARY
+          fi
           # append the Grype summary after the download link, so the link stays
           # at the top of the job summary
           scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
               >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
+        # there is no URL to publish when nothing was uploaded
+        if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build_url
