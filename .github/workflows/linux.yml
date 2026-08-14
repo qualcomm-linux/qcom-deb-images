@@ -185,16 +185,25 @@ jobs:
   debos-linux-deb:
     if: ${{ !inputs.skip_image_build }}
     needs: build-linux-deb
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
     with:
+      suite: ${{ matrix.suite }}
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
   test-linux-deb:
     if: ${{ !inputs.skip_lava_tests }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
     permissions:
@@ -206,7 +215,7 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
-      suite: trixie
+      suite: ${{ matrix.suite }}
       boards_include: ${{ inputs.lava_boards_include }}
       boards_exclude: ${{ inputs.lava_boards_exclude }}
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}
