@@ -54,6 +54,52 @@ jobs:
       # APT repository
       kernelpackages: efs/qcom-next
 
+  # snapshot builds pin the APT sources to a dated archive (see
+  # docs/snapshot.md); they have their own code paths in the rootfs and image
+  # recipes which nothing else exercises, so build an image with them every
+  # day. it runs here rather than on pull requests because it is a full image
+  # build and snapshot.debian.org is slower and more rate-limited than the
+  # regular mirrors.
+  #
+  # this only ever answers "do the snapshot code paths still work?": the images
+  # are not published and no LAVA job boots them, the build going green and the
+  # QEMU tests ran by debos.yml are the coverage we're after. the default
+  # variant is enough, as the snapshot code paths don't depend on it.
+  build-snapshot:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: ./.github/workflows/debos.yml
+    permissions:
+      contents: read
+    with:
+      suite: ${{ matrix.suite }}
+      # both the rootfs and the image recipe re-pin their own APT sources, and
+      # debos_extra_args is passed to both.
+      #
+      # any well-formed timestamp resolves to the publication which was live at
+      # that moment, so this is a fixed date rather than something computed: it
+      # keeps the build reproducible and makes a failure a change in our
+      # recipes rather than a change in the archives. bump it when it gets old
+      # enough that the archives no longer serve it well.
+      debos_extra_args: -t snapshot:20260810T082104Z
+      # nothing consumes these images, so don't spend the time compressing
+      # them nor the storage keeping them around
+      upload_artifacts: false
+      # QLI targets qcom-next; consume the debs published to EFS by the
+      # "qcom-next linux build" workflow rather than a kernel from an
+      # APT repository. note that a local kernel is not covered by the
+      # snapshot, see docs/snapshot.md
+      kernelpackages: efs/qcom-next
+
   test:
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so

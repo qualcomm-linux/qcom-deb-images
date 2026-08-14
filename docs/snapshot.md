@@ -256,6 +256,29 @@ After a snapshot build, the final image:
 In other words, the snapshot pins *what gets installed during the build*, then
 gets out of the way so the running system tracks live updates.
 
+## CI coverage
+
+The `build.yml` workflow builds snapshot images (`build-snapshot` job) for
+both `trixie` and `forky`. The timestamp is passed to the `debos.yml` workflow
+as `debos_extra_args: -t snapshot:<timestamp>`, which that workflow hands to
+both the rootfs and the image recipe. Pull requests do not build them — these
+are full image builds and snapshot.debian.org is slower and more rate-limited
+than the regular mirrors.
+
+The job only answers "do the snapshot code paths still work?": it passes
+`upload_artifacts: false`, so the images are neither compressed nor published,
+and no LAVA job boots them. The build going green and the QEMU tests which
+`debos.yml` runs are the coverage. Note that a build which silently fell back to
+the live mirrors would also go green; check `/etc/buildinfo` in the built rootfs
+as described in [Verifying a build](#verifying-a-build) when in doubt.
+
+The timestamp is hardcoded rather than computed. Any well-formed timestamp
+resolves to the publication which was live at that moment (see [Archive-side
+model](#archive-side-model)), so a fixed date keeps the build reproducible and
+makes a failure point at a change in our recipes rather than at a change in the
+archives. Bump it when it gets old enough that the archives no longer serve it
+well.
+
 ## Design notes and caveats
 
 - **The bootstrap resolves on the build host, not in the chroot.** Unlike the
@@ -293,4 +316,5 @@ gets out of the way so the running system tracks live updates.
   validation/recording, `snapshot_*.sources` derivation, live-mirror restore.
 - `debos-recipes/qualcomm-linux-debian-image.yaml` — re-enable snapshot for the
   image's extra package installs, then clean up.
+- `.github/workflows/build.yml` — the `build-snapshot` job.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.
