@@ -276,7 +276,7 @@ When `snapshot` is non-empty, the following happens in order:
 ### Image recipe (`qualcomm-linux-debian-image.yaml`)
 
 The image recipe installs a few more packages (`systemd-boot`,
-`u-boot-efi-dtb`, `cloud-guest-utils`), so it must pin those too:
+`cloud-guest-utils`), so it must pin those too:
 
 1. After unpacking `rootfs.tar`, if `snapshot` is set: `apt-snapshot-toggle
    enable` + `apt-get update`. This works because the `snapshot_*.sources` files
