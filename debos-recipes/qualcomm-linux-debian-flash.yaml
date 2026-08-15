@@ -2,10 +2,6 @@
 {{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_qcs8300 := or .build_qcs8300 "true" }}
 {{- $build_qcs9100 := or .build_qcs9100 "true" }}
-{{- $build_rb1 := "false" -}}
-{{- if .u_boot_rb1 -}}
-{{- $build_rb1 = "true" }}
-{{- end -}}
 {{- $buildid := or .buildid "" }}
 
 {{- $target_boards := or .target_boards "all" }}
@@ -378,22 +374,27 @@ actions:
     "dtb" "qcom/lemans-evk.dtb"
 )}}
 {{- end }}
-{{- if eq $build_rb1 "true" }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-rb1/emmc")
     "boot_binaries_download" (dict
-        "description" "RB1 rescue image"
-        "url" "https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
-        "name" "qrb2210-rb1_rescue-image"
-        "filename" "qrb2210-rb1_rescue-image.zip"
-        "sha256sum" "c75b6c63eb24c8ca36dad08ba4d4e93f3f4cd7dce60cf1b6dfb5790dc181cc3d"
+        "description" "QRB2210 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QRB2210_bootbinaries.1.0/qrb2210_bootbinaries.1.0-test-device-public/00021/Agatti_bootbinaries_00021.zip"
+        "name" "qrb2210_boot-binaries"
+        "filename" "qrb2210_boot-binaries.zip"
+        "sha256sum" "26a8681834363cb8bc9e8149db27388406daf22af15d3b43c9649e180afb47f2"
     )
-    "u_boot_file" .u_boot_rb1
+    "cdt_download" (dict
+        "description" "QRB2210 RB1 Core Kit CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/QRB2210/cdt/rb1_core_kit.zip"
+        "name" "qrb2210-rb1-core-kit_cdt"
+        "filename" "qrb2210-rb1-core-kit_cdt.zip"
+        "sha256sum" "edacea2aafc8a79697135f4d9312528ba89a464251b566486b3b9d6213c90340"
+    )
+    "cdt_filename" "rb1_core_kit/cdt_rb1_core_kit.bin"
     "dtb" "qcom/qrb2210-rb1.dtb"
 )}}
-{{- end }}
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
     "soc_id" "qcm2290"
@@ -549,10 +550,10 @@ actions:
       # Board metadata table: one record per board, fields separated by '|'.
       # Fields (in order):
       #   name|soc_id|dtb|dtb_bin_type|boot_binaries_filename|
-      #   cdt_download_filename|cdt_filename|u_boot_file|platforms
-      # The optional fields (cdt_download_filename, cdt_filename,
-      # u_boot_file) are empty when they don't apply. "platforms" is a
-      # space-separated list and comes last so "read" captures all of it.
+      #   cdt_download_filename|cdt_filename|platforms
+      # The optional fields (cdt_download_filename, cdt_filename) are empty
+      # when they don't apply. "platforms" is a space-separated list and comes
+      # last so "read" captures all of it.
       #
       # This table is rendered once from the templated $boards list and then
       # iterated in shell, so the (long) per-board/per-platform logic below is
@@ -561,12 +562,12 @@ actions:
       boards_table="build/boards.txt"
       : >"${boards_table}"
 {{- range $board := $boards }}
-      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ with $board.u_boot_file }}{{ . }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
+      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
 {{- end }}
 
       while IFS='|' read -r board_name board_soc_id board_dtb \
           board_dtb_bin_type boot_binaries_filename \
-          board_cdt_download_filename board_cdt_filename board_u_boot_file \
+          board_cdt_download_filename board_cdt_filename \
           board_platforms; do
       # skip blank lines produced by template whitespace
       [ -n "${board_name}" ] || continue
@@ -686,13 +687,6 @@ actions:
           sail_nor_dir="build/${board_name}_boot-binaries/sail_nor"
           if [ -d "${sail_nor_dir}" ]; then
               cp --preserve=mode,timestamps -rv "${sail_nor_dir}" "${flash_dir}/"
-          fi
-
-          if [ -n "${board_u_boot_file}" ]; then
-              # copy U-Boot binary to boot.img; qcom-ptool partitions.conf
-              # files use filename=boot.img for boot_a and boot_b partitions
-              cp --preserve=mode,timestamps -v \
-                  "${ARTIFACTDIR}/${board_u_boot_file}" "${flash_dir}/boot.img"
           fi
 
           if [ -n "$board_cdt_filename" ]; then
