@@ -35,13 +35,8 @@ on:
         required: false
         type: boolean
         default: false
-      lava_boards_include:
-        description: JSON array of board names to include in LAVA tests (empty = all boards)
-        required: false
-        type: string
-        default: ''
-      lava_boards_exclude:
-        description: JSON array of board names to exclude from LAVA tests (empty = none excluded)
+      lava_boards:
+        description: Comma separated list of board names to include in LAVA tests (empty = no boards)
         required: false
         type: string
         default: ''
@@ -215,7 +210,8 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      # id of the run that built the image under test
+      build_id: ${{ github.run_id }}
       suite: ${{ matrix.suite }}
-      boards_include: ${{ inputs.lava_boards_include }}
-      boards_exclude: ${{ inputs.lava_boards_exclude }}
+      boards_include: ${{ inputs.lava_boards }}
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

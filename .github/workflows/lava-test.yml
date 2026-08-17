@@ -6,16 +6,17 @@ on:
       url:
         required: true
         type: string
+      build_id:
+        required: true
+        type: string
       suite:
         description: Distribution suite (e.g. trixie, forky)
         type: string
         default: trixie
       boards_include:
-        description: JSON array of board names to include (empty = all boards)
-        type: string
-        default: ''
-      boards_exclude:
-        description: JSON array of board names to exclude (empty = none excluded)
+        description: >
+          Comma separated list of board names to include (empty = no boards);
+          forwarded to test-distro.yml as its devices input
         type: string
         default: ''
       report_test_results_externally:
@@ -25,8 +26,17 @@ on:
           false for builds whose failures say something about the code under
           test rather than about qcom-deb-images; results then stay in the job
           summary, which is written either way.
+
+          TODO: reporting now happens in meta-qcom's test-distro.yml, which
+          does not take an equivalent input yet, so this is currently declared
+          but not wired up. Callers keep passing it so the behaviour can be
+          restored without touching them again.
         type: boolean
         default: true
+    outputs:
+      summary_ids:
+        description: "IDs of the test summary artifact"
+        value: ${{ jobs.collect-ids.outputs.summary_ids }}
     # this is the only workflow that consumes a secret; like permissions:, it
     # has to be named again by every caller down the chain
     secrets:
@@ -40,183 +50,52 @@ on:
 permissions: {}
 
 env:
-  BUILD_URL: ${{ inputs.url }}
-  LAVA_CI: ci/lava/
-  SUITE: ${{ inputs.suite }}
-  BOARDS_INCLUDE: ${{ inputs.boards_include }}
-  BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
+  # git sha, tag or branch in lava-test-plans repository
+  LAVA_TEST_PLANS_REF: "b9de72b563d8b361b39075c6070d76010040660e"
 
 jobs:
-  prepare-job-list:
+  prepare-env:
+    name: Prepare environment
     runs-on: ubuntu-latest
-    permissions:
-      contents: read # actions/checkout
+    steps:
+      - name: "Print lava-test-plans ref"
+        shell: bash
+        run: |
+          echo "lava-test-plans ref: ${{ env.LAVA_TEST_PLANS_REF }}"
     outputs:
-      jobmatrix: ${{ steps.listjobs.outputs.jobmatrix }}
-      has_jobs: ${{ steps.listjobs.outputs.has_jobs }}
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Print trigger
-        run: |
-          echo "Triggered by ${{ github.event_name }}"
-          echo "Build URL: $BUILD_URL"
-      - name: "List jobs"
-        id: listjobs
-        run: |
-          # json with display names and relative filenames to LAVA templates
-          J=$(find "${LAVA_CI}" -name '*.yaml' -print0 |
-                  jq --compact-output --raw-input --slurp \
-                      --argjson include "${BOARDS_INCLUDE:-[]}" \
-                      --argjson exclude "${BOARDS_EXCLUDE:-[]}" '
-                      # split null-delimited list and remove last empty item
-                      split("\u0000")[:-1]
-                      # remove leading "ci/lava/"
-                      | map(sub("^ci/lava/"; ""))
-                      # build include entries with board name (for filtering), target and pretty name
-                      | map({
-                          board: split("/")[0],
-                          target: .,
-                          # filename-safe id per target, e.g. qrb2210-rb1-boot
-                          slug: (
-                              .
-                              | sub("\\.yaml$"; "")
-                              | gsub("/"; "-")
-                          ),
-                          name: (
-                              .
-                              | sub("\\.yaml$"; "")
-                              | gsub("/"; " ")
-                          )
-                        })
-                      # restrict to boards listed in $include (if non-empty)
-                      | if ($include | length) > 0 then
-                          map(select(.board as $b | $include | any(. == $b)))
-                        else . end
-                      # remove boards listed in $exclude (if non-empty)
-                      | if ($exclude | length) > 0 then
-                          map(select(.board as $b | $exclude | any(. == $b) | not))
-                        else . end
-                      # drop temporary board field
-                      | map(del(.board))
-                      # output as matrix.include list
-                      | { include: . }
-                      ')
-          echo "jobmatrix=$J" >> $GITHUB_OUTPUT
-          echo "has_jobs=$(echo "$J" | jq '.include | length > 0')" >> $GITHUB_OUTPUT
-          echo "Preparing testjob files"
+      lava-test-plans-ref: "${{ env.LAVA_TEST_PLANS_REF }}"
 
-  submit-job:
-    needs: prepare-job-list
-    if: needs.prepare-job-list.outputs.has_jobs == 'true'
+  test-debian:
+    needs: prepare-env
+    name: Test debian
+    uses: mwasilew/meta-qcom/.github/workflows/test-distro.yml@debian-support
+    secrets: inherit
+    with:
+      build_id: "${{ inputs.build_id }}"
+      devices: "${{ inputs.boards_include }}"
+      project_name: "qcom-deb-images"
+      distro_name: "debian"
+      lava_test_plans_ref: "${{ needs.prepare-env.outputs.lava-test-plans-ref }}"
+
+  collect-ids:
+    name: "Collect Summary artifact IDs"
+    needs: [test-debian]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     permissions:
-      contents: read # actions/checkout
-    name: Submit ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.prepare-job-list.outputs.jobmatrix) }}
+      checks: write
+      pull-requests: write
+    outputs:
+      summary_ids: ${{ steps.generate-summary.outputs.artifact_ids }}
     steps:
-      - name: Clone repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Update test definition ${{ matrix.target }}
+      - name: Summary IDs
+        id: generate-summary
+        # the id is passed through the environment rather than interpolated
+        # into the script, so its contents can never be run as shell code
         env:
-          TARGET: ${{ matrix.target }}
+          SUMMARY_ID: "${{ needs.test-debian.outputs.summary_id }}"
         run: |
-          # e.g. qrb2210-rb1/boot.yaml
-          TEMPLATE="${LAVA_CI}${TARGET}"
-          # left-side – e.g. qrb2210-rb1
-          DEVICE_TYPE="${TARGET%/*}"
-          BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="unused"
-          sed \
-              -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
-              -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
-              -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
-              -e "s|{{SUITE}}|${SUITE}|g" \
-              -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
-              -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
-              -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
-              -e "s|{{GITHUB_SHA}}|${GITHUB_SHA}|g" \
-              -i "$TEMPLATE"
-          cat "$TEMPLATE"
-
-      - name: Submit ${{ matrix.target }}
-        timeout-minutes: 240
-        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
-        with:
-          lava_token: ${{ secrets.LAVATOKEN }}
-          lava_url: 'lava.infra.foundries.io'
-          job_definition: ${{ env.LAVA_CI }}${{ matrix.target }}
-          wait_for_job: true
-          fail_action_on_failure: false
-          save_result_as_artifact: true
-          save_job_details: true
-          # Stable per-suite/per-board name: the action deletes the previous
-          # same-named artifact before uploading, so a re-run overwrites in
-          # place and only the latest result per board ever exists.
-          result_file_name: test-results-${{ inputs.suite }}-${{ matrix.slug }}
-          # Job-details artifacts always keep the (changing) LAVA job id and are
-          # never overwritten, so scope them by suite + run attempt instead.
-          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-
-
-  publish-test-results:
-    name: Publish Tests Results
-    needs: submit-job
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write # EnricoMi/publish-unit-test-result-action
-      contents: read # EnricoMi/publish-unit-test-result-action
-      packages: read # actions/download-artifact
-      pull-requests: write # EnricoMi/publish-unit-test-result-action
-
-    steps:
-      # Artifacts live at the run level and persist across re-run attempts, so
-      # scope the download to this suite's current results only. Without this,
-      # download-artifact tries to fetch stale artifacts from superseded
-      # attempts (and the other suite) and 404s on the orphaned ones.
-      - name: Download test results (this debian suite; latest per board)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          path: artifacts
-          pattern: test-results-${{ inputs.suite }}-*
-      - name: Download job details (this debian suite, this run attempt)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          path: artifacts
-          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
-
-      - name: List files
-        run: |
-          echo $GITHUB_WORKSPACE
-          ls -R $GITHUB_WORKSPACE
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
-        with:
-          files: "${{ github.workspace }}/artifacts/**/*.xml"
-          # when not reporting externally, failures must not show up as a red
-          # check on the commit (which may well be on main) or as a pull
-          # request comment; the job summary keeps the full table either way.
-          # note the action never fails this job on test failures: that would
-          # need action_fail, which defaults to false and we leave alone.
-          check_run: ${{ inputs.report_test_results_externally }}
-          comment_mode: ${{ inputs.report_test_results_externally && 'always' || 'off' }}
-
-      - name: Publish Test Job Details
-        run: |
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
-          do
-              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
-              URL=$(cat "$json_file" | jq -r ".url")
-              JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> $GITHUB_STEP_SUMMARY
-          done
+          printf 'artifact_ids=%s\n' "${SUMMARY_ID}" >> "$GITHUB_OUTPUT"

@@ -72,12 +72,14 @@ jobs:
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
+      # id of the run that built the image under test: the triggering
+      # "Build on PR" run, not this one
+      build_id: ${{ github.event.workflow_run.id }}
       # trixie is default in lava-test so this is a no-op
       # however the publish job below hard-codes this in its artifact
       # download patterns, so keep them in sync if this changes.
       suite: trixie
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
-      boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
+      boards_include: 'glymur-crd,lemans-evk,monaco-evk,qcs615-ride,qcs6490-rb3gen2-vision-kit,qcs8300-ride,qrb2210-rb1,monaco-arduino-monza,qrb2210-arduino-imola'
 
   publish-test-results:
     name: "Publish Tests Results"
