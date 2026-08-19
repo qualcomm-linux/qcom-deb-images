@@ -6,7 +6,7 @@
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
 {{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
-{{- $overlays := or .overlays "qsc-deb-releases" }}
+{{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
@@ -247,39 +247,6 @@ actions:
     description: Apply overlay {{$overlay}}
     source: overlays/{{$overlay}}
 {{- end }}
-{{- end }}
-
-# QArtifactory is missing a Release file for some suites.
-{{- if and (ne $suite "testing") (ne $suite "forky") }}
-  # The qsc-deb-releases overlay only ships the keyring (.asc); generate the
-  # .sources and .pref files dynamically to use the correct $suite-overlay
-  - action: run
-    description: Create qsc-deb-releases APT sources for {{ $suite }}-overlay
-    chroot: true
-    command: |
-      set -eux
-      # only generate if the keyring was installed by the overlay
-      if [ ! -f /etc/apt/keyrings/qsc-deb-releases.asc ]; then
-        exit 0
-      fi
-      tee /etc/apt/sources.list.d/qsc-deb-releases.sources <<EOF
-      # QArtifactory qsc-deb-releases repository
-      # NB: publishing Sources indices for deb-src isn't supported by Artifactory,
-      # but sources are published with other packages files
-      Types: deb
-      URIs: https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases
-      Suites: {{ $suite }}-overlay
-      Components: main
-      Signed-By: /etc/apt/keyrings/qsc-deb-releases.asc
-      Enabled: yes
-      EOF
-      tee /etc/apt/preferences.d/qsc-deb-releases.pref <<EOF
-      # for binary packages built from these source packages, score the version from
-      # {{ $suite }}-overlay higher than versions from Debian for compliance
-      Package: src:pipewire:any
-      Pin: release n={{ $suite }}-overlay
-      Pin-Priority: 950
-      EOF
 {{- end }}
 
 # Qualcomm Linux maintains overlays for trixie/forky
