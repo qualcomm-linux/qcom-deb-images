@@ -157,6 +157,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `suite`: Debian suite to use, defaults to `trixie`.
 - `snapshot`: use snapshot apt archives for a reproducible build
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
+  Pass the same value to the rootfs and image builds; the image build errors
+  out if it does not match the value recorded in the root filesystem, and says
+  which value that was.
   Live mirrors are restored in the final image to allow upgrades.
   See [docs/snapshot.md](docs/snapshot.md) for full usage and internals.
 
