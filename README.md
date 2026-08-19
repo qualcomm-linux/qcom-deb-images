@@ -74,10 +74,11 @@ the build instructions, then come back here.
 
 ### Build the image
 
-Building the image requires the following build-dependencies:
+Install the host dependencies for building and testing the image (the package
+lists are defined per use-case in `scripts/check-deps.sh`):
 
 ```bash
-apt -y install debian-archive-keyring make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml
+scripts/check-deps.sh --install host rootfs image flash test
 ```
 
 To build flashable assets for all supported boards, follow these steps:
