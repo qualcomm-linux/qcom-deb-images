@@ -15,10 +15,10 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/b147606c32b7d29148eca16fbe071f9420dd51a9.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/83631c3415402908fedabf8b54dbf2363353094b.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: a9fb80e1e03400d228c784a12c55de66ff7144ec8f07732f0dff332b33ead242
+    sha256sum: 39068987e6e3b8a892822d02e7e5bae75b8b589f3849f8f2e47bebed4f09eb94
     unpack: true
 
   - action: download
