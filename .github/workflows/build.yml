@@ -1,28 +1,22 @@
 # Builds & Tests QLI Debian images:
-#  - qcom-next kernel
+#  - qcom-next kernel (from QLI APT repo)
 #  - Qualcomm overlay repos and packages
 #
 # This workflow tracks the state of QLI Debian on supported boards.
 
 name: Build
 
-# runs once the daily qcom-next kernel build is done, so that the images are
-# built from the debs it has just published to EFS; this also runs when that
-# build fails, in which case EFS still holds the previous kernel debs and the
-# images are worth building and testing anyway.
-#
-# workflow_run is required to chain onto that build: it is the only trigger
-# that fires when another workflow completes. The triggering workflow only
-# runs from schedule or workflow_dispatch on main of this repository, so its
-# event payload is never attacker-controlled, the jobs below are additionally
-# guarded on the repository and ref. Nothing here checks out or executes
-# code from the triggering run, so the usual workflow_run privilege-escalation
-# route does not apply.
-on: # zizmor: ignore[dangerous-triggers]
-  workflow_run:
-    workflows: ["qcom-next linux build"]
-    types:
-      - completed
+on:
+  # run daily at 0:30am. these are the images QLI ships, so they go first of
+  # the scheduled builds and get an empty LAVA queue; the rest of the day's
+  # builds are staggered behind them (arduino 6:30am, vanilla Debian 10:30am)
+  # so that they don't all submit LAVA jobs at once.
+  #
+  # the images this workflow produces are shared with the test teams and are
+  # expected by 8:00am IST (2:30am UTC); building from 0:30am leaves two hours
+  # of headroom, see issue #566.
+  schedule:
+    - cron: '30 0 * * *'
   # allow manual runs
   workflow_dispatch:
 
