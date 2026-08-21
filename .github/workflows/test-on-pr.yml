@@ -82,6 +82,11 @@ jobs:
   publish-test-results:
     name: "Publish Tests Results"
     needs: test
+    # a failed submit job (LAVA submission error, timeout, ...) must not hide
+    # the results of the boards that did run: publish whatever artifacts exist
+    # and comment on the PR anyway. only skip when there is nothing to report,
+    # i.e. when the test workflow itself never ran or the run was cancelled.
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
@@ -132,7 +137,8 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          JOB_FILES=$(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $JOB_FILES
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
@@ -140,6 +146,12 @@ jobs:
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
           done
+          # every board failed to submit, or none matched the filters: say so
+          # rather than posting a comment with an empty job list, which reads
+          # like the tests passed
+          if [ -z "$JOB_FILES" ]; then
+              echo "No test jobs were submitted." >> pr-comment.txt
+          fi
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
