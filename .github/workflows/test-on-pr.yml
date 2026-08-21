@@ -6,7 +6,8 @@ run-name: "Tests triggered by PR: ${{ github.event.workflow_run.display_title }}
 # from a fork get a read-only token and cannot post a comment. This workflow
 # never checks out or executes PR-controlled code, it only reads artifacts and
 # the event payload, so the usual workflow_run privilege-escalation route does
-# not apply.
+# not apply. The checkout below is of the default branch, which is what a
+# workflow_run event runs as, and never of the pull request's head.
 on: # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: ["Build on PR"]
@@ -96,6 +97,16 @@ jobs:
       # thollander/actions-comment-pull-request
       pull-requests: write
     steps:
+      # for ci/lava-job-summary.py; runs before the downloads below as
+      # actions/checkout wipes anything else in the workspace
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt -y install python3-defusedxml
+
       # Scope to the test suite's current results so a re-run doesn't pull stale
       # artifacts from superseded attempts and 404 on the orphaned ones. These
       # patterns must match the names set in lava-test.yml (suite: trixie above).
@@ -142,14 +153,7 @@ jobs:
           echo "" >> pr-comment.txt
           echo "Triggered by [build workflow run](${BUILD_RUN_URL})" >> pr-comment.txt
           echo "" >> pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
-          do
-              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
-              URL=$(cat "$json_file" | jq -r ".url")
-              JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
-          done
+          python3 ci/lava-job-summary.py | tee -a pr-comment.txt
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
