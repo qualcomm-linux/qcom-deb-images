@@ -14,12 +14,18 @@ Coral base URL: <https://qswat.qualcomm.com/coral/qli-open-development/workflows
 
 **Coral workflow**: `Debian_Pre-Merge_Workflow`
 
+## Pre-merge
+
+**Coral workflow**: `Debian_Pre-Merge_Workflow`
+
 | Property | Value |
 |----------|-------|
-| Coral URL | <https://qswat.qualcomm.com/coral/qli-open-development/workflows/> |
+| Coral URL | <https://qswat.qualcomm.com/coral/qli-open-development/workflows/Debian_Pre-Merge_Workflow> |
 | Purpose | PR-level Axiom validation before merge |
-| Trigger | `pull_request` |
-| Platform | `glymur-crd` |
+| Coral Invoke | `pull_request` |
+| Github workflow | `Build on PR` |
+| Checkrun | `test (trixie) / Submit glymur-crd boot` |
+| Workflow ID | `159226426` |
 
 ### GitHub workflow dependency chain
 
@@ -86,10 +92,12 @@ pull_request
 
 | Property | Value |
 |----------|-------|
-| Coral URL | <https://qswat.qualcomm.com/coral/qli-open-development/workflows/> |
+| Coral URL | <https://qswat.qualcomm.com/coral/qli-open-development/workflows/Debian_CRM_Nightly_Test_Hyd> |
 | Purpose | Nightly Axiom build and hardware tests after merge to `main` |
-| Trigger | `workflow_run` on "qcom-next linux build" completed |
-| Platform | `glymur-crd` |
+| Coral Invoke | `Push request` |
+| Github workflow | `Build` Triggers on `workflow_run` on "qcom-next linux build" completed |
+| Checkrun | `test (trixie) / Submit glymur-crd boot` |
+| Workflow ID | `333132766` |
 
 ### GitHub workflow dependency chain
 
