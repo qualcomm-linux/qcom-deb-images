@@ -187,6 +187,16 @@ jobs:
       pull-requests: write # EnricoMi/publish-unit-test-result-action
 
     steps:
+      # for ci/lava-job-summary.py; runs before the downloads below as
+      # actions/checkout wipes anything else in the workspace
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt -y install python3-defusedxml
+
       # Artifacts live at the run level and persist across re-run attempts, so
       # scope the download to this suite's current results only. Without this,
       # download-artifact tries to fetch stale artifacts from superseded
@@ -221,11 +231,4 @@ jobs:
 
       - name: Publish Test Job Details
         run: |
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
-          do
-              DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
-              URL=$(cat "$json_file" | jq -r ".url")
-              JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> $GITHUB_STEP_SUMMARY
-          done
+          python3 ci/lava-job-summary.py | tee -a $GITHUB_STEP_SUMMARY
