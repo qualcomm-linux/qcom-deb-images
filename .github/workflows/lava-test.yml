@@ -165,7 +165,11 @@ jobs:
           result_file_name: test-results-${{ inputs.suite }}-${{ matrix.slug }}
           # Job-details artifacts always keep the (changing) LAVA job id and are
           # never overwritten, so scope them by suite + run attempt instead.
-          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-
+          # The slug also ties them back to the results artifact above: the LAVA
+          # device type recorded in the details is not always the board name
+          # (qcs8300-ride submits to device type monaco-ride), so consumers
+          # cannot match the two on that.
+          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-${{ matrix.slug }}-
 
   publish-test-results:
     name: Publish Tests Results
@@ -196,7 +200,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
+          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-*-test-job-*
 
       - name: List files
         run: |
