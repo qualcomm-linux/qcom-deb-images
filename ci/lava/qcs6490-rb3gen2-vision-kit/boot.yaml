@@ -59,6 +59,18 @@ actions:
       parameters:
         SKIP_INSTALL: "True"
         WAIT_TIME: 60
+- test:
+    definitions:
+      - name: fail-test
+        from: inline
+        path: inline/fail.yaml
+        repository:
+          metadata:
+            format: Lava-Test Test Definition 1.0
+            name: fail-test
+          run:
+            steps:
+              - lava-test-case fail --result fail
 context:
   test_character_delay: 10
 device_type: qcs6490-rb3gen2-vision-kit
