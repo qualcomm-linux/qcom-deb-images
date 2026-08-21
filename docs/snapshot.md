@@ -254,6 +254,44 @@ After a snapshot build, the final image:
 In other words, the snapshot pins *what gets installed during the build*, then
 gets out of the way so the running system tracks live updates.
 
+## CI coverage
+
+The `build-snapshot.yml` workflow builds snapshot images for both `trixie` and
+`forky`. The timestamp is passed to the `debos.yml` workflow as
+`debos_extra_args: -t snapshot:<timestamp>`, which that workflow hands to both
+the rootfs and the image recipe.
+
+It runs weekly (Saturday) and on demand, rather than daily or on pull requests:
+these are full image builds and snapshot.debian.org is slower and more
+rate-limited than the regular mirrors. It is a workflow of its own rather than
+a job of the daily `build.yml` so that it can keep that slower cadence, and so
+that its artifacts land in their own destination — every job of a *run* uploads
+to one shared place, keyed on the run, and the daily build publishes the same
+suites under the same names.
+
+It only answers "do the snapshot code paths still work?": no LAVA job boots the
+images it builds, so the build going green and the QEMU tests which `debos.yml`
+runs are the coverage. Note that a build which silently fell back to the live
+mirrors would also go green; check `/etc/buildinfo` in the built rootfs as
+described in [Verifying a build](#verifying-a-build) when in doubt. Its
+artifacts are uploaded all the same, so that a failure can be investigated. Only
+the default variant is built, as the snapshot code paths don't depend on the
+variant.
+
+The timestamp is not hardcoded: the `snapshot-date` job derives it from the
+committer date of the commit being built (`git log -1`, rendered as
+`YYYYMMDDTHHMMSSZ` in UTC) and passes it to the build job as a job output.
+It prints the value, and the commit it came from, to the job log and the run
+summary.
+
+Any well-formed timestamp resolves to the publication which was live at that
+moment (see [Archive-side model](#archive-side-model)), so the value only has to
+be a date the archives still serve, not one which coincides with a publication.
+The commit date is such a date and needs no maintenance: it moves forward on its
+own as the repository is worked on, while two runs of the same commit still pin
+the same publication — so a failure points at a change in our recipes rather
+than at a change in the archives.
+
 ## Design notes and caveats
 
 - **The bootstrap resolves on the build host, not in the chroot.** Unlike the
@@ -290,4 +328,5 @@ gets out of the way so the running system tracks live updates.
   validation/recording, `snapshot_*.sources` derivation, live-mirror restore.
 - `debos-recipes/qualcomm-linux-debian-image.yaml` — re-enable snapshot for the
   image's extra package installs, then clean up.
+- `.github/workflows/build-snapshot.yml` — the weekly CI build.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.
