@@ -36,16 +36,6 @@ on:
         description: Skip QEMU tests
         type: boolean
         default: false
-      extra_qemu_tests:
-        description: >
-          Space separated list of extra pytest files to run against the built
-          image, on top of the generic QEMU tests (e.g.
-          ci/qemu_snapshot_tests.py). These hold the tests which only make
-          sense for one kind of image, so the workflow building that image
-          asks for them by path; a caller which builds a plain image passes
-          nothing.
-        type: string
-        default: ''
 
     outputs:
       artifacts_url:
@@ -398,15 +388,3 @@ jobs:
            # --capture=no so pytest doesn't swallow stdout and only prints it
            #   after a job fails. Instead, stream the log live.
            py.test-3 --verbose --capture=no --ignore=rootfs
-
-      # separate pytest run: naming files on the command line makes pytest
-      # collect only those, so this cannot be folded into the run above. it
-      # runs even if the generic tests failed, as their results are
-      # independent and one QEMU boot each is cheaper than a second job
-      - name: Invoke test runner for the image-specific tests
-        if: ${{ !cancelled() && !inputs.skip_qemu_tests && inputs.extra_qemu_tests != '' }}
-        env:
-          EXTRA_QEMU_TESTS: ${{ inputs.extra_qemu_tests }}
-        run: |
-           # unquoted on purpose: the input is a list of test files
-           py.test-3 --verbose --capture=no ${EXTRA_QEMU_TESTS}
