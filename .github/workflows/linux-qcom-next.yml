@@ -7,10 +7,6 @@ on:
   # images 10:30am) so that they don't all submit LAVA jobs at once. The "Build"
   # workflow chains onto this one, so its LAVA jobs land later still, around
   # 3:30am.
-  #
-  # the images the "Build" workflow produces are shared with the test teams and
-  # are expected by 8:00am IST (2:30am UTC); building from 0:30am leaves an hour
-  # of headroom, see issue #566.
   schedule:
     - cron: '30 0 * * *'
   # allow manual runs
