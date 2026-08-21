@@ -2,7 +2,7 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    #branches: [main]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
