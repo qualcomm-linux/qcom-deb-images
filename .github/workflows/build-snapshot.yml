@@ -7,8 +7,9 @@
 # Snapshot builds have their own code paths in the rootfs and image recipes
 # which nothing else exercises, so build an image with them regularly. This
 # workflow only ever answers "do the snapshot code paths still work?": no LAVA
-# job boots the images, the build going green, the QEMU tests which debos.yml
-# runs and the test-snapshot job below are the coverage we're after. The
+# job boots the images, the build going green and the QEMU tests which
+# debos.yml runs -- the generic ones plus ci/qemu_snapshot_tests.py, which this
+# workflow asks for through extra_tests -- are the coverage we're after. The
 # artifacts are uploaded all the same, so that a failure can be investigated.
 
 name: Build snapshot
@@ -111,73 +112,14 @@ jobs:
       kernelpackages: efs/qcom-next
       # the default variant is enough: the snapshot code paths don't depend on
       # which variant is built
-
-  # the generic QEMU tests which debos.yml runs hold for every image, so they
-  # can't check anything snapshot specific; ci/qemu_snapshot_tests.py holds
-  # what only makes sense here and this job runs it, against the image the
-  # build job published
-  test-snapshot:
-    name: Test the snapshot image (${{ matrix.suite }})
-    needs: [snapshot-date, build-snapshot]
-    #if: >-
-    #  github.repository == 'qualcomm-linux/qcom-deb-images' &&
-    #  (github.event_name == 'workflow_dispatch' ||
-    #  github.ref == 'refs/heads/main')
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: [trixie, forky]
-    permissions:
-      contents: read # actions/checkout
-    # the images are arm64 and QEMU emulates the guest CPU, so run this on the
-    # same self-hosted arm64 pool as the build rather than on a x86 runner
-    runs-on: [self-hosted, qcom-u2404, arm64]
-    container:
-      image: public.ecr.aws/debian/debian:trixie
-    env:
-      # every matrix leg of the build job uploads to the same S3 destination,
-      # which is keyed on the run id, so the single URL a matrixed reusable
-      # workflow reports back is the right one for both suites; the artifacts
-      # themselves are told apart by their ${suite}- prefix below. build.yml
-      # passes the URL on to LAVA the same way
-      BUILD_URL: ${{ needs.build-snapshot.outputs.artifacts_url }}
-      SUITE: ${{ matrix.suite }}
+      #
+      # the generic QEMU tests debos.yml runs hold for every image, so they
+      # can't check anything snapshot specific; ci/qemu_snapshot_tests.py holds
+      # what only makes sense here and is named so that a plain pytest run does
+      # not collect it. it runs in the build job, against the image still on
+      # that runner
+      extra_tests: ci/qemu_snapshot_tests.py
       # the timestamp the build was pinned to; the test checks the image
       # records this exact value
-      # TODO: rename this...
-      QEMU_TEST_SNAPSHOT: ${{ needs.snapshot-date.outputs.snapshot }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      test_env: QEMU_TEST_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
 
-      # dependencies of ci/qemu_test.py: pexpect and pytest drive the VM,
-      # qemu-utils provides qemu-img for the CoW overlay, qemu-system-arm the
-      # emulator and qemu-efi-aarch64 the firmware it boots
-      - name: Install the test dependencies
-        run: |
-          set -ux
-          apt update
-          apt -y install ca-certificates curl python3-pexpect python3-pytest \
-              qemu-efi-aarch64 qemu-system-arm qemu-utils
-
-      # the fixture in ci/qemu_test.py boots ./disk-ufs.img, so decompress the
-      # published image into the working directory under that name
-      - name: Download the built image
-        run: |
-          set -ux -o pipefail
-          # an empty URL means the build job reported no artifacts; fail here
-          # with something clearer than a curl usage error
-          test -n "${BUILD_URL}"
-          # TODO: can we fetch the S3 artifacts from a runner ?
-          #       only LAVA consumes the artifacts currently...
-          curl -fL --retry 3 "${BUILD_URL}/${SUITE}-disk-ufs.img.gz" |
-              gunzip >disk-ufs.img
-          ls -l disk-ufs.img
-
-      # named explicitly: this file is deliberately not collected by a plain
-      # pytest run, as its tests only hold for a snapshot image
-      # TODO: can we add non-snapshot tests to the other qemu test???
-      #       may need to add `skip_qemu_tests` to debos.yml call
-      - name: Run the snapshot tests
-        run: py.test-3 --verbose --capture=no ci/qemu_snapshot_tests.py

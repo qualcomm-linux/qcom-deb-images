@@ -9,8 +9,9 @@ naming it explicitly, from the directory holding the image under test:
 
     QEMU_TEST_SNAPSHOT=20260115T000000Z py.test-3 ci/qemu_snapshot_tests.py
 
-That is what the test-snapshot job of the "Build snapshot" workflow does, on
-the image that workflow published. See docs/snapshot.md for the option itself.
+That is what the build job runs for the "Build snapshot" workflow, which names
+this file in the extra_tests input of debos.yml, against the image it just
+built. See docs/snapshot.md for the option itself.
 """
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
