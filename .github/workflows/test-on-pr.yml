@@ -82,6 +82,11 @@ jobs:
   publish-test-results:
     name: "Publish Tests Results"
     needs: test
+    # a failed submit job (LAVA submission error, timeout, ...) must not hide
+    # the results of the boards that did run: publish whatever artifacts exist
+    # and comment on the PR anyway. only skip when there is nothing to report,
+    # i.e. when the test workflow itself never ran or the run was cancelled.
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
