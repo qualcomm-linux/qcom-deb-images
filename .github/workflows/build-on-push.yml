@@ -18,10 +18,6 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
-      # QLI targets qcom-next; consume the debs published to EFS by the
-      # "qcom-next linux build" workflow rather than a kernel from an
-      # APT repository
-      kernelpackages: efs/qcom-next
   schema-check:
     uses: ./.github/workflows/lava-schema-check.yml
     permissions:
