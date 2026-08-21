@@ -388,6 +388,8 @@ actions:
       - tqftpserv
       # dynamic device nodes handling
       - udev
+      # Dynamic Resource Management Framework
+      - userspace-resource-manager
       # database of radio emission regulations; needed for WiFi
       - wireless-regdb
       # WPA / WPA2 / WPA3 client support
