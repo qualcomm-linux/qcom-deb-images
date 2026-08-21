@@ -425,6 +425,18 @@ actions:
     packages:
       # fastrpc-tests pulls in fastrpc-support
       - fastrpc-tests
+
+  - action: run
+    description: Prefer kernel from QLI overlay
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/preferences.d/qli-kernel.pref <<EOF
+      Package: linux-image-*-qcom-next-* linux-image-qcom-next linux-headers-*-qcom-next-* linux-headers-qcom-next
+      # TODO: prefer pinning on Release/Label; see https://github.com/qualcomm-linux/qcom-deb-images/pull/576/changes#r3787588202
+      Pin: origin "deb.debusine.qualcomm.com"
+      Pin-Priority: 1001
+      EOF
 {{- end }}
 
   - action: run
