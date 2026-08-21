@@ -109,5 +109,10 @@ jobs:
       # APT repository. note that a local kernel is not covered by the
       # snapshot, see docs/snapshot.md
       kernelpackages: efs/qcom-next
+      # run the snapshot-specific QEMU tests on top of the generic ones: they
+      # check the built image really came from the snapshot and that its APT
+      # sources were restored to the live mirrors afterwards. debos.yml runs
+      # them, as the image only exists on the runner which built it
+      extra_qemu_tests: ci/qemu_snapshot_tests.py
       # the default variant is enough: the snapshot code paths don't depend on
       # which variant is built

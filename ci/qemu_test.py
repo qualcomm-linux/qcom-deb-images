@@ -1,4 +1,10 @@
-"""Tests that are entirely qemu based, so do not require test hardware"""
+"""Tests that are entirely qemu based, so do not require test hardware
+
+These run for every image debos.yml builds, so they must hold for all of them.
+Tests which only make sense for one kind of image live in their own module
+importing the helpers from here, and are run by naming that module explicitly;
+see ci/qemu_snapshot_tests.py.
+"""
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -11,6 +17,14 @@ import tempfile
 
 import pexpect
 import pytest
+
+# Shell prompt of the "debian" user once logged in; every command sent to the
+# console is expected to end back at it
+PROMPT = "debian@debian:~$"
+
+# Password set by login(); the image ships with "debian" and forces a reset on
+# the first login, see test_password_reset_required()
+PASSWORD = "new password"
 
 
 @pytest.fixture
@@ -68,10 +82,9 @@ def vm():
         child.wait()
 
 
-def test_password_reset_required(vm):
-    """On first login, there should be a mandatory reset password flow"""
-    # https://github.com/qualcomm-linux/qcom-deb-images/issues/69
-
+def login(vm):
+    """Wait for the login prompt of a freshly booted VM, log in as "debian",
+    walk through the mandatory password reset and return at a shell prompt"""
     # This takes a minute or two on a ThinkPad T14s Gen 6 Snapdragon
     vm.expect_exact("debian login:", timeout=420)
 
@@ -82,10 +95,34 @@ def test_password_reset_required(vm):
     vm.expect_exact("Current password:")
     vm.send("debian\r\n")
     vm.expect_exact("New password:")
-    vm.send("new password\r\n")
+    vm.send(f"{PASSWORD}\r\n")
     vm.expect_exact("Retype new password:")
-    vm.send("new password\r\n")
-    vm.expect_exact("debian@debian:~$")
+    vm.send(f"{PASSWORD}\r\n")
+    vm.expect_exact(PROMPT)
+
+
+def run(vm, command):
+    """Run *command* in the VM's shell and return its exit status
+
+    The serial console echoes back everything that is sent to it, so anything
+    matched right after send() matches the echo of the command rather than its
+    output. Rather than matching the output, ask the shell for the exit status
+    of the command afterwards: the literal "rc=$?" of the echoed line can never
+    match the "rc=<digits>" the shell prints.
+    """
+    vm.send(f"{command}\r\n")
+    vm.expect_exact(PROMPT)
+    vm.send('echo "rc=$?"\r\n')
+    vm.expect(r"rc=(\d+)")
+    status = int(vm.match.group(1))
+    vm.expect_exact(PROMPT)
+    return status
+
+
+def test_password_reset_required(vm):
+    """On first login, there should be a mandatory reset password flow"""
+    # https://github.com/qualcomm-linux/qcom-deb-images/issues/69
+    login(vm)
 
     # The /boot/efi/loader/random-seed file should not be readable to users
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
