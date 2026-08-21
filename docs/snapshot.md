@@ -48,8 +48,20 @@ EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make rootfs.tar
 EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
 ```
 
-Use the **same** timestamp for both steps. The flash recipe does not install
-packages and takes no `snapshot` option.
+Use the **same** timestamp for both steps. The image build cross-checks its
+`snapshot` value against the `SNAPSHOT=` recorded in the unpacked rootfs and
+**aborts** on any disagreement, naming both values so it is clear what to pass:
+
+```
+ERROR: snapshot mismatch: rootfs.tar was built with '20260115T000000Z' but
+this image build was given '<none>'; both builds must use the same
+-t snapshot: value.
+```
+
+This covers forgetting the option on the image build, passing a different
+timestamp, and passing one over an unpinned `rootfs.tar`.
+
+The flash recipe does not install packages and takes no `snapshot` option.
 
 You can combine `snapshot` with any other option, e.g. a desktop variant:
 
@@ -232,12 +244,18 @@ When `snapshot` is non-empty, the following happens in order:
 The image recipe installs a few more packages (`systemd-boot`,
 `u-boot-efi-dtb`, `cloud-guest-utils`), so it must pin those too:
 
-1. After unpacking `rootfs.tar`, if `snapshot` is set: `apt-snapshot-toggle
-   enable` + `apt-get update`. This works because the `snapshot_*.sources` files
-   are still present from the rootfs build. (No re-derivation is needed here —
-   the image recipe only toggles.)
-2. Package installation proceeds against the snapshot.
-3. **Cleanup:** `apt-snapshot-toggle disable`, then delete
+1. **Consistency check.** Immediately after unpacking `rootfs.tar`, the recipe
+   compares its own `snapshot` value with the `SNAPSHOT=` line in the unpacked
+   `/etc/buildinfo`; any difference — in either direction, including one side
+   being unset — aborts the build, printing both values. The image recipe only
+   *toggles* the `snapshot_*.sources` that the rootfs build derived, so a rootfs
+   pinned to a different date (or not pinned at all) would otherwise install
+   from an archive the user did not ask for.
+2. If `snapshot` is set: `apt-snapshot-toggle enable` + `apt-get update`. This
+   works because the `snapshot_*.sources` files are still present from the rootfs
+   build. (No re-derivation is needed here — the image recipe only toggles.)
+3. Package installation proceeds against the snapshot.
+4. **Cleanup:** `apt-snapshot-toggle disable`, then delete
    `/etc/apt/sources.list.d/snapshot_*.sources` and
    `/usr/local/bin/apt-snapshot-toggle`.
 
@@ -266,7 +284,8 @@ gets out of the way so the running system tracks live updates.
   additionally need `Apt::Key::gpgvcommand`; this is deliberately not enabled.
 - **Both recipes need the option.** rootfs and image builds each re-pin
   independently; passing `snapshot` to only one leaves the other resolving live
-  packages.
+  packages. The image recipe refuses to build on a mismatch rather than
+  producing a partially-pinned image.
 - **Not every source supports snapshots.** Only Debian (main + security),
   `debian-backports`, and the Qualcomm Linux `qli` archive are rewritten. Any
   `aptlocalrepo`/`localdebs` sources are **not** pinned; packages from them are

@@ -12,6 +12,24 @@ actions:
     description: Unpack root filesystem
     file: rootfs.tar
 
+  # the rootfs carries the snapshot_*.sources pinned at rootfs build time and
+  # this recipe only toggles them, so both builds must agree on the snapshot;
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/582
+  - action: run
+    description: Check snapshot option matches the root filesystem
+    chroot: true
+    command: |
+      set -eux
+      rootfs_snapshot=$(sed -n 's/^SNAPSHOT=//p' /etc/buildinfo 2>/dev/null || :)
+      image_snapshot="{{ $snapshot }}"
+      if [ "$rootfs_snapshot" != "$image_snapshot" ]; then
+          echo "ERROR: snapshot mismatch: rootfs.tar was built with" \
+               "'${rootfs_snapshot:-<none>}' but this image build was given" \
+               "'${image_snapshot:-<none>}'; both builds must use the same" \
+               "-t snapshot: value." >&2
+          exit 1
+      fi
+
 {{- if ne $dtb "firmware" }}
   - action: run
     description: Use OS device tree override (board specific)
