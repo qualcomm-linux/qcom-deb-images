@@ -1,3 +1,9 @@
+# DEPRECATED: the QLI Debian images install the qcom-next kernel from the QLI
+# APT repository, so nothing consumes the debs this workflow publishes any
+# more. It is kept as a reference build, to compare the kernel built from the
+# qcom-next tree against the one QLI ships, and should be removed once that
+# comparison stops being useful.
+
 name: qcom-next linux build
 
 on:
