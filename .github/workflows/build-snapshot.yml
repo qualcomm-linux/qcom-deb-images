@@ -7,9 +7,9 @@
 # Snapshot builds have their own code paths in the rootfs and image recipes
 # which nothing else exercises, so build an image with them regularly. This
 # workflow only ever answers "do the snapshot code paths still work?": no LAVA
-# job boots the images, the build going green and the QEMU tests which
-# debos.yml runs are the coverage we're after. The artifacts are uploaded all
-# the same, so that a failure can be investigated.
+# job boots the images, the build going green, the QEMU tests which debos.yml
+# runs and the test-snapshot job below are the coverage we're after. The
+# artifacts are uploaded all the same, so that a failure can be investigated.
 
 name: Build snapshot
 

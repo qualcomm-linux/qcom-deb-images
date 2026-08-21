@@ -84,6 +84,39 @@ The presence of `SNAPSHOT=` confirms the build was pinned. Note that the
 `apt update` on the device will fetch current packages, not the snapshot — the
 snapshot governs only what was installed *at build time*.
 
+### Testing a snapshot image
+
+`ci/qemu_snapshot_tests.py` checks all of the above automatically, by booting
+the image in QEMU: that it records the expected snapshot in `/etc/buildinfo`,
+and that its APT sources were restored to the live mirrors (no leftover
+`snapshot_*.sources`, no `apt-snapshot-toggle`, nothing left `Enabled: no`).
+
+These tests only hold for a snapshot image, so they are **not** part of the
+generic `ci/qemu_test.py` suite that `make test` runs — the file name matches
+neither of pytest's default patterns on purpose, and a plain `py.test-3` run
+does not collect it. Run it by naming it:
+
+```bash
+# 1. build an image pinned to a snapshot (or download one built by CI)
+EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
+
+# 2. boot it and check the snapshot-specific expectations
+QEMU_TEST_SNAPSHOT=20260115T000000Z \
+    py.test-3 --verbose --capture=no ci/qemu_snapshot_tests.py
+```
+
+`QEMU_TEST_SNAPSHOT` is the timestamp the image was built from. It is what
+makes the test an exact check rather than a "some snapshot was used" one, so
+pass it whenever you know it; without it the test only requires that
+`/etc/buildinfo` records a non-empty `SNAPSHOT=`.
+
+The tests boot a copy-on-write overlay of `./disk-ufs.img` in the working
+directory, so they need that file and leave it untouched. They reuse the VM
+fixture and console helpers of `ci/qemu_test.py`, which means the same
+dependencies: `python3-pexpect`, `python3-pytest`, `qemu-system-arm`,
+`qemu-efi-aarch64` and `qemu-utils`. Each test boots its own VM and the guest
+CPU is emulated, so expect a few minutes per test.
+
 ### Reproducing a build later
 
 To re-create a build as it was on a given date:
@@ -270,13 +303,11 @@ to one shared place, keyed on the run, and the daily build publishes the same
 suites under the same names.
 
 It only answers "do the snapshot code paths still work?": no LAVA job boots the
-images it builds, so the build going green and the QEMU tests which `debos.yml`
-runs are the coverage. Note that a build which silently fell back to the live
-mirrors would also go green; check `/etc/buildinfo` in the built rootfs as
-described in [Verifying a build](#verifying-a-build) when in doubt. Its
-artifacts are uploaded all the same, so that a failure can be investigated. Only
-the default variant is built, as the snapshot code paths don't depend on the
-variant.
+images it builds, so the build going green, the QEMU tests which `debos.yml`
+runs and the `test-snapshot` job described below are the coverage. Its
+artifacts are uploaded all the same, so that a failure can be investigated.
+Only the default variant is built, as the snapshot code paths don't depend on
+the variant.
 
 The timestamp is not hardcoded: the `snapshot-date` job derives it from the
 committer date of the commit being built (`git log -1`, rendered as
@@ -291,6 +322,25 @@ The commit date is such a date and needs no maintenance: it moves forward on its
 own as the repository is worked on, while two runs of the same commit still pin
 the same publication — so a failure points at a change in our recipes rather
 than at a change in the archives.
+
+### The `test-snapshot` job
+
+A build which silently fell back to the live mirrors would still go green, so
+`build-snapshot.yml` has a `test-snapshot` job which boots each image it built
+and runs `ci/qemu_snapshot_tests.py` against it (see
+[Testing a snapshot image](#testing-a-snapshot-image)). It passes the
+timestamp the run pinned as `QEMU_TEST_SNAPSHOT`, so the image has to record
+that exact value.
+
+The job lives in `build-snapshot.yml` rather than in `debos.yml` because these
+tests only hold for a snapshot image, whereas `debos.yml` builds every image;
+that costs it a download, as the image only exists on the runner which built
+it. It takes the image from the build job's `artifacts_url` output: every
+matrix leg of a run uploads to the same destination, keyed on the run, so the
+single URL a matrixed reusable workflow reports back is the right one for both
+suites, and the artifacts are told apart by their `${suite}-` prefix. It runs
+on the same self-hosted arm64 pool as the build, since QEMU emulates the guest
+CPU.
 
 ## Design notes and caveats
 
@@ -328,5 +378,8 @@ than at a change in the archives.
   validation/recording, `snapshot_*.sources` derivation, live-mirror restore.
 - `debos-recipes/qualcomm-linux-debian-image.yaml` — re-enable snapshot for the
   image's extra package installs, then clean up.
-- `.github/workflows/build-snapshot.yml` — the weekly CI build.
+- `.github/workflows/build-snapshot.yml` — the weekly CI build and the
+  `test-snapshot` job which boots what it built.
+- `ci/qemu_snapshot_tests.py` — the snapshot-specific QEMU tests, extending
+  the generic ones in `ci/qemu_test.py`.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.
