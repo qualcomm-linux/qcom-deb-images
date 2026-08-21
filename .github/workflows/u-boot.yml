@@ -83,7 +83,7 @@ jobs:
           export BUILD_DIR="/efs/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
-          # perhaps help NFS sync
+          # flush artifacts to NFS
           sync
 
       # only publish EFS symlink to the latest build artifacts if building the
@@ -94,7 +94,7 @@ jobs:
           set -ux
           # create or update u-boot-rb1-latest symlink
           ln -fnsv "${BUILD_ID}" /efs/u-boot-rb1-latest
-          # perhaps help NFS sync
+          # flush the symlink to NFS
           sync
 
       - name: Upload private artifacts
