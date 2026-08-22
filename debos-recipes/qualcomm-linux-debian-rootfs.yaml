@@ -29,6 +29,12 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
+# Force kernelpackages: linux-image-qcom-next
+# TODO: Add linux-headers-qcom-next ?
+{{- if eq $qliaptrepo "true" }}
+{{- $kernelpackages = "linux-image-qcom-next" }}
+{{- end }}
+
 architecture: arm64
 
 actions:
