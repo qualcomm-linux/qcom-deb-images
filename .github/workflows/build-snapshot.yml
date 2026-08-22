@@ -8,9 +8,9 @@
 # which nothing else exercises, so build an image with them regularly. This
 # workflow only ever answers "do the snapshot code paths still work?": no LAVA
 # job boots the images, the build going green and the QEMU tests which
-# debos.yml runs -- the generic ones plus ci/qemu_snapshot_tests.py, which this
-# workflow asks for through extra_tests -- are the coverage we're after. The
-# artifacts are uploaded all the same, so that a failure can be investigated.
+# debos.yml runs -- told through qemu_test_env which snapshot to expect -- are
+# the coverage we're after. The artifacts are uploaded all the same, so that a
+# failure can be investigated.
 
 name: Build snapshot
 
@@ -113,13 +113,9 @@ jobs:
       # the default variant is enough: the snapshot code paths don't depend on
       # which variant is built
       #
-      # the generic QEMU tests debos.yml runs hold for every image, so they
-      # can't check anything snapshot specific; ci/qemu_snapshot_tests.py holds
-      # what only makes sense here and is named so that a plain pytest run does
-      # not collect it. it runs in the build job, against the image still on
-      # that runner
-      extra_tests: ci/qemu_snapshot_tests.py
-      # the timestamp the build was pinned to; the test checks the image
-      # records this exact value
-      test_env: QEMU_TEST_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
+      # the QEMU tests debos.yml runs are the same for every image; telling
+      # them the timestamp this build was pinned to is what turns their
+      # snapshot checks from "no snapshot was used" into "this exact snapshot
+      # was". they run in the build job, against the image still on that runner
+      qemu_test_env: QEMU_TEST_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
 

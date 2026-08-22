@@ -86,36 +86,36 @@ snapshot governs only what was installed *at build time*.
 
 ### Testing a snapshot image
 
-`ci/qemu_snapshot_tests.py` checks all of the above automatically, by booting
-the image in QEMU: that it records the expected snapshot in `/etc/buildinfo`,
-and that its APT sources were restored to the live mirrors (no leftover
+`ci/qemu_test.py` checks all of the above automatically, by booting the image
+in QEMU: that it records the expected snapshot in `/etc/buildinfo`, and that
+its APT sources were restored to the live mirrors (no leftover
 `snapshot_*.sources`, no `apt-snapshot-toggle`, nothing left `Enabled: no`).
 
-These tests only hold for a snapshot image, so they are **not** part of the
-generic `ci/qemu_test.py` suite that `make test` runs — the file name matches
-neither of pytest's default patterns on purpose, and a plain `py.test-3` run
-does not collect it. Run it by naming it:
+These are part of the generic suite that `make test` runs, not a separate one:
+they hold for every image, because an image built *without* the option must not
+carry any trace of a snapshot either. What tells them which kind of image they
+are looking at is the `QEMU_TEST_SNAPSHOT` environment variable:
 
 ```bash
 # 1. build an image pinned to a snapshot (or download one built by CI)
 EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
 
-# 2. boot it and check the snapshot-specific expectations
+# 2. boot it and check the snapshot expectations
 QEMU_TEST_SNAPSHOT=20260115T000000Z \
-    py.test-3 --verbose --capture=no ci/qemu_snapshot_tests.py
+    py.test-3 --verbose --capture=no --ignore=rootfs
 ```
 
-`QEMU_TEST_SNAPSHOT` is the timestamp the image was built from. It is what
-makes the test an exact check rather than a "some snapshot was used" one, so
-pass it whenever you know it; without it the test only requires that
-`/etc/buildinfo` records a non-empty `SNAPSHOT=`.
+`QEMU_TEST_SNAPSHOT` is the timestamp the image was built from, and
+`/etc/buildinfo` has to record exactly that value. Leaving it unset asserts the
+opposite — that the image records no `SNAPSHOT=` at all — so it must be passed
+whenever the image under test was built from a snapshot, or the test fails.
 
 The tests boot a copy-on-write overlay of `./disk-ufs.img` in the working
-directory, so they need that file and leave it untouched. They reuse the VM
-fixture and console helpers of `ci/qemu_test.py`, which means the same
-dependencies: `python3-pexpect`, `python3-pytest`, `qemu-system-arm`,
-`qemu-efi-aarch64` and `qemu-utils`. Each test boots its own VM and the guest
-CPU is emulated, so expect a few minutes per test.
+directory, so they need that file and leave it untouched. Dependencies are
+`python3-pexpect`, `python3-pytest`, `qemu-system-arm`, `qemu-efi-aarch64` and
+`qemu-utils`. The whole module shares one VM, booted and logged into once, and
+the guest CPU is emulated, so expect a few minutes for the boot and seconds per
+test after it.
 
 ### Reproducing a build later
 
@@ -304,7 +304,7 @@ suites under the same names.
 
 It only answers "do the snapshot code paths still work?": no LAVA job boots the
 images it builds, so the build going green and the QEMU tests which `debos.yml`
-runs — the generic ones plus the snapshot ones described below — are the
+runs — including the snapshot checks described below — are the
 coverage. Its artifacts are uploaded all the same, so that a failure can be
 investigated.
 Only the default variant is built, as the snapshot code paths don't depend on
@@ -327,19 +327,16 @@ than at a change in the archives.
 ### The snapshot QEMU tests
 
 A build which silently fell back to the live mirrors would still go green, so
-each image is booted and checked with `ci/qemu_snapshot_tests.py` (see
+each image is booted and checked with `ci/qemu_test.py` (see
 [Testing a snapshot image](#testing-a-snapshot-image)) once it is built.
 
-These tests only hold for a snapshot image, whereas `debos.yml` builds every
-image, so they are not part of the suite a plain pytest run collects.
-`build-snapshot.yml` asks for them through two inputs of `debos.yml`:
-
-- `extra_tests: ci/qemu_snapshot_tests.py` — a whitespace-separated list of
-  pytest files to run after the generic ones, named explicitly because they are
-  not collected on their own.
-- `test_env: QEMU_TEST_SNAPSHOT=<timestamp>` — `NAME=value` lines, one per
-  line, set for that run only. Passing the timestamp the run pinned makes the
-  image record that exact value, rather than merely some snapshot.
+`debos.yml` runs the same tests for every image it builds; what differs is what
+they are told about the image. `build-snapshot.yml` passes
+`qemu_test_env: QEMU_TEST_SNAPSHOT=<timestamp>` — `NAME=value` lines, one per
+line, set for the pytest run only — so that the tests require the image to
+record the exact timestamp this run pinned. Every other caller leaves the input
+empty, which requires the opposite: no `SNAPSHOT=` in `/etc/buildinfo` and no
+snapshot leftovers.
 
 They run in the build job, in the working directory holding the `disk-ufs.img`
 that job just built. That is the only place the image can be booted without
@@ -384,6 +381,7 @@ has no credentials for, so an anonymous download of them gets a 403.
   image's extra package installs, then clean up.
 - `.github/workflows/build-snapshot.yml` — the weekly CI build, which also
   asks `debos.yml` to boot what it built and run the snapshot tests against it.
-- `ci/qemu_snapshot_tests.py` — the snapshot-specific QEMU tests, extending
-  the generic ones in `ci/qemu_test.py`.
+- `ci/qemu_test.py` — the QEMU tests, including the snapshot ones; they run for
+  every image and are told which snapshot to expect, if any, through
+  `QEMU_TEST_SNAPSHOT`.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.
