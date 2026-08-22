@@ -94,18 +94,18 @@ its APT sources were restored to the live mirrors (no leftover
 These are part of the generic suite that `make test` runs, not a separate one:
 they hold for every image, because an image built *without* the option must not
 carry any trace of a snapshot either. What tells them which kind of image they
-are looking at is the `QEMU_TEST_SNAPSHOT` environment variable:
+are looking at is the `EXPECTED_SNAPSHOT` environment variable:
 
 ```bash
 # 1. build an image pinned to a snapshot (or download one built by CI)
 EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
 
 # 2. boot it and check the snapshot expectations
-QEMU_TEST_SNAPSHOT=20260115T000000Z \
+EXPECTED_SNAPSHOT=20260115T000000Z \
     py.test-3 --verbose --capture=no --ignore=rootfs
 ```
 
-`QEMU_TEST_SNAPSHOT` is the timestamp the image was built from, and
+`EXPECTED_SNAPSHOT` is the timestamp the image was built from, and
 `/etc/buildinfo` has to record exactly that value. Leaving it unset asserts the
 opposite — that the image records no `SNAPSHOT=` at all — so it must be passed
 whenever the image under test was built from a snapshot, or the test fails.
@@ -332,7 +332,7 @@ each image is booted and checked with `ci/qemu_test.py` (see
 
 `debos.yml` runs the same tests for every image it builds; what differs is what
 they are told about the image. `build-snapshot.yml` passes
-`qemu_test_env: QEMU_TEST_SNAPSHOT=<timestamp>` — `NAME=value` lines, one per
+`qemu_test_env: EXPECTED_SNAPSHOT=<timestamp>` — `NAME=value` lines, one per
 line, set for the pytest run only — so that the tests require the image to
 record the exact timestamp this run pinned. Every other caller leaves the input
 empty, which requires the opposite: no `SNAPSHOT=` in `/etc/buildinfo` and no
@@ -383,5 +383,5 @@ has no credentials for, so an anonymous download of them gets a 403.
   asks `debos.yml` to boot what it built and run the snapshot tests against it.
 - `ci/qemu_test.py` — the QEMU tests, including the snapshot ones; they run for
   every image and are told which snapshot to expect, if any, through
-  `QEMU_TEST_SNAPSHOT`.
+  `EXPECTED_SNAPSHOT`.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.

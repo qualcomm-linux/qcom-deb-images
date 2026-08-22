@@ -2,13 +2,13 @@
 
 These run for every image debos.yml builds, so they must hold for all of them.
 What differs between images is described to the tests by the environment rather
-than by which tests are run: QEMU_TEST_SNAPSHOT below says whether the image
+than by which tests are run: EXPECTED_SNAPSHOT below says whether the image
 under test was built from an APT snapshot, and the snapshot expectations are
 checked either way -- an image built without the option must not carry any
 trace of a snapshot. Run them from the directory holding the image under test:
 
     py.test-3 --verbose --capture=no --ignore=rootfs
-    QEMU_TEST_SNAPSHOT=20260115T000000Z py.test-3 --verbose --capture=no
+    EXPECTED_SNAPSHOT=20260115T000000Z py.test-3 --verbose --capture=no
 
 Booting the emulated guest costs minutes, so the whole module shares a single
 VM: the fixture below is session scoped and logs in once. The tests therefore
@@ -43,7 +43,7 @@ PASSWORD = "new password"
 # image records no snapshot at all. So pass it whenever the image under test
 # was built from a snapshot, or test_snapshot_recorded_in_buildinfo() fails.
 # See docs/snapshot.md.
-SNAPSHOT = os.environ.get("QEMU_TEST_SNAPSHOT", "")
+EXPECTED_SNAPSHOT = os.environ.get("EXPECTED_SNAPSHOT", "")
 
 
 @pytest.fixture(scope="session")
@@ -163,21 +163,22 @@ def test_snapshot_recorded_in_buildinfo(vm):
     # to it when, and only when, the snapshot option is in use
     assert run(vm, "test -e /etc/buildinfo") == 0, "/etc/buildinfo is missing"
 
-    if not SNAPSHOT:
+    if not EXPECTED_SNAPSHOT:
         # nothing pinned this build, so a recorded snapshot means the image is
         # not the one this run built, or that a stale timestamp leaked into the
         # recipes
         assert run(vm, "grep -q '^SNAPSHOT=' /etc/buildinfo") != 0, \
             "/etc/buildinfo records a SNAPSHOT= but the image was not built " \
-            "from one; pass QEMU_TEST_SNAPSHOT if it was"
+            "from one; pass EXPECTED_SNAPSHOT if it was"
         return
 
     # -F -x: the recorded timestamp has to be exactly the one the build was
     # pinned to. an absent or empty value means the build silently ignored the
     # option and used the live archives; a different one means the timestamp
     # was mangled on its way to the recipes
-    assert run(vm, f"grep -Fxq 'SNAPSHOT={SNAPSHOT}' /etc/buildinfo") == 0, \
-        f"/etc/buildinfo does not record SNAPSHOT={SNAPSHOT}"
+    grep = f"grep -Fxq 'SNAPSHOT={EXPECTED_SNAPSHOT}' /etc/buildinfo"
+    assert run(vm, grep) == 0, \
+        f"/etc/buildinfo does not record SNAPSHOT={EXPECTED_SNAPSHOT}"
 
 
 def test_apt_sources_are_live_mirrors(vm):

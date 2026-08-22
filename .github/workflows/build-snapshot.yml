@@ -117,5 +117,5 @@ jobs:
       # them the timestamp this build was pinned to is what turns their
       # snapshot checks from "no snapshot was used" into "this exact snapshot
       # was". they run in the build job, against the image still on that runner
-      qemu_test_env: QEMU_TEST_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
+      qemu_test_env: EXPECTED_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
 
