@@ -1,0 +1,121 @@
+# Builds QLI Debian images from a dated APT snapshot:
+#  - qcom-next kernel
+#  - Qualcomm overlay repos and packages
+#  - APT sources pinned to snapshot.debian.org and to the dated Qualcomm
+#    Linux archive (see docs/snapshot.md)
+#
+# Snapshot builds have their own code paths in the rootfs and image recipes
+# which nothing else exercises, so build an image with them regularly. This
+# workflow only ever answers "do the snapshot code paths still work?": no LAVA
+# job boots the images, the build going green and the QEMU tests which
+# debos.yml runs -- told through qemu_test_env which snapshot to expect -- are
+# the coverage we're after. The artifacts are uploaded all the same, so that a
+# failure can be investigated.
+
+name: Build snapshot
+
+on:
+  # weekly rather than daily; never on pull requests: these are full image
+  # builds and snapshot.debian.org is slower and more rate-limited than the
+  # regular mirrors. run the job on Saturdays, when the daily builds are not
+  # competing for the builder runners.
+  schedule:
+    - cron: '30 3 * * 6'
+  # allow manual runs
+  workflow_dispatch:
+  # WIP: Temporarily allow on branch pushes.
+  push:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  # derive snapshot timestamp from the date of the last git commit, in the
+  # YYYYMMDDTHHMMSSZ form APT requires.
+  #
+  # any well-formed timestamp resolves to the publication which was live at
+  # that moment, so the value only has to be a date the archives still serve,
+  # not one which coincides with a publication. the commit date of the tree
+  # being built is such a date and needs no maintenance: it moves forward on
+  # its own as the repository is worked on and two runs of the same commit
+  # still pin the same publication, so a failure points at a change in our
+  # recipes rather than at a change in the archives.
+  #
+  # this job cannot be folded into the `build-snapshot` job as that job calls a
+  # reusable workflow with `uses:` and such a job may not also have `steps:`;
+  # so there is nowhere to run git.
+  # nor can the value be built inline in its `with:`; expressions have no date
+  # formatting (and no substring/replace) so YYYYMMDDTHHMMSSZ cannot be assembled
+  # from something like `github.event.repository.pushed_at`.
+  snapshot-date:
+    # don't run cron from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    #if: >-
+    #  github.repository == 'qualcomm-linux/qcom-deb-images' &&
+    #  (github.event_name == 'workflow_dispatch' ||
+    #  github.ref == 'refs/heads/main')
+    name: Derive the snapshot timestamp
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      snapshot: ${{ steps.snapshot.outputs.snapshot }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Derive the snapshot timestamp from the latest commit
+        id: snapshot
+        run: |
+          set -u
+          # committer date of HEAD; format-local: honours TZ, hence TZ=UTC
+          snapshot="$(TZ=UTC git log -1 --format=%cd \
+              --date=format-local:%Y%m%dT%H%M%SZ)"
+          echo "snapshot=${snapshot}" >>"$GITHUB_OUTPUT"
+
+          # show what was picked and where it came from in the job log and
+          # in the run summary, as it differs from one run to the next
+          commit="$(git log -1 --format='%h ("%s")')"
+          echo "snapshot timestamp ${snapshot}, from commit ${commit}" |
+              tee -a "$GITHUB_STEP_SUMMARY"
+
+  build-snapshot:
+    # don't run cron from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    #if: >-
+    #  github.repository == 'qualcomm-linux/qcom-deb-images' &&
+    #  (github.event_name == 'workflow_dispatch' ||
+    #  github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: ./.github/workflows/debos.yml
+    needs: snapshot-date
+    permissions:
+      contents: read
+    with:
+      suite: ${{ matrix.suite }}
+      # both the rootfs and the image recipe re-pin their own APT sources, and
+      # debos_extra_args is passed to both, so one timestamp pins the whole
+      # build. it comes from the snapshot-date job above, which also prints it
+      # to the run summary
+      debos_extra_args: -t snapshot:${{ needs.snapshot-date.outputs.snapshot }}
+      # QLI targets qcom-next; consume the debs published to EFS by the
+      # "qcom-next linux build" workflow rather than a kernel from an
+      # APT repository. note that a local kernel is not covered by the
+      # snapshot, see docs/snapshot.md
+      kernelpackages: efs/qcom-next
+      # the default variant is enough: the snapshot code paths don't depend on
+      # which variant is built
+      #
+      # the QEMU tests debos.yml runs are the same for every image; telling
+      # them the timestamp this build was pinned to is what turns their
+      # snapshot checks from "no snapshot was used" into "this exact snapshot
+      # was". they run in the build job, against the image still on that runner
+      qemu_test_env: EXPECTED_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
+

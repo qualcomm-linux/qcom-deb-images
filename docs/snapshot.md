@@ -84,6 +84,43 @@ The presence of `SNAPSHOT=` confirms the build was pinned. Note that the
 `apt update` on the device will fetch current packages, not the snapshot — the
 snapshot governs only what was installed *at build time*.
 
+### Testing a snapshot image
+
+`ci/qemu_test.py` checks all of the above automatically, by booting the image
+in QEMU: that `/etc/buildinfo` records the expected snapshot — or, for an
+unpinned build, none at all — and that nothing snapshot-shaped survived into
+the shipped image. The APT side is checked along two axes: by file name (no
+leftover `snapshot_*.sources` or `apt-snapshot-toggle`, no source left
+`Enabled: no`, no bootstrap `/etc/apt/sources.list`) and by URL, so that
+rewriting the live sources in place, rather than deriving `snapshot_*` files
+from them, would not slip past either.
+
+These are part of the generic suite that `make test` runs, not a separate one:
+they hold for every image, because an image built *without* the option must not
+carry any trace of a snapshot either. What tells them which kind of image they
+are looking at is the `EXPECTED_SNAPSHOT` environment variable:
+
+```bash
+# 1. build an image pinned to a snapshot (or download one built by CI)
+EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
+
+# 2. boot it and check the snapshot expectations
+EXPECTED_SNAPSHOT=20260115T000000Z \
+    py.test-3 --verbose --capture=no --ignore=rootfs
+```
+
+`EXPECTED_SNAPSHOT` is the timestamp the image was built from, and
+`/etc/buildinfo` has to record exactly that value. Leaving it unset asserts the
+opposite — that the image records no `SNAPSHOT=` at all — so it must be passed
+whenever the image under test was built from a snapshot, or the test fails.
+
+The tests boot a copy-on-write overlay of `./disk-ufs.img` in the working
+directory, so they need that file and leave it untouched. Dependencies are
+`python3-pexpect`, `python3-pytest`, `qemu-system-arm`, `qemu-efi-aarch64` and
+`qemu-utils`. The whole module shares one VM, booted and logged into once, and
+the guest CPU is emulated, so expect a few minutes for the boot and seconds per
+test after it.
+
 ### Reproducing a build later
 
 To re-create a build as it was on a given date:
@@ -254,6 +291,62 @@ After a snapshot build, the final image:
 In other words, the snapshot pins *what gets installed during the build*, then
 gets out of the way so the running system tracks live updates.
 
+## CI coverage
+
+The `build-snapshot.yml` workflow builds snapshot images for both `trixie` and
+`forky`. The timestamp is passed to the `debos.yml` workflow as
+`debos_extra_args: -t snapshot:<timestamp>`, which that workflow hands to both
+the rootfs and the image recipe.
+
+It runs weekly (Saturday) and on demand, rather than daily or on pull requests:
+these are full image builds and snapshot.debian.org is slower and more
+rate-limited than the regular mirrors. It is a workflow of its own rather than
+a job of the daily `build.yml` so that it can keep that slower cadence, and so
+that its artifacts land in their own destination — every job of a *run* uploads
+to one shared place, keyed on the run, and the daily build publishes the same
+suites under the same names.
+
+It only answers "do the snapshot code paths still work?": no LAVA job boots the
+images it builds, so the build going green and the QEMU tests which `debos.yml`
+runs — including the snapshot checks described below — are the
+coverage. Its artifacts are uploaded all the same, so that a failure can be
+investigated.
+Only the default variant is built, as the snapshot code paths don't depend on
+the variant.
+
+The timestamp is not hardcoded: the `snapshot-date` job derives it from the
+committer date of the commit being built (`git log -1`, rendered as
+`YYYYMMDDTHHMMSSZ` in UTC) and passes it to the build job as a job output.
+It prints the value, and the commit it came from, to the job log and the run
+summary.
+
+Any well-formed timestamp resolves to the publication which was live at that
+moment (see [Archive-side model](#archive-side-model)), so the value only has to
+be a date the archives still serve, not one which coincides with a publication.
+The commit date is such a date and needs no maintenance: it moves forward on its
+own as the repository is worked on, while two runs of the same commit still pin
+the same publication — so a failure points at a change in our recipes rather
+than at a change in the archives.
+
+### The snapshot QEMU tests
+
+A build which silently fell back to the live mirrors would still go green, so
+each image is booted and checked with `ci/qemu_test.py` (see
+[Testing a snapshot image](#testing-a-snapshot-image)) once it is built.
+
+`debos.yml` runs the same tests for every image it builds; what differs is what
+they are told about the image. `build-snapshot.yml` passes
+`qemu_test_env: EXPECTED_SNAPSHOT=<timestamp>` — `NAME=value` lines, one per
+line, set for the pytest run only — so that the tests require the image to
+record the exact timestamp this run pinned. Every other caller leaves the input
+empty, which requires the opposite: no `SNAPSHOT=` in `/etc/buildinfo` and no
+snapshot leftovers.
+
+They run in the build job, in the working directory holding the `disk-ufs.img`
+that job just built. That is the only place the image can be booted without
+fetching it back: the artifacts are uploaded to a private store which a runner
+has no credentials for, so an anonymous download of them gets a 403.
+
 ## Design notes and caveats
 
 - **The bootstrap resolves on the build host, not in the chroot.** Unlike the
@@ -290,4 +383,9 @@ gets out of the way so the running system tracks live updates.
   validation/recording, `snapshot_*.sources` derivation, live-mirror restore.
 - `debos-recipes/qualcomm-linux-debian-image.yaml` — re-enable snapshot for the
   image's extra package installs, then clean up.
+- `.github/workflows/build-snapshot.yml` — the weekly CI build, which also
+  asks `debos.yml` to boot what it built and run the snapshot tests against it.
+- `ci/qemu_test.py` — the QEMU tests, including the snapshot ones; they run for
+  every image and are told which snapshot to expect, if any, through
+  `EXPECTED_SNAPSHOT`.
 - `README.md` — the user-facing summary of the `snapshot` recipe option.
