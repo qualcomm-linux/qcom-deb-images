@@ -87,9 +87,13 @@ snapshot governs only what was installed *at build time*.
 ### Testing a snapshot image
 
 `ci/qemu_test.py` checks all of the above automatically, by booting the image
-in QEMU: that it records the expected snapshot in `/etc/buildinfo`, and that
-its APT sources were restored to the live mirrors (no leftover
-`snapshot_*.sources`, no `apt-snapshot-toggle`, nothing left `Enabled: no`).
+in QEMU: that `/etc/buildinfo` records the expected snapshot — or, for an
+unpinned build, none at all — and that nothing snapshot-shaped survived into
+the shipped image. The APT side is checked along two axes: by file name (no
+leftover `snapshot_*.sources` or `apt-snapshot-toggle`, no source left
+`Enabled: no`, no bootstrap `/etc/apt/sources.list`) and by URL, so that
+rewriting the live sources in place, rather than deriving `snapshot_*` files
+from them, would not slip past either.
 
 These are part of the generic suite that `make test` runs, not a separate one:
 they hold for every image, because an image built *without* the option must not
