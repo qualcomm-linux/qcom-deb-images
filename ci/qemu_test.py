@@ -41,7 +41,7 @@ PASSWORD = "new password"
 # image is checked against the snapshot it was actually asked to build from;
 # every other build leaves it unset, which asserts the opposite -- that the
 # image records no snapshot at all. So pass it whenever the image under test
-# was built from a snapshot, or test_snapshot_recorded_in_buildinfo() fails.
+# was built from a snapshot, or test_snapshot() fails.
 # See docs/snapshot.md.
 EXPECTED_SNAPSHOT = os.environ.get("EXPECTED_SNAPSHOT", "")
 
@@ -157,36 +157,34 @@ def test_boot_efi_not_world_accessible(vm):
         "systemd-boot reports /boot/efi/loader/random-seed as world accessible"
 
 
-def test_snapshot_recorded_in_buildinfo(vm):
-    """The image records the snapshot it was built from, and only that one"""
+def test_snapshot(vm):
+    """The image records the snapshot it was built from -- and only that one,
+    or none at all -- and boots with its APT sources on the live mirrors"""
     # the rootfs recipe always writes this file, and adds SNAPSHOT=<timestamp>
     # to it when, and only when, the snapshot option is in use
     assert run(vm, "test -e /etc/buildinfo") == 0, "/etc/buildinfo is missing"
 
-    if not EXPECTED_SNAPSHOT:
+    if EXPECTED_SNAPSHOT:
+        # -F -x: the recorded timestamp has to be exactly the one the build was
+        # pinned to. an absent or empty value means the build silently ignored
+        # the option and used the live archives; a different one means the
+        # timestamp was mangled on its way to the recipes
+        grep = f"grep -Fxq 'SNAPSHOT={EXPECTED_SNAPSHOT}' /etc/buildinfo"
+        assert run(vm, grep) == 0, \
+            f"/etc/buildinfo does not record SNAPSHOT={EXPECTED_SNAPSHOT}"
+    else:
         # nothing pinned this build, so a recorded snapshot means the image is
         # not the one this run built, or that a stale timestamp leaked into the
         # recipes
         assert run(vm, "grep -q '^SNAPSHOT=' /etc/buildinfo") != 0, \
             "/etc/buildinfo records a SNAPSHOT= but the image was not built " \
             "from one; pass EXPECTED_SNAPSHOT if it was"
-        return
 
-    # -F -x: the recorded timestamp has to be exactly the one the build was
-    # pinned to. an absent or empty value means the build silently ignored the
-    # option and used the live archives; a different one means the timestamp
-    # was mangled on its way to the recipes
-    grep = f"grep -Fxq 'SNAPSHOT={EXPECTED_SNAPSHOT}' /etc/buildinfo"
-    assert run(vm, grep) == 0, \
-        f"/etc/buildinfo does not record SNAPSHOT={EXPECTED_SNAPSHOT}"
-
-
-def test_apt_sources_are_live_mirrors(vm):
-    """The image boots with its APT sources on the live mirrors"""
-    # a snapshot build restores the live mirrors and removes the snapshot
-    # helpers on the way out; leaving them behind would pin every apt update on
-    # the device to a dated archive. an image built without the option has
-    # never had them, so this holds for every image either way
+    # TODO: check this test
+    # either way the shipped image points at the live mirrors: a snapshot build
+    # restores them and removes the snapshot helpers on the way out, and
+    # leaving them behind would pin every apt update on the device to a dated
+    # archive. an image built without the option has never had them.
     assert run(vm, "ls /etc/apt/sources.list.d/snapshot_*.sources") != 0, \
         "snapshot APT sources were left in the image"
     assert run(vm, "test -e /usr/local/bin/apt-snapshot-toggle") != 0, \
