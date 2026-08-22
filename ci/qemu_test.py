@@ -52,10 +52,12 @@ def vm():
     with a CoW base of disk-ufs.img, logged in and sitting at a shell prompt
 
     One VM is shared by every test in this module: booting an emulated aarch64
-    guest takes minutes, and none of these tests write to the guest. Note that
-    logging in is part of setting it up, so the mandatory password reset flow
-    login() walks through is exercised once here rather than by a test of its
-    own; if the image stops requiring it, every test in this module errors.
+    guest takes minutes. The disk is a throwaway CoW overlay, so a test may
+    write scratch files to the guest, but the console is shared state and each
+    test has to leave it at a shell prompt. Note that logging in is part of
+    setting the VM up, so the mandatory password reset flow login() walks
+    through is exercised once here rather than by a test of its own; if the
+    image stops requiring it, every test in this module errors.
     https://github.com/qualcomm-linux/qcom-deb-images/issues/69
     """
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,12 +155,22 @@ def test_boot_efi_not_world_accessible(vm):
     """The /boot/efi/loader/random-seed file is not readable to users"""
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
     #
-    # == 1, not != 0: 1 is "grep read the journal and found no such line",
-    # while 2 would mean grep itself failed and the check never happened. Note
-    # that the pipeline reports grep's status, so journalctl failing outright
-    # still reads as "no match" here; only a broken grep is caught.
-    assert run(vm, "journalctl | grep -q "
-                   "'is world accessible, which is a security hole'") == 1, \
+    # Dumped to a file and grepped separately rather than piped: a pipeline
+    # reports only the status of its last command, so "journalctl | grep -q"
+    # cannot tell "the journal has no such line" from "the journal could not be
+    # read at all" -- grep sees empty input either way and reports no match,
+    # quietly passing the test. Splitting the two checks each of them.
+    #
+    # The dump goes through sudo because the check must not depend on the
+    # "debian" user's journal access, and the file lands in the guest's /tmp,
+    # which is thrown away with the CoW overlay when the VM dies.
+    assert run(vm, "sudo journalctl --no-pager >/tmp/journal.txt") == 0, \
+        "could not read the guest's journal"
+
+    # == 1, not != 0: 1 is "grep read the file and found no such line", while
+    # 2 would mean grep failed and the check never happened
+    warning = "is world accessible, which is a security hole"
+    assert run(vm, f"grep -q '{warning}' /tmp/journal.txt") == 1, \
         "systemd-boot reports /boot/efi/loader/random-seed as world accessible"
 
 
@@ -225,9 +237,19 @@ def test_snapshot(vm):
         "APT sources still point at snapshot.debian.org"
 
     # the Qualcomm Linux archive is pinned by appending /<timestamp> to its
-    # URL, so there is no distinct host to look for -- match the dated path
-    # TODO: check on non-qli image, vanilla debian
-    qli_snapshot = (r"sudo grep -rEq '/qualcomm/qli/[0-9]{8}T[0-9]{6}Z' "
+    # URL rather than by moving to a snapshot host, so match the dated path
+    # instead. Anchored on the Debusine host rather than on /qualcomm/qli, so
+    # that a second archive on it -- qli-staging, or whatever comes after -- is
+    # covered without having to be listed here: an archive name is exactly the
+    # kind of detail that would otherwise turn this into a no-op the day it
+    # changes, silently and while still passing.
+    #
+    # Images built with -t qliaptrepo:false (Vanilla Debian) or for unstable
+    # ship no Qualcomm Linux source at all, and then this passes trivially.
+    # That is correct rather than merely convenient: an image with no such
+    # source has no such URL that could have been left pinned.
+    qli_snapshot = (r"sudo grep -rEq "
+                    r"'debusine\.qualcomm\.com/.*/[0-9]{8}T[0-9]{6}Z' "
                     r"/etc/apt/")
     assert run(vm, qli_snapshot) == 1, \
         "APT sources still point at a dated Qualcomm Linux archive"
