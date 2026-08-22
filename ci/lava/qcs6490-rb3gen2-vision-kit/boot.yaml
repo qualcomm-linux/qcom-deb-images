@@ -60,17 +60,15 @@ actions:
         SKIP_INSTALL: "True"
         WAIT_TIME: 60
 - test:
-    definitions:
-      - name: fail-test
-        from: inline
-        path: inline/fail.yaml
-        repository:
-          metadata:
-            format: Lava-Test Test Definition 1.0
-            name: fail-test
-          run:
-            steps:
-              - lava-test-case fail --result fail
+    interactive:
+      - name: fail-job
+        prompts:
+          - 'root@debian:/home/debian#'
+        echo: discard
+        script:
+          - command: 'echo FAIL'
+            successes:
+              - message: 'THIS_WILL_NEVER_HAPPEN'
 context:
   test_character_delay: 10
 device_type: qcs6490-rb3gen2-vision-kit
