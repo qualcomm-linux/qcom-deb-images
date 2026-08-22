@@ -29,6 +29,12 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
+# Force kernelpackages: linux-image-qcom-next
+# TODO: Add linux-headers-qcom-next ?
+{{- if eq $qliaptrepo "true" }}
+{{- $kernelpackages = "linux-image-qcom-next" }}
+{{- end }}
+
 architecture: arm64
 
 actions:
@@ -276,6 +282,25 @@ actions:
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
       EOF
+      tee /etc/apt/sources.list.d/qli-staging.sources <<EOF
+      # Qualcomm Linux repository
+      Types: deb
+      URIs: https://deb.debusine.qualcomm.com/qualcomm/qli-staging
+      Suites: {{ $suite }}
+      Components: main contrib non-free-firmware non-free
+      Enabled: yes
+      Signed-By:
+       -----BEGIN PGP PUBLIC KEY BLOCK-----
+       .
+       mDMEajuyfxYJKwYBBAHaRw8BAQdASazjfos7KwJJ+G6xdBRzc3v7orITHEY6jKc3
+       RJ9SKQ+0LEFyY2hpdmUgc2lnbmluZyBrZXkgZm9yIHF1YWxjb21tL3FsaS1zdGFn
+       aW5niJAEExYKADgWIQQHaA+DhymsE9b1W++Bhz/mnjKc1AUCajuyfwIbAwULCQgH
+       AgYVCgkICwIEFgIDAQIeAQIXgAAKCRCBhz/mnjKc1BFAAQCBx/l+c5fPIl1yxrHZ
+       oesE1USx5864EapEurg7g8Ov6gD/ZJbguusDuXxCCPkZtyR/APq3ckIEy6zIl7/0
+       9RR1JgI=
+       =sKJS
+       -----END PGP PUBLIC KEY BLOCK-----
+      EOF
 {{- end }}
 
 {{- if $snapshot }}
@@ -307,6 +332,11 @@ actions:
               assert='https://deb.debusine.qualcomm.com/qualcomm/qli'
               set -- \
                 -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#"
+              ;;
+            qli-staging)
+              assert='https://deb.debusine.qualcomm.com/qualcomm/qli-staging'
+              set -- \
+                -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli-staging#&/${SNAPSHOT}#"
               ;;
             *)
               echo "WARNING: skipping apt snapshot for $src" >&2
@@ -401,6 +431,18 @@ actions:
     packages:
       # fastrpc-tests pulls in fastrpc-support
       - fastrpc-tests
+
+  - action: run
+    description: Prefer kernel from QLI overlay
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/preferences.d/qli-kernel.pref <<EOF
+      Package: linux-image-*-qcom-next-* linux-image-qcom-next linux-headers-*-qcom-next-* linux-headers-qcom-next
+      # TODO: prefer pinning on Release/Label; see https://github.com/qualcomm-linux/qcom-deb-images/pull/576/changes#r3787588202
+      Pin: origin "deb.debusine.qualcomm.com"
+      Pin-Priority: 1001
+      EOF
 {{- end }}
 
   - action: run
