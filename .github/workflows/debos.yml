@@ -420,26 +420,32 @@ jobs:
           TEST_ENV: ${{ inputs.test_env }}
         run: |
           set -u
-          # NAME=value lines from the test_env input, handed to pytest through
+          # this container has no bash, so the step runs under sh: POSIX only,
+          # no arrays and no here-strings. the positional parameters are the
+          # only list this shell has, so they hold the NAME=value pairs
+          #
+          # those are lines from the test_env input, handed to pytest through
           # env(1) rather than exported into the job: they are inputs to these
           # tests and have no business affecting anything else. a line which is
           # not an assignment is a mistake in the caller, so fail on it rather
           # than silently dropping it
-          test_env=()
+          set --
           while IFS= read -r assignment; do
               case "$assignment" in
                   '') continue ;;
-                  [A-Za-z_]*=*) test_env+=("$assignment") ;;
+                  [A-Za-z_]*=*) set -- "$@" "$assignment" ;;
                   *)
                       echo "ERROR: test_env is not NAME=value: ${assignment}" >&2
                       exit 1
                       ;;
               esac
-          done <<<"$TEST_ENV"
+          done <<EOF
+          ${TEST_ENV}
+          EOF
 
           # unquoted on purpose: extra_tests is a list. one pytest run per file
           # so that the log says which suite failed
           set -x
           for test in ${EXTRA_TESTS}; do
-              env "${test_env[@]}" py.test-3 --verbose --capture=no "$test"
+              env "$@" py.test-3 --verbose --capture=no "$test"
           done
