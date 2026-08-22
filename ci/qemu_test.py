@@ -152,8 +152,13 @@ def run(vm, command):
 def test_boot_efi_not_world_accessible(vm):
     """The /boot/efi/loader/random-seed file is not readable to users"""
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
+    #
+    # == 1, not != 0: 1 is "grep read the journal and found no such line",
+    # while 2 would mean grep itself failed and the check never happened. Note
+    # that the pipeline reports grep's status, so journalctl failing outright
+    # still reads as "no match" here; only a broken grep is caught.
     assert run(vm, "journalctl | grep -q "
-                   "'is world accessible, which is a security hole'") != 0, \
+                   "'is world accessible, which is a security hole'") == 1, \
         "systemd-boot reports /boot/efi/loader/random-seed as world accessible"
 
 
@@ -175,22 +180,68 @@ def test_snapshot(vm):
     else:
         # nothing pinned this build, so a recorded snapshot means the image is
         # not the one this run built, or that a stale timestamp leaked into the
-        # recipes
-        assert run(vm, "grep -q '^SNAPSHOT=' /etc/buildinfo") != 0, \
+        # recipes. == 1 rather than != 0 for the reason given further down: 1
+        # is "no such line", anything else is grep failing to look
+        assert run(vm, "grep -q '^SNAPSHOT=' /etc/buildinfo") == 1, \
             "/etc/buildinfo records a SNAPSHOT= but the image was not built " \
             "from one; pass EXPECTED_SNAPSHOT if it was"
 
-    # TODO: check this test
-    # either way the shipped image points at the live mirrors: a snapshot build
-    # restores them and removes the snapshot helpers on the way out, and
-    # leaving them behind would pin every apt update on the device to a dated
-    # archive. an image built without the option has never had them.
-    assert run(vm, "ls /etc/apt/sources.list.d/snapshot_*.sources") != 0, \
+    # Either way the shipped image has to point at the live mirrors: leaving it
+    # pinned would tie every apt update on the device to a dated archive. A
+    # snapshot build restores the mirrors and removes the snapshot helpers on
+    # the way out; an image built without the option never had them.
+    #
+    # Every check below is a negative one, so it has to tell "looked and found
+    # nothing" apart from "could not look": a missing path or an unreadable
+    # file fails these commands too, and a plain "!= 0" would then pass the
+    # test for entirely the wrong reason. Assert the exact status instead --
+    # grep exits 1 for no match and 2 for any error, ls exits 2 for a path that
+    # does not exist, test exits 1 for a file that does not exist. The greps
+    # run under sudo (passwordless for this user, see the rootfs recipe) so
+    # that root-only files such as /etc/apt/auth.conf.d/* cannot be the thing
+    # that made grep exit non-zero.
+
+    # the image recipe deletes both of these on its way out of a snapshot
+    # build; the rootfs recipe does not, so a rootfs built with -t snapshot:
+    # and an image built without it still carries them
+    assert run(vm, "ls /etc/apt/sources.list.d/snapshot_*.sources") == 2, \
         "snapshot APT sources were left in the image"
-    assert run(vm, "test -e /usr/local/bin/apt-snapshot-toggle") != 0, \
+    assert run(vm, "test -e /usr/local/bin/apt-snapshot-toggle") == 1, \
         "the apt-snapshot-toggle helper was left in the image"
 
-    # apt-snapshot-toggle disables the live sources while the build runs; they
-    # must all be back to "Enabled: yes" (or have no Enabled: field at all)
-    assert run(vm, "grep -r '^Enabled: *no' /etc/apt/sources.list.d/") != 0, \
+    # the two checks above detect a snapshot by *file name*, which is only
+    # equivalent to checking the URLs because the rootfs recipe derives
+    # separate snapshot_*.sources files. Rewriting the live sources in place
+    # instead would leave both of them green and still ship a pinned device --
+    # exactly the regression this test exists to catch -- so grep for the
+    # snapshot URLs themselves as well.
+    #
+    # over all of /etc/apt rather than just sources.list.d: mmdebstrap records
+    # the mirror it bootstrapped from, i.e. the snapshot URL, in the target's
+    # /etc/apt/sources.list, which is why the rootfs recipe removes that file.
+    # Scanning the whole directory catches that removal regressing too.
+    debian_snapshot = r"sudo grep -rq 'snapshot\.debian\.org' /etc/apt/"
+    assert run(vm, debian_snapshot) == 1, \
+        "APT sources still point at snapshot.debian.org"
+
+    # the Qualcomm Linux archive is pinned by appending /<timestamp> to its
+    # URL, so there is no distinct host to look for -- match the dated path
+    # TODO: check on non-qli image, vanilla debian
+    qli_snapshot = (r"sudo grep -rEq '/qualcomm/qli/[0-9]{8}T[0-9]{6}Z' "
+                    r"/etc/apt/")
+    assert run(vm, qli_snapshot) == 1, \
+        "APT sources still point at a dated Qualcomm Linux archive"
+
+    # apt-snapshot-toggle disables the live sources while the build runs and
+    # re-enables them on the way out, and only then are the snapshot files
+    # deleted; nothing may be left disabled. This catches those two steps being
+    # swapped, which would ship an image whose every source is "Enabled: no"
+    # and whose apt update therefore finds nothing at all.
+    #
+    # deb822 spells false as no/false/0, hence the alternation, even though the
+    # toggle itself only ever writes yes/no. Anchored at both ends so that a
+    # value merely starting with one of them ("nonsense") is not a match
+    disabled = (r"sudo grep -rEq '^Enabled: *(no|false|0)[[:space:]]*$' "
+                r"/etc/apt/")
+    assert run(vm, disabled) == 1, \
         "APT sources are still disabled in the image"
