@@ -161,10 +161,10 @@ def test_boot_efi_not_world_accessible(vm):
     # read at all" -- grep sees empty input either way and reports no match,
     # quietly passing the test. Splitting the two checks each of them.
     #
-    # The dump goes through sudo because the check must not depend on the
-    # "debian" user's journal access, and the file lands in the guest's /tmp,
-    # which is thrown away with the CoW overlay when the VM dies.
-    assert run(vm, "sudo journalctl --no-pager >/tmp/journal.txt") == 0, \
+    # As the "debian" user, which is in the "adm" group and so can read the
+    # system journal; the dump lands in the guest's /tmp, which is thrown away
+    # with the CoW overlay when the VM dies.
+    assert run(vm, "journalctl --no-pager >/tmp/journal.txt") == 0, \
         "could not read the guest's journal"
 
     # == 1, not != 0: 1 is "grep read the file and found no such line", while
@@ -208,10 +208,13 @@ def test_snapshot(vm):
     # file fails these commands too, and a plain "!= 0" would then pass the
     # test for entirely the wrong reason. Assert the exact status instead --
     # grep exits 1 for no match and 2 for any error, ls exits 2 for a path that
-    # does not exist, test exits 1 for a file that does not exist. The greps
-    # run under sudo (passwordless for this user, see the rootfs recipe) so
-    # that root-only files such as /etc/apt/auth.conf.d/* cannot be the thing
-    # that made grep exit non-zero.
+    # does not exist, test exits 1 for a file that does not exist.
+    #
+    # That is also why the greps stay inside /etc/apt/sources.list.d/ rather
+    # than sweeping /etc/apt: the .sources files there are world readable and
+    # the directory always exists, so exit 1 really does mean "found nothing",
+    # whereas a recursive grep of /etc/apt would exit 2 on root-only files such
+    # as auth.conf.d/* and pass every check for the wrong reason.
 
     # the image recipe deletes both of these on its way out of a snapshot
     # build; the rootfs recipe does not, so a rootfs built with -t snapshot:
@@ -227,14 +230,18 @@ def test_snapshot(vm):
     # instead would leave both of them green and still ship a pinned device --
     # exactly the regression this test exists to catch -- so grep for the
     # snapshot URLs themselves as well.
-    #
-    # over all of /etc/apt rather than just sources.list.d: mmdebstrap records
-    # the mirror it bootstrapped from, i.e. the snapshot URL, in the target's
-    # /etc/apt/sources.list, which is why the rootfs recipe removes that file.
-    # Scanning the whole directory catches that removal regressing too.
-    debian_snapshot = r"sudo grep -rq 'snapshot\.debian\.org' /etc/apt/"
+    debian_snapshot = (r"grep -rq 'snapshot\.debian\.org' "
+                       r"/etc/apt/sources.list.d/")
     assert run(vm, debian_snapshot) == 1, \
         "APT sources still point at snapshot.debian.org"
+
+    # the one snapshot URL that would not live in sources.list.d/: mmdebstrap
+    # records the mirror it bootstrapped from, i.e. the snapshot URL, in the
+    # target's /etc/apt/sources.list. The rootfs recipe removes that file
+    # outright, so assert its absence rather than grepping it
+    assert run(vm, "test -e /etc/apt/sources.list") == 1, \
+        "/etc/apt/sources.list was left in the image; it still holds the " \
+        "mirror mmdebstrap bootstrapped from"
 
     # the Qualcomm Linux archive is pinned by appending /<timestamp> to its
     # URL rather than by moving to a snapshot host, so match the dated path
@@ -248,9 +255,9 @@ def test_snapshot(vm):
     # ship no Qualcomm Linux source at all, and then this passes trivially.
     # That is correct rather than merely convenient: an image with no such
     # source has no such URL that could have been left pinned.
-    qli_snapshot = (r"sudo grep -rEq "
+    qli_snapshot = (r"grep -rEq "
                     r"'debusine\.qualcomm\.com/.*/[0-9]{8}T[0-9]{6}Z' "
-                    r"/etc/apt/")
+                    r"/etc/apt/sources.list.d/")
     assert run(vm, qli_snapshot) == 1, \
         "APT sources still point at a dated Qualcomm Linux archive"
 
@@ -263,7 +270,7 @@ def test_snapshot(vm):
     # deb822 spells false as no/false/0, hence the alternation, even though the
     # toggle itself only ever writes yes/no. Anchored at both ends so that a
     # value merely starting with one of them ("nonsense") is not a match
-    disabled = (r"sudo grep -rEq '^Enabled: *(no|false|0)[[:space:]]*$' "
-                r"/etc/apt/")
+    disabled = (r"grep -rEq '^Enabled: *(no|false|0)[[:space:]]*$' "
+                r"/etc/apt/sources.list.d/")
     assert run(vm, disabled) == 1, \
         "APT sources are still disabled in the image"
