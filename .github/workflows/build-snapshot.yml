@@ -117,3 +117,8 @@ jobs:
       # Pin the rootfs build to the snapshot; the image builds read it from
       # the rootfs.
       snapshot: ${{ needs.snapshot-date.outputs.snapshot }}
+      # the QEMU tests debos.yml runs are the same for every image; telling
+      # them the timestamp this build was pinned to is what turns their
+      # snapshot checks from "no snapshot was used" into "this exact snapshot
+      # was". they run in the build job, against the image still on that runner
+      qemu_test_env: EXPECTED_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
