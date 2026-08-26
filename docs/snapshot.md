@@ -237,9 +237,11 @@ The image recipe installs a few more packages (`systemd-boot`,
    are still present from the rootfs build. (No re-derivation is needed here —
    the image recipe only toggles.)
 2. Package installation proceeds against the snapshot.
-3. **Cleanup:** `apt-snapshot-toggle disable`, then delete
-   `/etc/apt/sources.list.d/snapshot_*.sources` and
-   `/usr/local/bin/apt-snapshot-toggle`.
+3. **Cleanup:** `apt-snapshot-toggle disable` (if the helper is present), then
+   delete `/etc/apt/sources.list.d/snapshot_*.sources` and
+   `/usr/local/bin/apt-snapshot-toggle`. This step is **unconditional**: what
+   the rootfs carries is decided by the rootfs build, not by the options given
+   to the image build, so the removal is never gated on the latter.
 
 ### What the shipped image looks like
 

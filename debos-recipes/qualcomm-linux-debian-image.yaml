@@ -153,16 +153,16 @@ actions:
       # enable unit
       systemctl enable debos-grow-rootfs
 
-{{- if $snapshot }}
   - action: run
     description: Restore APT sources to live mirrors and clean up snapshot helpers
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle disable
+      if [ -x /usr/local/bin/apt-snapshot-toggle ]; then
+          apt-snapshot-toggle disable
+      fi
       rm -f /etc/apt/sources.list.d/snapshot_*.sources
       rm -f /usr/local/bin/apt-snapshot-toggle
-{{- end }}
 
   - action: run
     description: Extract partition images
