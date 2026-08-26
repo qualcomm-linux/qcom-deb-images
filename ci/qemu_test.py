@@ -2,7 +2,8 @@
 
 Booting the emulated guest costs minutes, so the whole module shares a single
 VM: the fixture below is session scoped and logs in once. The tests therefore
-run sequentially against one console and must leave it at a shell prompt.
+run sequentially against one console and must leave it at a shell prompt --
+run() does, and nothing here should send anything that doesn't.
 """
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
@@ -113,10 +114,42 @@ def login(vm):
     vm.expect_exact(PROMPT)
 
 
+def run(vm, command):
+    """Run *command* in the VM's shell and return its exit status
+
+    The serial console echoes back everything that is sent to it, so anything
+    matched right after send() matches the echo of the command rather than its
+    output. Rather than matching the output, ask the shell for the exit status
+    of the command afterwards: the literal "rc=$?" of the echoed line can never
+    match the "rc=<digits>" the shell prints.
+    """
+    vm.send(f"{command}\r\n")
+    vm.expect_exact(PROMPT)
+    vm.send('echo "rc=$?"\r\n')
+    vm.expect(r"rc=(\d+)")
+    status = int(vm.match.group(1))
+    vm.expect_exact(PROMPT)
+    return status
+
+
 def test_boot_efi_not_world_accessible(vm):
     """The /boot/efi/loader/random-seed file is not readable to users"""
     # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
-    vm.send("journalctl | grep 'is world accessible, which is a security hole' || echo not found\r\n")
-    # Need to match twice because of the serial echo of the command above
-    vm.expect_exact("not found")
-    vm.expect_exact("not found")
+    #
+    # Dumped to a file and grepped separately rather than piped: a pipeline
+    # reports only the status of its last command, so "journalctl | grep -q"
+    # cannot tell "the journal has no such line" from "the journal could not be
+    # read at all" -- grep sees empty input either way and reports no match,
+    # quietly passing the test. Splitting the two checks each of them.
+    #
+    # As the "debian" user, which is in the "adm" group and so can read the
+    # system journal; the dump lands in the guest's /tmp, which is thrown away
+    # with the CoW overlay when the VM dies.
+    assert run(vm, "journalctl --no-pager >/tmp/journal.txt") == 0, \
+        "could not read the guest's journal"
+
+    # == 1, not != 0: 1 is "grep read the file and found no such line", while
+    # 2 would mean grep failed and the check never happened
+    warning = "is world accessible, which is a security hole"
+    assert run(vm, f"grep -q '{warning}' /tmp/journal.txt") == 1, \
+        "systemd-boot reports /boot/efi/loader/random-seed as world accessible"
