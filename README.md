@@ -77,7 +77,7 @@ the build instructions, then come back here.
 Building the image requires the following build-dependencies:
 
 ```bash
-apt -y install debian-archive-keyring make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml
+apt -y install debian-archive-keyring make mmdebstrap mtools python3-pexpect python3-pytest python3-yaml qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml
 ```
 
 To build flashable assets for all supported boards, follow these steps:
@@ -172,16 +172,26 @@ For the image recipe:
 For the flash recipe:
 
 - `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format --
-  see below (NB: debos expects relative pathnames)
+  see below (NB: debos expects relative pathnames). The `qrb2210-rb1` board can
+  only be built when this variable is set to a valid boot image.
 - `target_boards`: comma-separated list of board names to build (default:
-  `all`). Accepted values are the board names defined in the flash recipe, e.g.
-  `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
-  `qcs9100-ride-r3`, `qrb2210-rb1`.
+  `all`). Accepted values are the board names defined in `boards.yaml`,
+  e.g. `qcs615-ride`,
+  `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`, `qcs9100-ride-r3`,
+  `qrb2210-rb1`. Only the requested boards' assets are downloaded and built;
+  an unrecognised board name will cause the recipe to fail.
 
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
 
-Deprecated flash options:
-- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
+The board definitions (boot binaries, CDT, device tree and qcom-ptool
+platforms) live in `boards.yaml` at the top of the tree. Adding a board (or
+updating an existing board) is a matter of adding an entry to that file. The
+entry is validated when the flash recipe runs; `make unit-test` checks it
+without building anything:
+
+```bash
+make unit-test
+```
 
 Here are some example invocations:
 

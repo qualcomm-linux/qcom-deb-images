@@ -78,6 +78,11 @@ test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
 	py.test-3 --ignore=rootfs
 
+# the tests that need no built artifacts, so they can run on their own
+.PHONY: unit-test
+unit-test:
+	py.test-3 ci/gen_flash_dirs_test.py
+
 .PHONY: clean
 clean:
 	rm -f $(DISK_UFS_IMAGES)
