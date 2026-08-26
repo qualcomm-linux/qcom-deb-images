@@ -26,6 +26,15 @@ on:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
         default: ''
+      snapshot:
+        description: >
+          Snapshot timestamp (YYYYMMDDTHHMMSSZ) to pin the APT sources to,
+          see docs/snapshot.md. Passed to the rootfs build only: the image
+          recipe rejects it and reads the snapshot from the rootfs instead,
+          so it can't be given through debos_extra_args. Empty means no
+          snapshot.
+        type: string
+        default: ''
       variant:
         description: >
           Name of the image variant to build (e.g. gnome); it selects
@@ -65,6 +74,7 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
+  SNAPSHOT: ${{ inputs.snapshot }}
   DEBOS_EXTRA_ARGS: >-
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
@@ -193,6 +203,7 @@ jobs:
               -t extract_dbg_vmlinux:true \
               -t kernelpackages:"$kernel_packages" \
               -t "overlays:$OVERLAYS" \
+              ${SNAPSHOT:+-t "snapshot:$SNAPSHOT"} \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
