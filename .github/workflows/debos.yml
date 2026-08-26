@@ -405,7 +405,16 @@ jobs:
           # set on this step rather than exported into the job: it describes
           # the image to these tests and has no business affecting any other
           # step
-          QEMU_TEST_ENV: ${{ inputs.qemu_test_env }}
+          #
+          # the suite is added here rather than left to the callers: this
+          # workflow was told which one to build and passes it to debos on
+          # every run, so it can say so without any of them having to. the
+          # caller's own lines follow, and win on a repeated name, since a
+          # caller describing the image it asked for is the more specific
+          # statement of the two
+          QEMU_TEST_ENV: |
+            EXPECTED_SUITE=${{ inputs.suite }}
+            ${{ inputs.qemu_test_env }}
         run: |
           # This is currently a clone of Makefile's "test" target to avoid any
           # unexpected interactions with triggering depending build targets.

@@ -1,5 +1,14 @@
 """Tests that are entirely qemu based, so do not require test hardware
 
+These run for every image debos.yml builds, so they must hold for all of them.
+What differs between images is described to the tests by the environment rather
+than by which tests are run: EXPECTED_SUITE below says which Debian suite the
+image under test was built for. Run them from the directory holding the image
+under test:
+
+    py.test-3 --verbose --capture=no --ignore=rootfs
+    EXPECTED_SUITE=trixie py.test-3 --verbose --capture=no
+
 Booting the emulated guest costs minutes, so the whole module shares a single
 VM: the fixture below is session scoped and logs in once. The tests therefore
 run sequentially against one console and must leave it at a shell prompt --
@@ -41,7 +50,7 @@ NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # apart, and the typo would not fail, it would quietly turn test_snapshot()
 # from "this image was pinned to that timestamp" into "this image was never
 # pinned at all" -- and pass. Add to this when adding a variable.
-KNOWN = ("EXPECTED_SNAPSHOT",)
+KNOWN = ("EXPECTED_SNAPSHOT", "EXPECTED_SUITE")
 
 
 def parse_payload(payload):
@@ -137,6 +146,18 @@ def image_environment():
 # Evaluated at import, so the EXPECTED_* below are in place before pytest
 # collects anything in this module
 ENVIRONMENT = image_environment()
+
+# Debian suite the image under test was built for, as passed to debos with
+# -t suite:<suite> and as /etc/os-release spells it, e.g. "trixie". debos.yml
+# sets this for every image it builds, from the suite it was asked for, so no
+# caller has to. There is no meaningful assertion to make when it is unset --
+# every image is some suite -- so test_suite() skips instead, which is what
+# running these by hand without it does.
+#
+# Don't pass "sid" or "unstable": those track whichever codename is next, so
+# /etc/os-release does not record either of them and the check would fail on a
+# perfectly good image.
+EXPECTED_SUITE = ENVIRONMENT.get("EXPECTED_SUITE", "")
 
 
 @pytest.fixture(scope="session")
@@ -265,3 +286,28 @@ def test_boot_efi_not_world_accessible(vm):
     warning = "is world accessible, which is a security hole"
     assert run(vm, f"grep -q '{warning}' /tmp/journal.txt") == 1, \
         "systemd-boot reports /boot/efi/loader/random-seed as world accessible"
+
+
+# skipif rather than a pytest.skip() in the body: a marker is evaluated before
+# the vm fixture is requested, so running this test alone with EXPECTED_SUITE
+# unset doesn't boot a VM only to skip. In CI the fixture is session scoped and
+# already up, so it costs nothing there either way
+@pytest.mark.skipif(not EXPECTED_SUITE,
+                    reason="EXPECTED_SUITE is unset, so the suite the image "
+                           "was built for is not known")
+def test_suite(vm):
+    """The image is the Debian suite the build was asked for"""
+    # os-release rather than the APT sources: this asks what the image *is*,
+    # which is what a caller asking for forky and getting trixie cares about,
+    # and it does not depend on how the recipe happens to name its sources.
+    # It comes from the base-files package the bootstrap pulled in, so it also
+    # catches a suite which was only applied to the later package installs.
+    assert run(vm, "test -e /etc/os-release") == 0, \
+        "/etc/os-release is missing"
+
+    # -F -x: the whole line, so that "trixie" cannot match a "trixie/sid"
+    grep = f"grep -Fxq 'VERSION_CODENAME={EXPECTED_SUITE}' /etc/os-release"
+    assert run(vm, grep) == 0, \
+        "/etc/os-release does not record " \
+        f"VERSION_CODENAME={EXPECTED_SUITE}; the image is not the suite " \
+        "this build asked for"
