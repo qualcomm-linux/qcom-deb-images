@@ -2,12 +2,24 @@
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
-{{- $snapshot := or .snapshot "" }}
 
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
+{{- if .snapshot }}
+  # this recipe does not derive its own snapshot_*.sources, it only toggles the
+  # ones baked into rootfs.tar, so the snapshot is whatever the rootfs build
+  # recorded; a second value here could only ever disagree with it
+  - action: run
+    description: Reject the snapshot option
+    command: |
+      echo "ERROR: the image recipe takes no 'snapshot' option; the snapshot" \
+           "is read from SNAPSHOT= in the root filesystem's /etc/buildinfo." \
+           "Pass -t snapshot: to the rootfs build only." >&2
+      exit 1
+{{- end }}
+
   - action: unpack
     description: Unpack root filesystem
     file: rootfs.tar
@@ -78,15 +90,19 @@ actions:
     setup-fstab: true
     append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
 
-{{- if $snapshot }}
+  # /etc/buildinfo is the single source of truth for the snapshot; an unpinned
+  # rootfs simply has no SNAPSHOT= line and nothing to toggle here
   - action: run
-    description: Enable snapshot sources for image build
+    description: Enable snapshot sources for image build (if enabled in rootfs)
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle enable
-      apt-get update
-{{- end }}
+      SNAPSHOT=$(sed -n 's/^SNAPSHOT=//p' /etc/buildinfo)
+      if [ -n "$SNAPSHOT" ]; then
+        echo "Building with snapshot timestamp $SNAPSHOT"
+        apt-snapshot-toggle enable
+        apt-get update
+      fi
 
   - action: apt
     description: Make system bootable with systemd-boot
