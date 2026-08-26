@@ -97,6 +97,52 @@ versions are resolved. See [Design notes and caveats](#design-notes-and-caveats)
 for the sources that are **not** covered by snapshots and can therefore still
 drift.
 
+## Accessing snapshot packages
+
+An image build can be repeated with exactly the same set of packages by
+using the same snapshot timestamp when they are: 1) made with the
+snapshot function active; 2) all packages for the build are sourced from
+apt repositories; and 3) all such apt repositories support snapshots.
+But not all packages available to the image build process are embedded
+into the build. In this case, users may wish to install further packages
+after flashing such an image that come from the same apt repository
+timestamp as was used when the image was built.
+
+To do this, boot the image after flashing, and ensure that every apt
+call uses `-o Acquire::Check-Valid-Until=false --snapshot <timestamp>`
+where `<timestamp>` is the value of `SNAPSHOT=` in `/etc/buildinfo`. For
+example, you might run: `apt install -y --update -o
+Acquire::Check-Valid-Until=false --snapshot 20260801T000000Z
+other-package-a other-package-b`.
+
+This method comes with two caveats:
+
+1. It is necessary to use HTTPS and to point to a trusted mirror for all
+apt downloads. Without this, there is a risk of a replay attack such
+that an adversary could hide a security update that was available at the
+time of the snapshot requested. To ensure this check that
+`/etc/apt/sources.list` (if present) and the contents of
+`/etc/apt/sources.list.d/` refer only to HTTPS URLs.
+
+2. Any use of apt _without_ the `--snapshot` argument invalidates this
+method. If this is done, the packages on the system may be upgraded to
+include changes released after the time of the snapshot, and downgrades
+are not supported neither by this method nor by published packages in
+general.
+
+To "lock" the system to a specific snapshot so as not to require
+`--snapshot` every time, you can optionally set the `APT::Snapshot`
+option in `/etc/apt/apt.conf.d/`, together with
+`Acquire::Check-Valid-Until` as above. For example, create a file called
+`/etc/apt/apt.conf.d/snapshot.conf` with the following contents:
+
+```
+// Make the snapshot timestamp below the same as the value of SNAPSHOT=
+// from /etc/buildinfo
+APT::Snapshot "20260801T000000Z";
+Acquire::Check-Valid-Until false;
+```
+
 ## How it works
 
 The feature spans the two build recipes. Line references are to the files as of
