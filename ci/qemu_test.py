@@ -10,6 +10,7 @@ run() does, and nothing here should send anything that doesn't.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -25,6 +26,117 @@ PROMPT = "debian@debian:~$"
 # Password set by login(); the image ships with "debian" and forces a reset on
 # the first login, which login() walks through
 PASSWORD = "new password"
+
+# Variable through which a workflow passes the whole set of EXPECTED_* below at
+# once, as NAME=value lines; see image_environment()
+PAYLOAD = "QEMU_TEST_ENV"
+
+# What may appear left of the "=" in one of those lines, i.e. the shell's rule
+# for a variable name
+NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+# Every variable these tests read, and the whole of what a caller may say about
+# the image. Kept as a whitelist so a name nothing reads is an error rather
+# than a no-op: EXPECTED_SNAPSHOT and EXPECTED_SNAPSOHT are one keystroke
+# apart, and the typo would not fail, it would quietly turn test_snapshot()
+# from "this image was pinned to that timestamp" into "this image was never
+# pinned at all" -- and pass. Add to this when adding a variable.
+KNOWN = ("EXPECTED_SNAPSHOT",)
+
+
+def parse_payload(payload):
+    """Return the NAME=value lines of *payload* as a dict, ignoring blank ones
+
+    An empty payload is a caller which passed no variables.
+
+    A line which is not an assignment, or which sets a name outside KNOWN,
+    raises ValueError rather than being dropped. What these variables say is
+    not optional detail -- an EXPECTED_SNAPSHOT which never arrives does not
+    mean "skip the snapshot check", it means "this image was built without a
+    snapshot" -- so a dropped line would have the tests assert the opposite of
+    what was meant, and pass.
+    """
+    payload = payload.strip()
+    if not payload:
+        return {}
+
+    variables = {}
+    for line in payload.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        name, separator, value = line.partition("=")
+        if not separator or not NAME.match(name):
+            raise ValueError(f"{PAYLOAD} is not NAME=value: {line!r}")
+        if name not in KNOWN:
+            raise ValueError(
+                f"{PAYLOAD} sets {name}, which no test here reads; "
+                f"expected one of: {', '.join(KNOWN)}")
+        variables[name] = value
+    return variables
+
+
+def image_environment():
+    """Return what this run has been told about the image under test
+
+    One source, never a mix of the two. QEMU_TEST_ENV, if it is set at all,
+    is the whole of it, and the ambient environment is ignored; otherwise the
+    ambient environment is read directly. In CI the payload is the caller's
+    complete statement about the image it just built, so a stray EXPECTED_*
+    inherited by a runner has no way to contribute to it -- and by hand there
+    is no payload, so the variables work exactly as any other.
+
+    A workflow has the whole set to pass at once and no good way to say so:
+    listing them in the step's env: would hardcode in debos.yml which
+    variables its callers care about, and splitting a multi-line input into
+    one variable per line would have to happen in the test step, which runs in
+    a container with no bash -- a heredoc, the positional parameters as the
+    only list POSIX sh has, and a case glob standing in for a pattern match,
+    none of which could be run outside CI. So debos.yml passes its
+    qemu_test_env input straight through as one payload of NAME=value lines,
+    and it is split here.
+
+    A payload in a variable rather than a file or a CSV: the transport was
+    never the problem, a file would have to be written and cleaned up by the
+    same shell this avoids, and CSV or JSON would buy quoting rules for values
+    which are timestamps and suite names.
+
+    Every name in KNOWN is reported, with where it was read from and whether
+    it was set, because both halves change what the tests assert. An unset
+    EXPECTED_SNAPSHOT is not "one less check", it is the opposite check, and a
+    caller which meant to pass one and did not looks from the outside exactly
+    like one which never meant to.
+
+    That report needs --capture=no to be seen, which debos.yml passes. This
+    runs while the module is imported, i.e. during collection, and pytest
+    swallows anything printed then unless collection goes on to fail. A
+    pytest_report_header hook would show without it, but pytest only takes
+    hooks from conftest.py and plugins, never from a test module.
+    """
+    payload = os.environ.get(PAYLOAD)
+
+    if payload is None:
+        source = "the environment"
+        variables = {name: os.environ[name]
+                     for name in KNOWN if name in os.environ}
+    else:
+        source = PAYLOAD
+        variables = parse_payload(payload)
+
+    print(f"QEMU test environment, from {source}:")
+    for name in KNOWN:
+        if name in variables:
+            print(f"  {name}={variables[name]}")
+        else:
+            print(f"  {name} is unset")
+
+    return variables
+
+
+# Evaluated at import, so the EXPECTED_* below are in place before pytest
+# collects anything in this module
+ENVIRONMENT = image_environment()
 
 
 @pytest.fixture(scope="session")
