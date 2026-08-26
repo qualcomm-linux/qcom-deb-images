@@ -279,7 +279,8 @@ actions:
 
 {{- /* prefer installing these packages from Qualcomm Linux over backports */}}
 {{- $qlipackages := list
-      "src:alsa-ucm-conf:any" }}
+      "src:alsa-ucm-conf:any"
+      "src:fastrpc" }}
 
   - action: run
     description: Add Qualcomm Linux APT preferences for {{ $suite }}
