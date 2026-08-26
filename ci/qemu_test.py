@@ -3,11 +3,14 @@
 These run for every image debos.yml builds, so they must hold for all of them.
 What differs between images is described to the tests by the environment rather
 than by which tests are run: EXPECTED_SUITE below says which Debian suite the
-image under test was built for. Run them from the directory holding the image
-under test:
+image under test was built for, and EXPECTED_SNAPSHOT whether it was built
+from an APT snapshot -- the snapshot expectations are checked either way, as
+an image built without the option must not carry any trace of a snapshot. Run
+them from the directory holding the image under test:
 
     py.test-3 --verbose --capture=no --ignore=rootfs
-    EXPECTED_SUITE=trixie py.test-3 --verbose --capture=no
+    EXPECTED_SNAPSHOT=20260115T000000Z EXPECTED_SUITE=trixie \
+        py.test-3 --verbose --capture=no
 
 Booting the emulated guest costs minutes, so the whole module shares a single
 VM: the fixture below is session scoped and logs in once. The tests therefore
@@ -158,6 +161,15 @@ ENVIRONMENT = image_environment()
 # /etc/os-release does not record either of them and the check would fail on a
 # perfectly good image.
 EXPECTED_SUITE = ENVIRONMENT.get("EXPECTED_SUITE", "")
+
+# Timestamp the image under test was pinned to, as passed to debos with
+# -t snapshot:<timestamp>. The "Build snapshot" workflow sets this, so that the
+# image is checked against the snapshot it was actually asked to build from;
+# every other build leaves it unset, which asserts the opposite -- that the
+# image records no snapshot at all. So pass it whenever the image under test
+# was built from a snapshot, or test_snapshot() fails.
+# See docs/snapshot.md.
+EXPECTED_SNAPSHOT = ENVIRONMENT.get("EXPECTED_SNAPSHOT", "")
 
 
 @pytest.fixture(scope="session")
@@ -311,3 +323,135 @@ def test_suite(vm):
         "/etc/os-release does not record " \
         f"VERSION_CODENAME={EXPECTED_SUITE}; the image is not the suite " \
         "this build asked for"
+
+
+def test_snapshot(vm):
+    """The image records the snapshot it was built from -- and only that one,
+    or none at all -- and boots with its APT sources on the live mirrors"""
+    # the rootfs recipe always writes this file, and adds SNAPSHOT=<timestamp>
+    # to it when, and only when, the snapshot option is in use
+    assert run(vm, "test -e /etc/buildinfo") == 0, "/etc/buildinfo is missing"
+
+    if EXPECTED_SNAPSHOT:
+        # -F -x: the recorded timestamp has to be exactly the one the build was
+        # pinned to. an absent or empty value means the build silently ignored
+        # the option and used the live archives; a different one means the
+        # timestamp was mangled on its way to the recipes
+        grep = f"grep -Fxq 'SNAPSHOT={EXPECTED_SNAPSHOT}' /etc/buildinfo"
+        assert run(vm, grep) == 0, \
+            f"/etc/buildinfo does not record SNAPSHOT={EXPECTED_SNAPSHOT}"
+    else:
+        # nothing pinned this build, so a recorded snapshot means the image is
+        # not the one this run built, or that a stale timestamp leaked into the
+        # recipes. == 1 rather than != 0 for the reason given further down: 1
+        # is "no such line", anything else is grep failing to look
+        assert run(vm, "grep -q '^SNAPSHOT=' /etc/buildinfo") == 1, \
+            "/etc/buildinfo records a SNAPSHOT= but the image was not built " \
+            "from one; pass EXPECTED_SNAPSHOT if it was"
+
+    # Either way the shipped image has to point at the live mirrors: leaving it
+    # pinned would tie every apt update on the device to a dated archive. A
+    # snapshot build restores the mirrors and removes the snapshot helpers on
+    # the way out; an image built without the option never had them.
+    #
+    # Every check below is a negative one, so it has to tell "looked and found
+    # nothing" apart from "could not look": a missing path or an unreadable
+    # file fails these commands too, and a plain "!= 0" would then pass the
+    # test for entirely the wrong reason. Assert the exact status instead --
+    # grep exits 1 for no match and 2 for any error, ls exits 2 for a path that
+    # does not exist, test exits 1 for a file that does not exist.
+    #
+    # That is also why the greps stay inside /etc/apt/sources.list.d/ rather
+    # than sweeping /etc/apt: the .sources files there are world readable and
+    # the directory always exists, so exit 1 really does mean "found nothing",
+    # whereas a recursive grep of /etc/apt would exit 2 on root-only files such
+    # as auth.conf.d/* and pass every check for the wrong reason.
+
+    # the image recipe deletes both of these on its way out of a snapshot
+    # build; the rootfs recipe does not, so a rootfs built with -t snapshot:
+    # and an image built without it still carries them
+    assert run(vm, "ls /etc/apt/sources.list.d/snapshot_*.sources") == 2, \
+        "snapshot APT sources were left in the image"
+    assert run(vm, "test -e /usr/local/bin/apt-snapshot-toggle") == 1, \
+        "the apt-snapshot-toggle helper was left in the image"
+
+    # the two checks above detect a snapshot by *file name*, which is only
+    # equivalent to checking the URLs because the rootfs recipe derives
+    # separate snapshot_*.sources files. Rewriting the live sources in place
+    # instead would leave both of them green and still ship a pinned device --
+    # exactly the regression this test exists to catch -- so grep for what a
+    # pinned source actually looks like as well. The three checks below do that
+    # from three angles, none of which names an individual source, so they hold
+    # for every entry in sources.list.d/ rather than for the ones that happened
+    # to exist when they were written.
+
+    # by host: snapshot.debian.org serves the Debian archives, and it also
+    # accepts a short YYYYMMDD timestamp, which the dated-URL check below would
+    # not match
+    debian_snapshot = (r"grep -rq 'snapshot\.debian\.org' "
+                       r"/etc/apt/sources.list.d/")
+    assert run(vm, debian_snapshot) == 1, \
+        "APT sources still point at snapshot.debian.org"
+
+    # the one snapshot URL that would not live in sources.list.d/: mmdebstrap
+    # records the mirror it bootstrapped from, i.e. the snapshot URL, in the
+    # target's /etc/apt/sources.list. The rootfs recipe removes that file
+    # outright, so assert its absence rather than grepping it
+    assert run(vm, "test -e /etc/apt/sources.list") == 1, \
+        "/etc/apt/sources.list was left in the image; it still holds the " \
+        "mirror mmdebstrap bootstrapped from"
+
+    # not every archive is pinned by moving to a snapshot host: the Qualcomm
+    # Linux one is pinned by appending /<timestamp> to its own URL. Rather than
+    # listing the archives that do that -- qli today, qli-staging or whatever
+    # comes after it tomorrow, and an archive name is exactly the kind of
+    # detail that would silently turn this check into a no-op the day it
+    # changes -- match the shape all of them share: a URL whose last path
+    # component is a snapshot timestamp. That covers every source in the file,
+    # including any added after this was written.
+    #
+    # Images built with -t qliaptrepo:false (Vanilla Debian) or for unstable
+    # ship no Qualcomm Linux source at all, and then this simply finds nothing
+    # to object to; an image with no such source has no such URL that could
+    # have been left pinned.
+    dated_uri = (r"grep -rEq 'https?://[^[:space:]]*/[0-9]{8}T[0-9]{6}Z' "
+                 r"/etc/apt/sources.list.d/")
+    assert run(vm, dated_uri) == 1, \
+        "an APT source still points at a dated snapshot archive"
+
+    # the other half of "pinned", and the one that does not depend on the URL
+    # form at all: the derivation gives every snapshot source a
+    # "Check-Valid-Until: no", because a static snapshot's Release goes stale.
+    # No live source has any business carrying it, so it flags a source left in
+    # snapshot mode even if its URL were rewritten to a shape neither of the
+    # greps above knows about.
+    valid_until = (r"grep -rEq '^Check-Valid-Until: *(no|false|0)"
+                   r"[[:space:]]*$' /etc/apt/sources.list.d/")
+    assert run(vm, valid_until) == 1, \
+        "an APT source still has Check-Valid-Until disabled"
+
+    # same relaxation, but applied globally rather than per source: mmdebstrap
+    # persists the Acquire::Check-Valid-Until "false" it bootstrapped with into
+    # the rootfs, in /etc/apt/apt.conf.d/99mmdebstrap. The rootfs recipe strips
+    # that setting out, though it may leave the file itself behind holding the
+    # other options mmdebstrap wrote, so grep for the setting rather than
+    # testing for the file. Scanning the whole directory also catches the same
+    # relaxation reappearing under some other name.
+    global_valid_until = "grep -rq 'Check-Valid-Until' /etc/apt/apt.conf.d/"
+    assert run(vm, global_valid_until) == 1, \
+        "an APT config in the image sets Check-Valid-Until; the image would " \
+        "accept expired Release files for every archive"
+
+    # apt-snapshot-toggle disables the live sources while the build runs and
+    # re-enables them on the way out, and only then are the snapshot files
+    # deleted; nothing may be left disabled. This catches those two steps being
+    # swapped, which would ship an image whose every source is "Enabled: no"
+    # and whose apt update therefore finds nothing at all.
+    #
+    # deb822 spells false as no/false/0, hence the alternation, even though the
+    # toggle itself only ever writes yes/no. Anchored at both ends so that a
+    # value merely starting with one of them ("nonsense") is not a match
+    disabled = (r"grep -rEq '^Enabled: *(no|false|0)[[:space:]]*$' "
+                r"/etc/apt/sources.list.d/")
+    assert run(vm, disabled) == 1, \
+        "APT sources are still disabled in the image"

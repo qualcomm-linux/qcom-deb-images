@@ -123,3 +123,9 @@ jobs:
       kernelpackages: efs/qcom-next
       # the default variant is enough: the snapshot code paths don't depend on
       # which variant is built
+      #
+      # the QEMU tests debos.yml runs are the same for every image; telling
+      # them the timestamp this build was pinned to is what turns their
+      # snapshot checks from "no snapshot was used" into "this exact snapshot
+      # was". they run in the build job, against the image still on that runner
+      qemu_test_env: EXPECTED_SNAPSHOT=${{ needs.snapshot-date.outputs.snapshot }}
