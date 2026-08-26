@@ -401,6 +401,13 @@ actions:
     packages:
       # fastrpc-tests pulls in fastrpc-support
       - fastrpc-tests
+
+  # userspace-resource-manager is available from QLI overlays for trixie and forky
+  - action: apt
+    description: Install userspace-resource-manager from QLI overlay
+    recommends: true
+    packages:
+      - userspace-resource-manager
 {{- end }}
 
   - action: run
