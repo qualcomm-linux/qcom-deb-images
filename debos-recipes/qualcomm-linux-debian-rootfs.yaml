@@ -276,6 +276,24 @@ actions:
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
       EOF
+
+{{- /* prefer installing these packages from Qualcomm Linux over backports */}}
+{{- $qlipackages := list
+      "src:alsa-ucm-conf:any" }}
+
+  - action: run
+    description: Add Qualcomm Linux APT preferences for {{ $suite }}
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/preferences.d/qli.pref <<EOF
+      # for binary packages built from these source packages, score the version
+      # from Qualcomm Linux higher than the one from Debian backports
+
+      Package: {{ join " " $qlipackages }}
+      Pin: release o=Qualcomm,l=qli
+      Pin-Priority: 1000
+      EOF
 {{- end }}
 
 {{- if $snapshot }}
