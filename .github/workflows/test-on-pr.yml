@@ -78,6 +78,12 @@ jobs:
       suite: trixie
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
+      # the publish job below owns all external reporting: under workflow_run,
+      # github.sha is the default branch tip, so lava-test's own check run and
+      # PR comment would target the wrong commit. it has no way to know the PR
+      # head, while the job below passes commit:, event_file: and event_name:
+      # explicitly. results still land in lava-test's job summary.
+      report_test_results_externally: false
 
   publish-test-results:
     name: "Publish Tests Results"
