@@ -43,19 +43,30 @@ jobs:
       matrix:
         suite: [trixie, forky]
         variant: [default, weston-multimedia]
+        profile: [default]
+        include:
+          # build the performance profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: performance
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
+      profile: ${{ matrix.profile }}
       # QLI targets qcom-next; consume the debs published to EFS by the
       # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository
       kernelpackages: efs/qcom-next
 
   test:
-    name: "Test (suite: ${{ matrix.suite }}, variant: ${{ matrix.variant }})"
+    name: >-
+      Test
+      (suite: ${{ matrix.suite }},
+      variant: ${{ matrix.variant }},
+      profile: ${{ matrix.profile }})
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -69,6 +80,12 @@ jobs:
       matrix:
         suite: [trixie, forky]
         variant: [default, weston-multimedia]
+        profile: [default]
+        include:
+          # test the performance profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: performance
     uses: ./.github/workflows/lava-test.yml
     needs: build
     permissions:
@@ -82,6 +99,7 @@ jobs:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
+      profile: ${{ matrix.profile }}
       # monaco-arduino-monza and qrb2210-arduino-imola are only validated
       # against the arduino kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
