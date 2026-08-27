@@ -12,6 +12,10 @@
 {{- fail (printf "unknown profile %q" $profile) }}
 {{- end }}
 
+# kernel command line appended by the filesystem-deploy action below
+# XXX these kernel options might be specific to a kernel version or board
+{{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
+
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
@@ -98,11 +102,10 @@ actions:
       - mountpoint: /
         partition: root
 
-  # XXX these kernel options might be specific to a kernel version or board
   - action: filesystem-deploy
     description: Deploy root filesystem to mounted image
     setup-fstab: true
-    append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
+    append-kernel-cmdline: "{{ $kernelcmdline }}"
 
 {{- if $snapshot }}
   - action: run
