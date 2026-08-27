@@ -368,6 +368,7 @@ jobs:
           # append the Grype summary after the download link, so the link stays
           # at the top of the job summary
           scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
+              --sbom rootfs-sbom.syft.json \
               >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
