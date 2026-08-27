@@ -5,6 +5,10 @@
 {{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
 
+# kernel command line appended by the filesystem-deploy action below
+# XXX these kernel options might be specific to a kernel version or board
+{{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
+
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
 {{- $allowed_profiles := list "default" }}
@@ -89,11 +93,10 @@ actions:
       - mountpoint: /
         partition: root
 
-  # XXX these kernel options might be specific to a kernel version or board
   - action: filesystem-deploy
     description: Deploy root filesystem to mounted image
     setup-fstab: true
-    append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
+    append-kernel-cmdline: "{{ $kernelcmdline }}"
 
 {{- if $snapshot }}
   - action: run
