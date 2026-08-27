@@ -43,12 +43,19 @@ jobs:
       matrix:
         suite: [trixie, forky]
         variant: [default, weston-multimedia]
+        profile: [default]
+        include:
+          # build the performance profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: performance
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
+      profile: ${{ matrix.profile }}
       # QLI targets qcom-next; consume the debs published to EFS by the
       # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository
@@ -86,6 +93,9 @@ jobs:
             artifact_prefix: trixie-weston-multimedia
           - suite: forky
             artifact_prefix: forky-weston-multimedia
+          # test the performance profile image
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia-performance
     uses: ./.github/workflows/lava-test.yml
     needs: build
     permissions:
