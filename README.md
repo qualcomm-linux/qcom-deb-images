@@ -159,6 +159,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   (`YYYYMMDDTHHMMSSZ`); logged to `/etc/buildinfo` as `SNAPSHOT=<date>`.
   Live mirrors are restored in the final image to allow upgrades.
   See [docs/snapshot.md](docs/snapshot.md) for full usage and internals.
+- `profile`: select the intended runtime configuration of the image; defaults to
+  `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>`.
+  See the *Supported profiles* section below.
 
 For the image recipe:
 
@@ -168,6 +171,7 @@ For the image recipe:
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
+- `profile`: as above; it must match the profile `rootfs.tar` was built with
 
 For the flash recipe:
 
@@ -231,6 +235,23 @@ Here is the list of supported overlays:
         Special value to disable all overlays; this is the default.
     </dd>
 </dl>
+
+#### Supported profiles
+
+A profile selects the intended runtime configuration of the image. It has to be
+passed to both the rootfs and the image recipe with
+`-t profile:<profile>`, e.g.:
+
+```bash
+make EXTRA_DEBOS_OPTS="-t profile:<profile>" rootfs.tar disk-ufs.img
+```
+
+If no profile is passed, the `default` profile is used. If building the `default`
+profile, there is no need to pass `-t profile:default` to the recipes.
+
+The following profiles are supported:
+
+- `default`: the default profile; no additional configuration is applied.
 
 ### Flash the image
 

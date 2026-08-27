@@ -3,6 +3,14 @@
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $snapshot := or .snapshot "" }}
+{{- $profile := or .profile "default" }}
+
+# Validate $profile; keep this list in sync with the list in the
+# "Supported profiles" section of README.md
+{{- $allowed_profiles := list "default" }}
+{{- if not (has $profile $allowed_profiles) }}
+{{- fail (printf "unknown profile %q" $profile) }}
+{{- end }}
 
 architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
@@ -11,6 +19,24 @@ actions:
   - action: unpack
     description: Unpack root filesystem
     file: rootfs.tar
+
+  - action: run
+    description: Validate /etc/buildinfo
+    chroot: false
+    command: |
+      set -eu
+      if [ ! -f "${ROOTDIR}/etc/buildinfo" ]; then
+          echo "ERROR: rootfs.tar has no /etc/buildinfo" >&2
+          exit 1
+      fi
+
+      # Ensure rootfs was built with the same $profile
+      rootfs_profile=$(grep -m1 '^PROFILE=' "${ROOTDIR}/etc/buildinfo" | cut -d= -f2)
+      if [ "$rootfs_profile" != "{{ $profile }}" ]; then
+          echo "ERROR: rootfs.tar was built with profile '${rootfs_profile}' but this image is being built with profile '{{ $profile }}'" >&2
+          echo "rebuild rootfs.tar with '-t profile:{{ $profile }}'" >&2
+          exit 1
+      fi
 
 {{- if ne $dtb "firmware" }}
   - action: run

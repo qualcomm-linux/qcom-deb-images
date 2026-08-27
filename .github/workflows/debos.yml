@@ -31,6 +31,15 @@ on:
           other. Empty or "default" builds the default image.
         type: string
         default: default
+      profile:
+        description: >
+          Name of the image profile to build; it selects the intended runtime
+          configuration of the image and is appended to the name of every
+          published artifact, so that profiles of the same suite and variant
+          don't overwrite each other. Empty or "default" builds the default
+          profile.
+        type: string
+        default: default
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -53,26 +62,36 @@ env:
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
-  # Filename prefix shared by every published artifact: "<suite>[-<variant>]",
-  # e.g. "trixie" for the default image, "trixie-weston-multimedia" for a
-  # variant. The variant is omitted when it is the default one, so that the
-  # default image keeps its historic artifact names.
+  # Filename prefix shared by every published artifact:
+  # "<suite>[-<variant>][-<profile>]", e.g. "trixie" for the default image,
+  # "trixie-weston-multimedia" for a variant. The variant and the profile are
+  # omitted when they are the default ones, so that the default image keeps
+  # its historic artifact names.
   #
   # Every matrix leg of a build uploads to the same S3 directory (see the
   # "destination" of the upload steps below), so this prefix is the only thing
-  # keeping the artifacts of one suite/variant apart from another's. Anything
-  # downloading one of them therefore has to be told which prefix to ask for.
+  # keeping the artifacts of one suite/variant/profile apart from another's.
+  # Anything downloading one of them therefore has to be told which prefix to
+  # ask for. The rule below is the only copy of it: ci/lava/*/boot.yaml names
+  # its image through an ARTIFACT_PREFIX placeholder whose value lava-test.yml
+  # is handed by its caller, rather than deriving it a second time.
   ARTIFACT_PREFIX: >-
     ${{ format(
-      '{0}{1}',
+      '{0}{1}{2}',
       inputs.suite,
       (inputs.variant && inputs.variant != 'default') &&
-        format('-{0}', inputs.variant) || ''
+        format('-{0}', inputs.variant) || '',
+      (inputs.profile && inputs.profile != 'default') &&
+        format('-{0}', inputs.profile) || ''
     ) }}
 
 jobs:
   build-debos:
-    name: "Build and upload debos recipes (suite: ${{ inputs.suite }}, variant: ${{ inputs.variant || 'default' }})"
+    name: >-
+      Build and upload debos recipes
+      (suite: ${{ inputs.suite }},
+      variant: ${{ inputs.variant || 'default' }},
+      profile: ${{ inputs.profile || 'default' }})
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -110,6 +129,26 @@ jobs:
           esac
           # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
           echo "DEBOS_VARIANT_ARGS=${variant_args}" >>"$GITHUB_ENV"
+
+      - name: Validate profile
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          set -u
+          # an empty profile input builds the default profile
+          PROFILE="${PROFILE:-default}"
+          # keep this list in sync with the list in the "Supported profiles"
+          # section of README.md
+          case "$PROFILE" in
+            default)
+              ;;
+            *)
+              echo "ERROR: unknown profile '${PROFILE}'" >&2
+              exit 1
+              ;;
+          esac
+          # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
+          echo "DEBOS_PROFILE_ARGS=-t profile:${PROFILE}" >>"$GITHUB_ENV"
 
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
@@ -211,6 +250,7 @@ jobs:
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
               ${DEBOS_VARIANT_ARGS} \
+              ${DEBOS_PROFILE_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
@@ -223,13 +263,13 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
