@@ -11,9 +11,23 @@
 
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
-{{- $allowed_profiles := list "default" }}
+{{- $allowed_profiles := list "default" "performance" }}
 {{- if not (has $profile $allowed_profiles) }}
 {{- fail (printf "unknown profile %q" $profile) }}
+{{- end }}
+
+
+# The performance profile keeps the kernel serial console quiet to avoid the
+# boot-time and CPU cost of synchronous output over a slow serial console.
+#
+# This mirrors meta-qcom's performance variant:
+# https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml
+# commit: a60563a7eba7b2444570c3e247954f242d348210
+#
+# Unlike meta-qcom, do not set initramfs.udev-root-only: Debian's
+# initramfs-tools does not support it.
+{{- if eq $profile "performance" }}
+{{- $kernelcmdline = printf "%s quiet systemd.tty.term.console=dumb" $kernelcmdline }}
 {{- end }}
 
 architecture: arm64
