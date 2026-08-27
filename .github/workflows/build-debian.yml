@@ -47,11 +47,16 @@ jobs:
   test-debian:
     # don't run cron from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
-    # that changes to the workflows can be tested before they are merged
+    # that changes to the workflows can be tested before they are merged.
+    # this explicit if: replaces the implicit success(), so the state of the
+    # build job has to be checked too, otherwise LAVA jobs would be submitted
+    # with an empty image url once it fails; checking the result rather than
+    # calling success() also covers the case where the build was skipped
     if: >-
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main')
+      github.ref == 'refs/heads/main') &&
+      needs.build-debian.result == 'success'
     strategy:
       fail-fast: false
       matrix:
