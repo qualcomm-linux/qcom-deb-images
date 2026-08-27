@@ -32,7 +32,7 @@
 
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
-{{- $allowed_profiles := list "default" }}
+{{- $allowed_profiles := list "default" "performance" }}
 {{- if not (has $profile $allowed_profiles) }}
 {{- fail (printf "unknown profile %q" $profile) }}
 {{- end }}

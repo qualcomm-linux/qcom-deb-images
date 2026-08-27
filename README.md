@@ -252,6 +252,9 @@ profile, there is no need to pass `-t profile:default` to the recipes.
 The following profiles are supported:
 
 - `default`: the default profile; no additional configuration is applied.
+- `performance`: appends `quiet systemd.tty.term.console=linux` to the kernel
+  command line, so that the kernel doesn't print the boot log to the (slow)
+  console. It uses the default kernel configuration. Based on [meta-qcom's `ci/performance.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml).
 
 ### Flash the image
 
