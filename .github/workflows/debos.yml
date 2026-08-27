@@ -36,6 +36,20 @@ on:
         description: Skip QEMU tests
         type: boolean
         default: false
+      qemu_test_env:
+        description: >
+          Environment variables describing the image to the QEMU tests, one
+          NAME=value per line (e.g. EXPECTED_SNAPSHOT=20260115T000000Z). The
+          tests are the same for every image; what differs is what they are
+          told about it here, so a caller which builds an image a certain way
+          says so through this input rather than by running its own test files.
+          The variables are set for the pytest run only, not for any other
+          step, and every variable the tests understand is listed in the job
+          log before they run, set or not. A line which is not an assignment,
+          or which sets a name no test reads, fails the run rather than being
+          dropped silently. Ignored when skip_qemu_tests is set.
+        type: string
+        default: ''
 
     outputs:
       artifacts_url:
@@ -374,17 +388,43 @@ jobs:
         with:
           name: build_url
           path: build_url
+      # the tests boot the ./disk-ufs.img this job just built, which is why they
+      # run here rather than in a job of their own: that job would have to
+      # download the image back from the private artifact store, which a runner
+      # has no credentials for.
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
+        env:
+          # the qemu_test_env input, passed through as one payload of
+          # NAME=value lines: image_environment() in ci/qemu_test.py splits it,
+          # validates it and prints what it held before the tests run.
+          # splitting it here would mean doing it in POSIX sh -- this container
+          # has no bash -- which is both more code and code which can only be
+          # run in CI.
+          #
+          # set on this step rather than exported into the job: it describes
+          # the image to these tests and has no business affecting any other
+          # step
+          #
+          # the suite is added here rather than left to the callers: this
+          # workflow was told which one to build and passes it to debos on
+          # every run, so it can say so without any of them having to. the
+          # caller's own lines follow, and win on a repeated name, since a
+          # caller describing the image it asked for is the more specific
+          # statement of the two
+          QEMU_TEST_ENV: |
+            EXPECTED_SUITE=${{ inputs.suite }}
+            ${{ inputs.qemu_test_env }}
         run: |
-           # This is currently a clone of Makefile's "test" target to avoid any
-           # unexpected interactions with triggering depending build targets.
-           # The plan is to move this entire workflow to use make targets
-           # instead but all at once. See #74 and #159.
+          # This is currently a clone of Makefile's "test" target to avoid any
+          # unexpected interactions with triggering depending build targets.
+          # The plan is to move this entire workflow to use make targets
+          # instead but all at once. See #74 and #159.
 
-           # rootfs/ is a build artifact, so should not be scanned for tests
-           # --verbose enables verbose output which shows each test's full name
-           #   and full result which makes CI failures much easier to diagnose
-           # --capture=no so pytest doesn't swallow stdout and only prints it
-           #   after a job fails. Instead, stream the log live.
-           py.test-3 --verbose --capture=no --ignore=rootfs
+          # rootfs/ is a build artifact, so should not be scanned for tests
+          # --verbose enables verbose output which shows each test's full name
+          #   and full result which makes CI failures much easier to diagnose
+          # --capture=no so pytest doesn't swallow stdout and only prints it
+          #   after a job fails. Instead, stream the log live. It is also what
+          #   lets the report of QEMU_TEST_ENV reach the log.
+          py.test-3 --verbose --capture=no --ignore=rootfs
