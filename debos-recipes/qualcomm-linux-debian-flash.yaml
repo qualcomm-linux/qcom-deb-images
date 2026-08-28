@@ -400,12 +400,20 @@ actions:
     "soc_id" "qcm2290"
     "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
     "boot_binaries_download" (dict
-        "description" "UNO Q boot binaries"
-        "url" "https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip"
-        "name" "qrb2210-arduino-imola_boot-binaries"
-        "filename" "qrb2210-arduino-imola_boot-binaries.zip"
-        "sha256sum" "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
+        "description" "QRB2210 boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QRB2210_bootbinaries.1.0/qrb2210_bootbinaries.1.0-test-device-public/00021/Agatti_bootbinaries_00021.zip"
+        "name" "qrb2210_boot-binaries"
+        "filename" "qrb2210_boot-binaries.zip"
+        "sha256sum" "26a8681834363cb8bc9e8149db27388406daf22af15d3b43c9649e180afb47f2"
     )
+    "cdt_download" (dict
+        "description" "QRB2210 Arduino Imola UnoQ CDT"
+        "url" "https://downloads.arduino.cc/debian-im/qrb2210-arduino-imola-unoq-cdt.zip"
+        "name" "qrb2210-arduino-imola-unoq-cdt"
+        "filename" "qrb2210-arduino-imola-unoq-cdt.zip"
+        "sha256sum" "a99c66bb1e89a8d4b1e49015fbb51d2b0fb025d0751283399555113135083313"
+    )
+    "cdt_filename" "cdt_arduino_imola.bin"
     "dtb" "qcom/qrb2210-arduino-imola.dtb"
 )}}
 
