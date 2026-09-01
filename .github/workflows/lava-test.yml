@@ -170,6 +170,11 @@ jobs:
   publish-test-results:
     name: Publish Tests Results
     needs: submit-job
+    # a failed submit job (LAVA submission error, timeout, ...) must not hide
+    # the results of the boards that did run: publish whatever artifacts exist
+    # anyway. only skip when there is nothing to report, i.e. when no job
+    # matched the board filters or the run was cancelled.
+    if: ${{ !cancelled() && needs.submit-job.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
@@ -212,7 +217,8 @@ jobs:
 
       - name: Publish Test Job Details
         run: |
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          JOB_FILES=$(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $JOB_FILES
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
@@ -220,3 +226,9 @@ jobs:
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> $GITHUB_STEP_SUMMARY
           done
+          # every board failed to submit, or none matched the filters: say so
+          # rather than leaving an empty job list in the summary, which reads
+          # like the tests passed
+          if [ -z "$JOB_FILES" ]; then
+              echo "No test jobs were submitted." >> $GITHUB_STEP_SUMMARY
+          fi
