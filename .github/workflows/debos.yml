@@ -53,8 +53,22 @@ env:
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
-  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
-  PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
+  # Filename prefix shared by every published artifact: "<suite>[-<variant>]",
+  # e.g. "trixie" for the default image, "trixie-weston-multimedia" for a
+  # variant. The variant is omitted when it is the default one, so that the
+  # default image keeps its historic artifact names.
+  #
+  # Every matrix leg of a build uploads to the same S3 directory (see the
+  # "destination" of the upload steps below), so this prefix is the only thing
+  # keeping the artifacts of one suite/variant apart from another's. Anything
+  # downloading one of them therefore has to be told which prefix to ask for.
+  ARTIFACT_PREFIX: >-
+    ${{ format(
+      '{0}{1}',
+      inputs.suite,
+      (inputs.variant && inputs.variant != 'default') &&
+        format('-{0}', inputs.variant) || ''
+    ) }}
 
 jobs:
   build-debos:
@@ -79,7 +93,7 @@ jobs:
           set -u
           # debos arguments building each image variant, keyed on its name; to
           # add a variant, add a case here and pass its name as the "variant"
-          # input; its artifacts are named after it (see PREFIX above)
+          # input; its artifacts are named after it (see ARTIFACT_PREFIX above)
           case "$VARIANT" in
             ''|default)
               variant_args='-t xfcedesktop:true'
@@ -224,20 +238,20 @@ jobs:
           dir="debos-artifacts"
           mkdir -v "${dir}"
           # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          gzip -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
+          gzip -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
+          gzip -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
+          cp -av dtbs.tar.gz "${dir}/${ARTIFACT_PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
           # to facilitate debugging oops/panic backtraces; absent when the kernel
           # comes from APT rather than from an EFS kernel build.
           if [ -f vmlinux ]; then
-              gzip -c vmlinux >"${dir}/${PREFIX}-vmlinux.gz"
+              gzip -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
           fi
           # create tarballs with support for all UFS and all eMMC boards
-          scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
+          scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # generate sha256sums for all artifacts
-          (cd "${dir}" && sha256sum * | tee "${PREFIX}-sha256sums.txt")
+          (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
@@ -344,7 +358,7 @@ jobs:
           dir="sboms"
           mkdir -v sboms
           for f in rootfs-sbom.* rootfs-vulns.*; do
-              gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
+              gzip -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
           done
 
       - name: Upload SBOMs as private artifacts
