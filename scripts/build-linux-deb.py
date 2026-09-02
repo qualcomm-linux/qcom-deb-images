@@ -140,6 +140,8 @@ def check_dependencies():
         "rsync",
         # for nproc
         "coreutils",
+        # used to generate kernel BTF debug information
+        "dwarves",
     ]
 
     log_i(f"Checking build-dependencies ({' '.join(packages)})")
