@@ -10,6 +10,16 @@ on:
         description: Distribution suite (e.g. trixie, forky)
         type: string
         default: trixie
+      artifact_prefix:
+        description: >
+          Filename prefix of the image to boot, as the build job named it
+          (ARTIFACT_PREFIX in debos.yml), e.g. "trixie" or
+          "trixie-weston-multimedia". "url" points at a directory holding
+          every image a build published, so this is what picks one of them
+          out; it must name an image that build actually produced. Defaults
+          to the suite, which is how the default image is named.
+        type: string
+        default: ''
       boards_include:
         description: JSON array of board names to include (empty = all boards)
         type: string
@@ -43,6 +53,11 @@ env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
   SUITE: ${{ inputs.suite }}
+  # The prefix of artifact files to boot. Deliberately passed in rather than
+  # rebuilt here from the inputs describing the image: how the inputs combine
+  # into a filename is up to the caller. Duplicating the rules here means
+  # an additional place to update.
+  ARTIFACT_PREFIX: ${{ inputs.artifact_prefix || inputs.suite }}
   BOARDS_INCLUDE: ${{ inputs.boards_include }}
   BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
 
@@ -137,6 +152,7 @@ jobs:
           BUILD_DOWNLOAD_URL="$BUILD_URL"
           BUILD_FILE_NAME="unused"
           sed \
+              -e "s|{{ARTIFACT_PREFIX}}|${ARTIFACT_PREFIX}|g" \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
@@ -159,13 +175,23 @@ jobs:
           fail_action_on_failure: false
           save_result_as_artifact: true
           save_job_details: true
-          # Stable per-suite/per-board name: the action deletes the previous
+          # Stable per-image/per-board name: the action deletes the previous
           # same-named artifact before uploading, so a re-run overwrites in
-          # place and only the latest result per board ever exists.
-          result_file_name: test-results-${{ inputs.suite }}-${{ matrix.slug }}
+          # place and only the latest result per board ever exists. Scoped by
+          # the artifact prefix rather than by the suite alone, so that two
+          # calls testing different images of one suite in the same run do not
+          # delete each other's results.
+          #
+          # The prefix goes last so that the download pattern below can anchor
+          # on it: one prefix can be a prefix of another ("trixie" of
+          # "trixie-weston-multimedia"), so a leading "test-results-trixie-*"
+          # would also match the other image's results.
+          result_file_name: test-results-${{ matrix.slug }}-${{ env.ARTIFACT_PREFIX }}
           # Job-details artifacts always keep the (changing) LAVA job id and are
-          # never overwritten, so scope them by suite + run attempt instead.
-          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-
+          # never overwritten, so scope them by image + run attempt instead.
+          # These stay prefixed (the action only offers a prefix), which is
+          # unambiguous because the run attempt follows the prefix directly.
+          test_job_file_name_prefix: ${{ env.ARTIFACT_PREFIX }}-${{ github.run_attempt }}-
 
   publish-test-results:
     name: Publish Tests Results
@@ -179,19 +205,20 @@ jobs:
 
     steps:
       # Artifacts live at the run level and persist across re-run attempts, so
-      # scope the download to this suite's current results only. Without this,
+      # scope the download to this image's current results only. Without this,
       # download-artifact tries to fetch stale artifacts from superseded
-      # attempts (and the other suite) and 404s on the orphaned ones.
-      - name: Download test results (this debian suite; latest per board)
+      # attempts (and from the other images tested in the same run) and 404s on
+      # the orphaned ones.
+      - name: Download test results (this image; latest per board)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-${{ inputs.suite }}-*
-      - name: Download job details (this debian suite, this run attempt)
+          pattern: test-results-*-${{ env.ARTIFACT_PREFIX }}
+      - name: Download job details (this image, this run attempt)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
+          pattern: ${{ env.ARTIFACT_PREFIX }}-${{ github.run_attempt }}-test-job-*
 
       - name: List files
         run: |

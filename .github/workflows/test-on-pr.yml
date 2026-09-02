@@ -72,9 +72,10 @@ jobs:
     needs: retrieve-build-url
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
-      # trixie is default in lava-test so this is a no-op
-      # however the publish job below hard-codes this in its artifact
-      # download patterns, so keep them in sync if this changes.
+      # trixie is default in lava-test so this is a no-op. artifact_prefix is
+      # left at its default too, which is the suite, so this boots trixie's
+      # default image. The publish job below hard-codes that prefix in its
+      # artifact download patterns, so keep them in sync if either changes.
       suite: trixie
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
@@ -91,14 +92,16 @@ jobs:
       # thollander/actions-comment-pull-request
       pull-requests: write
     steps:
-      # Scope to the test suite's current results so a re-run doesn't pull stale
+      # Scope to this image's current results so a re-run doesn't pull stale
       # artifacts from superseded attempts and 404 on the orphaned ones. These
-      # patterns must match the names set in lava-test.yml (suite: trixie above).
+      # patterns must match the names set in lava-test.yml, which scopes them
+      # by artifact prefix; "trixie" here is the prefix of the image booted
+      # above, and the results one is suffixed with it rather than prefixed.
       - name: Download test results (latest per board)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-trixie-*
+          pattern: test-results-*-trixie
 
       - name: Download job details (this run attempt)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

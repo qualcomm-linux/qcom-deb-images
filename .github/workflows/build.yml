@@ -76,6 +76,11 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
+      # every leg of the build matrix uploads to the same directory, so all of
+      # them report the same URL and it does not matter which one this reads;
+      # see #397. Which image is booted out of that directory is decided by
+      # lava-test.yml's artifact_prefix, left at its default here so that this
+      # boots the default image of each suite, as it always has.
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537

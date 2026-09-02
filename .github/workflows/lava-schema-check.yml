@@ -26,8 +26,10 @@ jobs:
           BUILD_FILE_NAME="build.tar.gz"
           BUILD_DOWNLOAD_URL="https://example.com/downloads/1"
           GITHUB_SHA="7e6f96ccf3e911a8a1a18accdbb91991aa0db66e"
+          ARTIFACT_PREFIX="trixie-weston-multimedia"
 
           find ci/lava/ -name "*.yaml" -exec sed \
+              -e "s|{{ARTIFACT_PREFIX}}|${ARTIFACT_PREFIX}|g" \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
