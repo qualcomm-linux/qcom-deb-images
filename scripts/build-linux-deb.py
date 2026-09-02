@@ -225,13 +225,13 @@ def main():
 
     check_dependencies()
 
+    linux_dir = Path("linux")
     if args.local_dir:
         linux_dir = Path(args.local_dir)
         if not linux_dir.exists():
             fatal(f"Provided --local-dir '{linux_dir}' does not exist")
         log_i(f"Using existing kernel source at {linux_dir}")
     else:
-        linux_dir = Path("linux")
         log_i(f"Cloning Linux ({args.repo}:{args.ref}) into {linux_dir}")
         subprocess.run(
             [
@@ -299,7 +299,7 @@ def main():
         subprocess.run(
             merge_command,
             check=True,
-            cwd="linux",
+            cwd=linux_dir,
             env={"ARCH": "arm64", **subprocess.os.environ}
         )
 
@@ -307,7 +307,7 @@ def main():
         subprocess.run(
             make_base_command + ["olddefconfig"],
             check=True,
-            cwd="linux"
+            cwd=linux_dir
         )
 
     log_i("Building Linux deb")
