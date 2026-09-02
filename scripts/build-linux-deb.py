@@ -188,13 +188,12 @@ def main():
         help=("Path to an existing Linux kernel source tree;"
               " if not set, the repo will be cloned into ./linux"),
     )
-
     parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
         nargs="*",
-        help="Config fragments to merge",
+        help="Config fragments to merge with defconfig",
     )
     parser.add_argument(
         "--skip-build",
