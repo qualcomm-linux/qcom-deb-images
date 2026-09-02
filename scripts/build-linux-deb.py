@@ -256,7 +256,8 @@ def main():
     log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
     # directory to store local config fragments so they can be picked up by
     # kbuild
-    local_conf_dir = linux_dir / "kernel" / "configs"
+    tree_conf_dir = Path("kernel") / "configs"
+    local_conf_dir = linux_dir / tree_conf_dir
     local_conf_dir.mkdir(parents=True, exist_ok=True)
 
     config_targets = []
@@ -265,15 +266,17 @@ def main():
         if Path(fragment).exists():
             # Create a unique name for the local fragment
             local_frag_name = f"local_{i}.config"
+            tree_path = tree_conf_dir / local_frag_name
             dest_path = local_conf_dir / local_frag_name
 
-            log_i(f"Copying local fragment {fragment} to {dest_path}")
+            log_i(f"Copying local fragment {fragment} into source tree"
+                  f" {tree_path}")
             with open(fragment, "r", encoding="utf-8") as f_in:
                 content = f_in.read()
             with open(dest_path, "w", encoding="utf-8") as f_out:
                 f_out.write(content)
 
-            config_targets.append(f"kernel/configs/{local_frag_name}")
+            config_targets.append(str(tree_path))
         elif (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
             config_targets.append(f"arch/arm64/configs/{fragment}")
