@@ -7,7 +7,7 @@
 
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
-{{- $allowed_profiles := list "default" "performance" }}
+{{- $allowed_profiles := list "default" "performance" "debug" }}
 {{- if not (has $profile $allowed_profiles) }}
 {{- fail (printf "unknown profile %q" $profile) }}
 {{- end }}
@@ -27,6 +27,33 @@
 # - initramfs.udev-root-only is not supported by Debian's initramfs-tools.
 {{- if eq $profile "performance" }}
 {{- $kernelcmdline = printf "%s quiet systemd.tty.term.console=linux" $kernelcmdline }}
+{{- end }}
+
+# the debug profile enables ftrace from the very start of the boot, so that the
+# events leading to an early hang or a slow boot are already recorded by the
+# time userspace comes up. The events are grouped per subsystem below and joined
+# into a single comma-separated trace_event= value.
+#
+# this mirrors meta-qcom's debug variant, see:
+# https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/debug.yml
+# commit: 7b744efa47a439c0baee87390e1508c83dff7423
+#
+# this profile is not ready for use yet: the kernel is consumed as a prebuilt
+# package here and the debug image still installs the default one, so the
+# kernel debugging options meta-qcom builds its kernel with are missing. That
+# needs the custom qcom-next-debug kernel package from
+# https://github.com/qualcomm-linux/qcom-deb-images/issues/568 and is left to a
+# follow-up; the kernel command line below is in place for it.
+{{- if eq $profile "debug" }}
+{{- $traceevents := "timer:timer_expire_entry,timer:timer_expire_exit,timer:hrtimer_cancel" }}
+{{- $traceevents = printf "%s,timer:hrtimer_expire_entry,timer:hrtimer_expire_exit,timer:hrtimer_init" $traceevents }}
+{{- $traceevents = printf "%s,timer:hrtimer_start,irq:*,workqueue:*,sched:sched_migrate_task" $traceevents }}
+{{- $traceevents = printf "%s,sched:sched_pi_setprio,sched:sched_switch,sched:sched_wakeup" $traceevents }}
+{{- $traceevents = printf "%s,sched:sched_wakeup_new,power:clock_set_rate,power:clock_enable" $traceevents }}
+{{- $traceevents = printf "%s,power:clock_disable,power:cpu_frequency,regulator:*" $traceevents }}
+{{- $traceevents = printf "%s,thermal:thermal_zone_trip,thermal:thermal_temperature" $traceevents }}
+{{- $traceevents = printf "%s,thermal:cdev_update,rpmh:rpmh_send_msg" $traceevents }}
+{{- $kernelcmdline = printf "%s ftrace=tracing_on trace_buf_size=5M trace_event=%s" $kernelcmdline $traceevents }}
 {{- end }}
 
 architecture: arm64

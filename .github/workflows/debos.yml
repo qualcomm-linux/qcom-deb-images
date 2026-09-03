@@ -140,7 +140,7 @@ jobs:
           # keep this list in sync with the list in the "Supported profiles"
           # section of README.md
           case "$PROFILE" in
-            default|performance)
+            default|performance|debug)
               ;;
             *)
               echo "ERROR: unknown profile '${PROFILE}'" >&2
