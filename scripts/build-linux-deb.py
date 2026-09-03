@@ -96,23 +96,41 @@ def fatal(msg):
     sys.exit(1)
 
 
-def check_package_installed(pkg):
-    """Check if a package is installed using dpkg."""
+def check_package_installed(pkg, native_arch):
+    """
+    Check if a package is installed. dpkg matches an unqualified name
+    against every architecture, so ask for the architecture as well and
+    make sure it is the one we want: "libssl-dev" is not satisfied by
+    "libssl-dev:arm64" alone.
+    """
+    name, _, want_arch = pkg.partition(":")
     try:
-        # dpkg -l "${pkg}" 2>&1 | grep -q "^ii  ${pkg}"
         result = subprocess.run(
-            ["dpkg", "-l", pkg],
+            [
+                "dpkg-query",
+                "--show",
+                "--showformat=${db:Status-Status} ${Architecture}\n",
+                name,
+            ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.DEVNULL,
             text=True,
             check=False,
         )
-        for line in result.stdout.splitlines():
-            # Match exactly "ii  <pkg>" at start of line
-            if line.startswith(f"ii  {pkg}"):
-                return True
     except subprocess.SubprocessError:
-        pass
+        return False
+
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        status, arch = parts
+        if status != "installed":
+            continue
+        # "all" packages satisfy any architecture
+        if arch in (want_arch or native_arch, "all"):
+            return True
+
     return False
 
 
@@ -138,9 +156,17 @@ def check_dependencies():
 
     log_i(f"Checking build-dependencies ({' '.join(packages)})")
 
+    try:
+        native_arch = subprocess.check_output(
+            ["dpkg", "--print-architecture"], text=True
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        fatal("dpkg not found; build-dependencies can only be checked on"
+              " a Debian-based system")
+
     missing = []
     for pkg in packages:
-        if check_package_installed(pkg):
+        if check_package_installed(pkg, native_arch):
             continue
         missing.append(pkg)
 
