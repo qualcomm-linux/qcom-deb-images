@@ -17,7 +17,7 @@ on:
           repositories (e.g. linux-image-arm64) or name of a EFS kernel
           package directory (e.g. efs/mainline)
         type: string
-        default: linux-image-arm64
+        default: linux-image-qcom-next
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string

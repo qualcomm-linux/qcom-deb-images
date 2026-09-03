@@ -65,12 +65,12 @@ scripts/build-u-boot-rb1.sh
 
 ### (optional) Build custom kernel
 
-By default the image recipes will install the kernel provided by Debian.
+By default the image recipes install `linux-image-qcom-next`, the Qualcomm
+Linux kernel package; see the [Kernel](#kernel) section for details.
 
-Build a custom kernel if you want to run `qcom-next`, the kernel which the CI
-images use and recommended for maximum hardware compatibility, `mainline` or
-`linux-next`. See the [Kernel](#kernel) section for the build-dependencies and
-the build instructions, then come back here.
+Build a custom kernel if you want to run your own `qcom-next` tree, `mainline`
+or `linux-next` instead. See the [Kernel](#kernel) section for the
+build-dependencies and the build instructions, then come back here.
 
 ### Build the image
 
@@ -146,9 +146,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
-  apt; defaults to `linux-image-arm64`. Set it to `none` when you are installing
-  a local kernel package. See the [Kernel](#kernel) section below for
-  more information.
+  apt; defaults to `linux-image-qcom-next`. Set it to `linux-image-arm64` to
+  install the kernel from Debian, or to `none` when you are installing a local
+  kernel package. See the [Kernel](#kernel) section below for more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
 - `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
@@ -268,14 +268,22 @@ password to a safe one.
 
 ## Kernel
 
-When building an image locally, by default the recipe will install the latest
-kernel from Debian.
+The default kernel, installed by the recipes and by every CI-built image, is
+the `linux-image-qcom-next` package from the Qualcomm Linux APT repository. It
+is the default because it carries additional hardware support for Qualcomm
+devices, on top of what the kernel in the Debian archive provides.
 
-All of the CI-built images instead install
-[`qcom-next`](https://github.com/qualcomm-linux/kernel/tree/qcom-next), the
-Qualcomm Linux integration branch, which carries additional platform support.
+The package is built from `qcom-next`, the Qualcomm Linux integration branch of
+the [Qualcomm Linux kernel tree](https://github.com/qualcomm-linux/kernel), by
+[its own packaging repository](https://github.com/qualcomm-linux/pkg-linux-qcom).
+That repository is maintained separately from this one and decides which
+revision of the tree it packages and publishes, so the version of
+`linux-image-qcom-next` an image installs does not necessarily correspond to
+the newest `qcom-next-*` tag; run `apt policy linux-image-qcom-next` in an
+image to see which version it has.
 
-Build it yourself to get the same kernel the CI images use.
+You can also build a kernel yourself, for instance to test a local change or to
+compare `qcom-next` against `mainline` or `linux-next`.
 
 Building a Linux kernel deb requires the following build-dependencies:
 ```bash
@@ -289,8 +297,8 @@ enable arm64 as a foreign architecture first by running
 Then build `qcom-next` with the recommended config fragments:
 
 ```bash
-# CI pins an exact version with `--ref`; without one this builds the qcom-next
-# branch tip.
+# this builds the latest qcom-next-* tag; pass --ref to build a specific tag
+# or the qcom-next branch tip instead
 scripts/build-linux-deb.py --qcom-next prune.config qcom.config kernel-configs/*.config
 ```
 
@@ -311,15 +319,6 @@ the root filesystem:
 
 ```bash
 EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
-```
-
-Prebuilt Qualcomm kernel packages are also available from the overlay apt
-repository, as an alternative to building one:
-
-```bash
-# the trailing plus sign is doubled because apt reads a single one in a package
-# name as a request to install the package
-EXTRA_DEBOS_OPTS="-t kernelpackages:linux-image-<version>-qcom1++" make rootfs.tar
 ```
 
 ## Development
