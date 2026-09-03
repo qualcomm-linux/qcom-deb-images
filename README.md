@@ -20,14 +20,12 @@ tuned!
 
 ## CI Status
 
-| Variant | Kernel build | Image build & boot test |
-| ------- | --- | --- |
-| Qualcomm Linux | [![qcom-next kernel][qcom-next-badge]][qcom-next] | [![images][images-badge]][images] |
-| Debian | *uses kernel from Debian Archive* | [![Debian images][debian-images-badge]][debian-images] |
-| Reference upstream kernels | [![linux-next][linux-next-badge]][linux-next] [![mainline][mainline-badge]][mainline] | *covered by the kernel build* [^1] |
-| Project-specific builds | [![arduino][arduino-badge]][arduino] | *covered by the kernel build* [^1] |
-
-[^1]: these builds compile the kernel, build an image and boot test the image in a single workflow, so the Kernel build reports all three.
+| Variant | Image build & test status |
+| ------- | --- |
+| Qualcomm Linux | [![QLI images][images-badge]][images] |
+| Debian | [![Debian images][debian-images-badge]][debian-images] |
+| Reference upstream kernels | [![linux-next images][linux-next-badge]][linux-next] [![mainline images][mainline-badge]][mainline] |
+| Project-specific builds | [![Arduino images][arduino-badge]][arduino] |
 
 
 ## Requirements
@@ -396,15 +394,13 @@ This project is licensed under the [BSD-3-clause License](https://spdx.org/licen
 <!-- link targets for the CI status badges at the top of this file; each
      workflow needs two: the shields.io image and the Actions page it links to -->
 
-[qcom-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-next.yml
-[qcom-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-next.yml?label=qcom-next
 [images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build.yml
-[images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build.yml?label=images
+[images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build.yml?label=QLI%20images
 [debian-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-debian.yml
 [debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-debian.yml?label=Debian%20images
 [linux-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-next.yml
-[linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-next.yml?label=linux-next
+[linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-next.yml?label=linux-next%20images
 [mainline]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-mainline.yml
-[mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-mainline.yml?label=mainline
+[mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-mainline.yml?label=mainline%20images
 [arduino]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-arduino.yml
-[arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-arduino.yml?label=arduino
+[arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-arduino.yml?label=Arduino%20images
