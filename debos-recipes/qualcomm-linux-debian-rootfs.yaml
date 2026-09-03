@@ -213,7 +213,6 @@ actions:
       "src:linux:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
-      "src:u-boot-efi-dtb"
       "src:wireplumber:any" }}
 
   - action: run
@@ -764,15 +763,6 @@ actions:
       - {{$kernelpackage}}
 {{- end }}
 {{- end }}
-
-  # this is currently needed on boards such as RB1 which are using Android
-  # bootloader to check the boot count of the boot_a/boot_b partitions
-  - action: apt
-    description: Support boards chainloading from Android bootloader
-    recommends: true
-    packages:
-      # marks the current Android boot partition as booted successfully
-      - qbootctl
 
 {{- if eq $multimedia "true" }}
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
