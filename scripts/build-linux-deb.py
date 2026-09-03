@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -320,7 +321,7 @@ def main():
             merge_command,
             check=True,
             cwd=linux_dir,
-            env={"ARCH": "arm64", **subprocess.os.environ}
+            env={**os.environ, "ARCH": "arm64"},
         )
 
         # Finalize config with olddefconfig
