@@ -43,18 +43,34 @@ jobs:
       matrix:
         suite: [trixie, forky]
         variant: [default, weston-multimedia]
+        profile: [default]
+        include:
+          # build the performance profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: performance
+          # build the debug profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: debug
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
+      profile: ${{ matrix.profile }}
       # QLI targets qcom-next; consume the debs published to EFS by the
       # "qcom-next linux build" workflow rather than a kernel from an
       # APT repository
       kernelpackages: efs/qcom-next
 
   test:
+    # name the job after the image it boots: that is the only thing that
+    # differs between these jobs, the generated name is unhelpful once the
+    # matrix has more than one column, and this is what the nested job names
+    # are prefixed with in the UI.
+    name: Test ${{ matrix.artifact_prefix || matrix.suite }}
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -64,8 +80,29 @@ jobs:
       github.ref == 'refs/heads/main')
     strategy:
       fail-fast: false
+      # Each entry boots one of the images built above on every board, so this
+      # is an explicit list rather than a cross product of the build matrix: an
+      # entry costs a full LAVA sweep, so one is added only where the image
+      # differs in a way hardware can tell apart. artifact_prefix names the
+      # image as the build job named its files and must match one the build
+      # matrix above actually produces, otherwise there is nothing to flash;
+      # it is left out for a suite's default image, whose prefix is just the
+      # suite and which lava-test.yml falls back to.
       matrix:
-        suite: [trixie, forky]
+        include:
+          - suite: trixie
+          - suite: forky
+          # boot the Weston/multimedia session rather than the Xfce desktop
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia
+          - suite: forky
+            artifact_prefix: forky-weston-multimedia
+          # test the performance profile image
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia-performance
+          # test the debug profile image
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia-debug
     uses: ./.github/workflows/lava-test.yml
     needs: build
     permissions:
@@ -76,7 +113,12 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
+      # every leg of the build matrix uploads to the same directory, so all of
+      # them report the same URL and it does not matter which one this reads;
+      # see #397. Which image is booted out of that directory is decided by
+      # artifact_prefix below, not by this URL.
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      artifact_prefix: ${{ matrix.artifact_prefix }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'

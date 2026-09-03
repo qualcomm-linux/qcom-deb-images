@@ -30,7 +30,16 @@ on:
           artifact, so that variants of the same suite don't overwrite each
           other. Empty or "default" builds the default image.
         type: string
-        default: ''
+        default: default
+      profile:
+        description: >
+          Name of the image profile to build; it selects the intended runtime
+          configuration of the image and is appended to the name of every
+          published artifact, so that profiles of the same suite and variant
+          don't overwrite each other. Empty or "default" builds the default
+          profile.
+        type: string
+        default: default
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -53,12 +62,36 @@ env:
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
-  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
-  PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
+  # Filename prefix shared by every published artifact:
+  # "<suite>[-<variant>][-<profile>]", e.g. "trixie" for the default image,
+  # "trixie-weston-multimedia" for a variant. The variant and the profile are
+  # omitted when they are the default ones, so that the default image keeps
+  # its historic artifact names.
+  #
+  # Every matrix leg of a build uploads to the same S3 directory (see the
+  # "destination" of the upload steps below), so this prefix is the only thing
+  # keeping the artifacts of one suite/variant/profile apart from another's.
+  # Anything downloading one of them therefore has to be told which prefix to
+  # ask for. The rule below is the only copy of it: ci/lava/*/boot.yaml names
+  # its image through an ARTIFACT_PREFIX placeholder whose value lava-test.yml
+  # is handed by its caller, rather than deriving it a second time.
+  ARTIFACT_PREFIX: >-
+    ${{ format(
+      '{0}{1}{2}',
+      inputs.suite,
+      (inputs.variant && inputs.variant != 'default') &&
+        format('-{0}', inputs.variant) || '',
+      (inputs.profile && inputs.profile != 'default') &&
+        format('-{0}', inputs.profile) || ''
+    ) }}
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes (${{ inputs.variant && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
+    name: >-
+      Build and upload debos recipes
+      (suite: ${{ inputs.suite }},
+      variant: ${{ inputs.variant || 'default' }},
+      profile: ${{ inputs.profile || 'default' }})
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -79,7 +112,7 @@ jobs:
           set -u
           # debos arguments building each image variant, keyed on its name; to
           # add a variant, add a case here and pass its name as the "variant"
-          # input; its artifacts are named after it (see PREFIX above)
+          # input; its artifacts are named after it (see ARTIFACT_PREFIX above)
           case "$VARIANT" in
             ''|default)
               variant_args='-t xfcedesktop:true'
@@ -96,6 +129,26 @@ jobs:
           esac
           # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
           echo "DEBOS_VARIANT_ARGS=${variant_args}" >>"$GITHUB_ENV"
+
+      - name: Validate profile
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          set -u
+          # an empty profile input builds the default profile
+          PROFILE="${PROFILE:-default}"
+          # keep this list in sync with the list in the "Supported profiles"
+          # section of README.md
+          case "$PROFILE" in
+            default|performance|debug)
+              ;;
+            *)
+              echo "ERROR: unknown profile '${PROFILE}'" >&2
+              exit 1
+              ;;
+          esac
+          # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
+          echo "DEBOS_PROFILE_ARGS=-t profile:${PROFILE}" >>"$GITHUB_ENV"
 
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
@@ -197,6 +250,7 @@ jobs:
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
               ${DEBOS_VARIANT_ARGS} \
+              ${DEBOS_PROFILE_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
@@ -209,13 +263,13 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
@@ -224,20 +278,20 @@ jobs:
           dir="debos-artifacts"
           mkdir -v "${dir}"
           # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
-          cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
+          gzip -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
+          gzip -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
+          gzip -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
+          cp -av dtbs.tar.gz "${dir}/${ARTIFACT_PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
           # to facilitate debugging oops/panic backtraces; absent when the kernel
           # comes from APT rather than from an EFS kernel build.
           if [ -f vmlinux ]; then
-              gzip -c vmlinux >"${dir}/${PREFIX}-vmlinux.gz"
+              gzip -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
           fi
           # create tarballs with support for all UFS and all eMMC boards
-          scripts/bundle-flash-dirs.sh "${dir}" "${PREFIX}"
+          scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # generate sha256sums for all artifacts
-          (cd "${dir}" && sha256sum * | tee "${PREFIX}-sha256sums.txt")
+          (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
@@ -344,7 +398,7 @@ jobs:
           dir="sboms"
           mkdir -v sboms
           for f in rootfs-sbom.* rootfs-vulns.*; do
-              gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
+              gzip -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
           done
 
       - name: Upload SBOMs as private artifacts

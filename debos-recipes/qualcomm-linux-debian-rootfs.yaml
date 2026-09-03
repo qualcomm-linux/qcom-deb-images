@@ -11,6 +11,7 @@
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
+{{- $profile := or .profile "default" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -27,6 +28,13 @@
 # Rename sid to unstable to reduce if/else complexity
 {{- if eq $suite "sid" }}
 {{- $suite = "unstable" }}
+{{- end }}
+
+# Validate $profile; keep this list in sync with the list in the
+# "Supported profiles" section of README.md
+{{- $allowed_profiles := list "default" "performance" "debug" }}
+{{- if not (has $profile $allowed_profiles) }}
+{{- fail (printf "unknown profile %q" $profile) }}
 {{- end }}
 
 architecture: arm64
@@ -158,6 +166,7 @@ actions:
 {{- if $variantid }}
       echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
 {{- end }}
+      echo "PROFILE={{$profile}}" >>/etc/buildinfo
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
 {{- end }}

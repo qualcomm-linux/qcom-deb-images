@@ -61,6 +61,9 @@ jobs:
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
 
   test:
+    # name the job after the image it boots; this is also what prefixes the
+    # nested job names in the UI
+    name: Test ${{ matrix.artifact_prefix || matrix.suite }}
     uses: ./.github/workflows/lava-test.yml
     permissions:
       checks: write
@@ -70,12 +73,34 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     needs: retrieve-build-url
+    strategy:
+      fail-fast: false
+      # One entry per image "Build on PR" builds, so that nothing is built on
+      # a pull request without being booted. Each entry is a full LAVA sweep
+      # across every board, which is what an image costs to validate; a
+      # variant that is built and never booted buys nothing at all, and a pull
+      # request is where a regression is cheapest to catch. Keep this list in
+      # step with the build matrix in build-on-pr.yml. artifact_prefix is
+      # omitted for a suite's default image, whose prefix is just the suite.
+      matrix:
+        include:
+          - suite: trixie
+          - suite: forky
+          # boot the Weston/multimedia session rather than the Xfce desktop
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia
+          - suite: forky
+            artifact_prefix: forky-weston-multimedia
     with:
+      # every leg of the build uploads to the same directory and so reports
+      # the same URL, which is why picking one of the duplicate build_url
+      # artifacts above is safe; see #397. Which image is booted out of that
+      # directory is decided by artifact_prefix below, not by this URL.
       url: ${{ needs.retrieve-build-url.outputs.url }}
-      # trixie is default in lava-test so this is a no-op
-      # however the publish job below hard-codes this in its artifact
-      # download patterns, so keep them in sync if this changes.
-      suite: trixie
+      # this is what artifact_prefix falls back to for a default image, so it
+      # is spelled out rather than left to lava-test.yml's own default
+      suite: ${{ matrix.suite }}
+      artifact_prefix: ${{ matrix.artifact_prefix }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
 
@@ -91,20 +116,26 @@ jobs:
       # thollander/actions-comment-pull-request
       pull-requests: write
     steps:
-      # Scope to the test suite's current results so a re-run doesn't pull stale
-      # artifacts from superseded attempts and 404 on the orphaned ones. These
-      # patterns must match the names set in lava-test.yml (suite: trixie above).
-      - name: Download test results (latest per board)
+      # One report covers every image the test job booted, so these collect
+      # all of them rather than naming a prefix: that keeps the list of images
+      # in the test job's matrix alone, with nothing here to keep in sync.
+      #
+      # Results are named "test-results-<board>-<image>" and the action
+      # deletes the previous same-named artifact before uploading, so only the
+      # latest per board and image ever exists and this cannot pick up a stale
+      # one. Job details keep the LAVA job id in their name and are never
+      # replaced, so they still have to be scoped to this run attempt.
+      - name: Download test results (latest per board, all images)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-trixie-*
+          pattern: test-results-*
 
-      - name: Download job details (this run attempt)
+      - name: Download job details (this run attempt, all images)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: trixie-${{ github.run_attempt }}-test-job-*
+          pattern: '*-${{ github.run_attempt }}-test-job-*'
 
       - name: Download event file
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -132,13 +163,20 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          # sorted so that the jobs of one image stay together in the comment
+          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json" | sort)
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
               JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
+              # more than one image is booted, so say which one this job ran.
+              # lava-action names the file "<image>-<run attempt>-test-job-<job
+              # id>.json", after the test_job_file_name_prefix lava-test.yml
+              # gives it, so the image is recoverable from the name
+              IMAGE=$(basename "$json_file" .json)
+              IMAGE="${IMAGE%%-${GITHUB_RUN_ATTEMPT}-test-job-*}"
+              echo " * \`$IMAGE\`: [Job $JOB_ID on $DEVICE_TYPE]($URL)"
+              echo " * \`$IMAGE\`: [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
           done
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT

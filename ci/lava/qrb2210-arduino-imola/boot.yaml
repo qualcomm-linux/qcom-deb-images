@@ -4,7 +4,7 @@ actions:
     qcomflash:
       headers:
         QLIAuthorization: Q_QLI_S3_TOKEN
-      url: "{{BUILD_DOWNLOAD_URL}}/{{SUITE}}-flash-emmc.tar.gz"
+      url: "{{BUILD_DOWNLOAD_URL}}/{{ARTIFACT_PREFIX}}-flash-emmc.tar.gz"
       apply-overlay: true
     timeout:
       minutes: 20
