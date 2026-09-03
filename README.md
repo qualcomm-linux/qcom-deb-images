@@ -149,8 +149,6 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   apt; defaults to `linux-image-arm64`. Set it to `none` when you are installing
   a local kernel package. See the [Kernel](#kernel) section below for
   more information.
-- `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
-  accepted as a single package name for backwards compatibility.
 - `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
   filesystem; defaults to `true`. Set it to `false` to leave the image with no
   Qualcomm Linux APT sources.
