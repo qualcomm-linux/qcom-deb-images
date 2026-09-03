@@ -4,8 +4,7 @@
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
+{{- $kernelpackages := or .kernelpackages "linux-image-qcom-next" }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
@@ -32,17 +31,6 @@
 architecture: arm64
 
 actions:
-{{- if .kernelpackage }}
-  - action: run
-    description: Warn that the kernelpackage variable is deprecated
-    chroot: false
-    command: |
-      echo "WARNING: the 'kernelpackage' debos variable is deprecated and superseded by 'kernelpackages' (a comma-separated list); please migrate as 'kernelpackage' will be removed in a future release" >&2
-      # give the operator a chance to notice the warning before the build scrolls past
-      echo "(sleeping 10s to get some attention and leave some time to read this)" >&2
-      sleep 10
-{{- end }}
-
 {{- if $snapshot }}
   - action: run
     description: Validate snapshot timestamp

@@ -1,19 +1,18 @@
+# DEPRECATED: the QLI Debian images install the linux-image-qcom-next package
+# from the QLI APT repository, maintained in its own packaging repository at
+# https://github.com/qualcomm-linux/pkg-linux-qcom
+
+# Nothing consumes the packages this workflow publishes anymore. It survives as
+# a reference build, to compare the kernel built straight from the qcom-next
+# tree against the package from the QLI APT repository.
+
 name: qcom-next linux build
 
 on:
-  # run daily at 0:30am. qcom-next is what QLI ships, so it goes first of the
-  # scheduled builds and gets an empty LAVA queue; the rest of the day's builds
-  # are staggered behind it (arduino 6:30am, linux-next 8:30am, vanilla Debian
-  # images 10:30am) so that they don't all submit LAVA jobs at once. The "Build"
-  # workflow chains onto this one, so its LAVA jobs land later still, around
-  # 3:30am.
-  #
-  # the images the "Build" workflow produces are shared with the test teams and
-  # are expected by 8:00am IST (2:30am UTC); building from 0:30am leaves an hour
-  # of headroom, see issue #566.
-  schedule:
-    - cron: '30 0 * * *'
-  # allow manual runs
+  # no schedule: this build is no longer used, so it only runs when started
+  # by hand
+  #schedule:
+  #  - cron: '30 4 * * *'
   workflow_dispatch:
 
 # grant nothing by default; every job below declares the scopes it needs
@@ -36,10 +35,10 @@ jobs:
       pull-requests: write
     with:
       kernel_name: qcom-next
-      build_linux_deb_extra_args: '--qcom-next --ref qcom-next-7.2-rc7-20260821 prune.config qcom.config'
-      # stop after publishing the debs to EFS; the "Build" workflow
-      # picks them up and builds and tests the images on every suite
-      skip_image_build: true
+      build_linux_deb_extra_args: '--qcom-next prune.config qcom.config'
+      # reference build: we want the debs and the LAVA results to compare
+      # against, but its failures must not gate qcom-deb-images work
+      lava_report_test_results_externally: false
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       lava_boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
     secrets:

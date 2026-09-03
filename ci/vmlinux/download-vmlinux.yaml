@@ -1,0 +1,74 @@
+# Helper recipe to download the debug package of the kernel installed in the
+# root filesystem and extract its unstripped kernel binary (vmlinux) to the
+# artifact directory.
+#
+# This recipe unpacks the root filesystem tarball built by
+# debos-recipes/qualcomm-linux-debian-rootfs.yaml, identifies the installed
+# kernel, downloads the -dbg package matching its exact version from the APT
+# repositories the root filesystem is configured with and hands it to
+# extract-vmlinux.sh next to it. The root filesystem tarball is left untouched.
+#
+# Kernels whose packages are not published in an APT repository, e.g. built
+# with the upstream deb-pkg target, have nothing to download from; run
+# ci/vmlinux/extract-vmlinux.sh on the linux-image package directly instead.
+#
+# Usage:
+# $ debos --disable-fakemachine ci/vmlinux/download-vmlinux.yaml
+
+{{- $rootfs := or .rootfs "rootfs.tar" }}
+{{- $vmlinux := or .vmlinux "vmlinux" }}
+
+architecture: arm64
+
+actions:
+  - action: unpack
+    description: Unpack root filesystem
+    file: {{ $rootfs }}
+
+  - action: run
+    description: Download kernel -dbg package
+    chroot: true
+    command: |
+      set -eux
+
+      # Query dpkg for the highest-version installed kernel package.
+      # linux-image-[0-9]* pattern skips metapackages and the
+      # ${db:Status-Abbrev} filter skips packages which are known to dpkg but
+      # not installed.
+      kernel_pkg=$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' \
+              'linux-image-[0-9]*' |
+          sed -n 's/^ii  //p' |
+          sort -V |
+          tail -n1)
+      kernel_pkgver=$(dpkg-query -W -f='${Version}' "$kernel_pkg")
+      kernel_dbgpkg="${kernel_pkg}-dbg"
+
+      # Remove existing artifacts.
+      rm -rf /*.deb
+
+      # Not every kernel has a matching debug package. Warn rather than failing
+      # the build; the extraction below is run with --optional and copes with a
+      # missing package.
+      # APT::Sandbox::User=root avoids a warning about the _apt user not being
+      # able to reach this directory.
+      if ! apt-get download -o APT::Sandbox::User=root \
+              "${kernel_dbgpkg}=${kernel_pkgver}"; then
+          echo "WARNING: ${kernel_dbgpkg} package not available;" \
+              "can't extract vmlinux" >&2
+          exit 0
+      fi
+      deb=$(find . -maxdepth 1 -type f -name "${kernel_dbgpkg}_*.deb" \
+          -print -quit)
+
+      # Hand the package over to the extraction below at a known path; the
+      # download can only write inside the root filesystem, which the script
+      # then reads it back out of.
+      mv -v "$deb" /kernel-dbg.deb
+
+  - action: run
+    description: Extract vmlinux into artifact directory
+    chroot: false
+    script: extract-vmlinux.sh --optional ${ROOTDIR}/kernel-dbg.deb ${ARTIFACTDIR}/{{ $vmlinux }}
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause

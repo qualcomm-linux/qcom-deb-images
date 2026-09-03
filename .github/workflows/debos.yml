@@ -17,7 +17,7 @@ on:
           repositories (e.g. linux-image-arm64) or name of a EFS kernel
           package directory (e.g. efs/mainline)
         type: string
-        default: linux-image-arm64
+        default: linux-image-qcom-next
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
@@ -156,21 +156,6 @@ jobs:
               apt-ftparchive release . >Release
           )
 
-      - name: Copy unstripped vmlinux from EFS
-        run: |
-          set -ux
-          # the kernel workflow publishes the unstripped vmlinux next to the
-          # debs; pick it up so it gets published with the image artifacts.
-          case "$KERNEL_PACKAGES" in
-            efs/*)
-              efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
-              # kernel builds predating the vmlinux artifact have none
-              if [ -f "${efs_kernel_dir}/vmlinux" ]; then
-                  cp -av "${efs_kernel_dir}/vmlinux" .
-              fi
-            ;;
-          esac
-
       - name: Build rootfs with debos
         run: |
           set -ux
@@ -199,6 +184,28 @@ jobs:
               ${DEBOS_VARIANT_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
+      - name: Extract unstripped vmlinux from the kernel debug package
+        run: |
+          set -ux
+          case "$KERNEL_PACKAGES" in
+            # kernels built from EFS are installed from the packages copied to
+            # the local APT repo above, so extract vmlinux from the -dbg
+            # package sitting next to them; the image installs the
+            # highest-version kernel found there
+            efs/*)
+              kernel_deb="$(find local-apt-repo/kernel -type f -name 'linux-image-[0-9]*.deb' -not -name '*-dbg_*'|sort -V|tail -n1)"
+              ci/vmlinux/extract-vmlinux.sh --optional "$kernel_deb" vmlinux
+              ;;
+            # kernels installed from an APT repository (e.g.
+            # linux-image-qcom-next from the Qualcomm Linux repository) only
+            # ship vmlinux in a -dbg package, which has to be downloaded first
+            *)
+              debos \
+                  --print-recipe \
+                  ci/vmlinux/download-vmlinux.yaml
+              ;;
+          esac
 
       - name: Build UFS and SD card images with debos
         run: |
@@ -229,8 +236,8 @@ jobs:
           gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
-          # to facilitate debugging oops/panic backtraces; absent when the kernel
-          # comes from APT rather than from an EFS kernel build.
+          # to facilitate debugging oops/panic backtraces; absent when neither
+          # the EFS kernel build nor a kernel debug package provided one.
           if [ -f vmlinux ]; then
               gzip -c vmlinux >"${dir}/${PREFIX}-vmlinux.gz"
           fi
