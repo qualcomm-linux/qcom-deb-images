@@ -280,6 +280,9 @@ revision of the tree it packages and publishes, so the version of
 the newest `qcom-next-*` tag; run `apt policy linux-image-qcom-next` in an
 image to see which version it has.
 
+To install the kernel from the Debian archive instead, see
+[Build a vanilla Debian image](#build-a-vanilla-debian-image) below.
+
 You can also build a kernel yourself, for instance to test a local change or to
 compare `qcom-next` against `mainline` or `linux-next`.
 
@@ -318,6 +321,26 @@ the root filesystem:
 ```bash
 EXTRA_DEBOS_OPTS="-t localdebs:local-debs/ -t kernelpackages:none" make rootfs.tar
 ```
+
+## Build a vanilla Debian image
+
+The images built by default are Debian plus the Qualcomm Linux additions:
+additional Qualcomm-provided packages and the `linux-image-qcom-next` kernel
+package from the Qualcomm Linux APT repository, which the image keeps
+configured so that it can be upgraded from later on.
+
+To build an image without the Qualcomm-provided packages or the Qualcomm Linux
+APT repository configured and the kernel from the Debian archive, run:
+
+```bash
+EXTRA_DEBOS_OPTS="-t kernelpackages:linux-image-arm64 -t qliaptrepo:false" make rootfs.tar
+```
+
+The result is a plain Debian root filesystem: every package in it comes from
+the Debian archive and the image has no Qualcomm Linux APT sources so it will
+never pull a Qualcomm Linux package on upgrade. Expect reduced hardware support
+compared to the default image, as the Debian kernel does not carry the
+Qualcomm platform patches which `linux-image-qcom-next` does.
 
 ## Development
 
