@@ -49,6 +49,10 @@ jobs:
           - suite: trixie
             variant: weston-multimedia
             profile: performance
+          # build the debug profile image
+          - suite: trixie
+            variant: weston-multimedia
+            profile: debug
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
@@ -96,6 +100,9 @@ jobs:
           # test the performance profile image
           - suite: trixie
             artifact_prefix: trixie-weston-multimedia-performance
+          # test the debug profile image
+          - suite: trixie
+            artifact_prefix: trixie-weston-multimedia-debug
     uses: ./.github/workflows/lava-test.yml
     needs: build
     permissions:
