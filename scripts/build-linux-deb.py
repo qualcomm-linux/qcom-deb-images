@@ -337,4 +337,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        fatal("Interrupted")
+    except subprocess.CalledProcessError as e:
+        cmd = " ".join(str(arg) for arg in e.cmd)
+        fatal(f"Command failed with exit status {e.returncode}: {cmd}")
