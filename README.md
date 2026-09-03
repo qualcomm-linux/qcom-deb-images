@@ -255,6 +255,13 @@ The following profiles are supported:
 - `performance`: appends `quiet systemd.tty.term.console=linux` to the kernel
   command line, so that the kernel doesn't print the boot log to the (slow)
   console. It uses the default kernel configuration. Based on [meta-qcom's `ci/performance.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml).
+- `debug`: **not ready for use yet**; it still installs the default kernel, so
+  it is not a debug image. It depends on the custom `qcom-next-debug` kernel
+  package which is still pending. What it does so far is enable ftrace at boot
+  by appending `ftrace=tracing_on trace_buf_size=5M trace_event=<events>` to the
+  kernel command line, where `<events>` covers the timer, irq, workqueue, sched,
+  power, regulator, thermal and rpmh tracepoints of interest; see the image recipe
+  for the exact list. Based on [meta-qcom's `ci/debug.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/debug.yml).
 
 ### Flash the image
 
