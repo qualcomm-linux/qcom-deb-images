@@ -254,6 +254,26 @@ The following profiles are supported:
 - `performance`: appends `quiet systemd.tty.term.console=dumb` to the kernel
   command line, so that the kernel doesn't print the boot log to the (slow)
   console. It uses the default kernel configuration. Based on [meta-qcom's `ci/performance.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml).
+- `debug`: **not ready for use yet**; it still installs the default kernel, so
+  it is not a debug image. It depends on the custom `qcom-next-debug` kernel
+  package which is still pending. What it does so far is:
+  - enable ftrace at boot by appending
+    `ftrace=tracing_on trace_buf_size=5M trace_event=<events>` to the kernel
+    command line, where `<events>` covers the timer, irq, workqueue, sched,
+    power, regulator, thermal and rpmh tracepoints of interest; see the image
+    recipe for the exact list;
+  - append `qcom_scm.download_mode=1` to the kernel command line, so that a
+    crash leaves a memory dump to collect rather than silently rebooting;
+  - set `RuntimeWatchdogSec=30s` in `/etc/systemd/system.conf.d/`, so that
+    systemd pings the hardware watchdog and a hang resets the board (and, with
+    download mode above, produces a dump).
+
+  Note that with download mode enabled a board that crashes comes back up in
+  EDL waiting for a host to collect the dump, rather than rebooting; recover it
+  with a power cycle.
+
+  Based on [meta-qcom's `ci/debug.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/debug.yml)
+  and [`ci/base.yml`](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/base.yml).
 
 ### Flash the image
 

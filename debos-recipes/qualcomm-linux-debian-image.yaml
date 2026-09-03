@@ -11,7 +11,7 @@
 
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
-{{- $allowed_profiles := list "default" "performance" }}
+{{- $allowed_profiles := list "default" "performance" "debug" }}
 {{- if not (has $profile $allowed_profiles) }}
 {{- fail (printf "unknown profile %q" $profile) }}
 {{- end }}
@@ -28,6 +28,55 @@
 # initramfs-tools does not support it.
 {{- if eq $profile "performance" }}
 {{- $kernelcmdline = printf "%s quiet systemd.tty.term.console=dumb" $kernelcmdline }}
+{{- end }}
+
+
+# The debug profile enables ftrace from early boot so events leading up to an
+# early hang or slow boot are captured before userspace starts. It also enables
+# Qualcomm download mode so crashes and watchdog resets can leave a memory dump
+# for debugging.
+#
+# This mirrors meta-qcom's debug variant:
+# https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/debug.yml
+# commit: 178c74449bf68ca6ada5fb6774f492d498e04d7d
+#
+# and its base configuration:
+# https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/base.yml
+# commit: 46a730e80ee0f50673e286051ff439d1031198fb
+#
+# Unlike meta-qcom, qcom_scm.download_mode=1 and the systemd hardware watchdog
+# are enabled only for the debug profile.
+#
+# The profile is not complete yet: images currently consume a prebuilt kernel
+# package and the debug image still installs the default kernel. The additional
+# kernel debug options remain unavailable until the qcom-next-debug kernel
+# package from is integrated.
+{{- if eq $profile "debug" }}
+# Keep trace events grouped by subsystem for readability, then combine them into
+# the comma-separated trace_event= value used by meta-qcom's
+# KERNEL_CMDLINE_EXTRA_FTRACE.
+{{- $traceevents := "timer:timer_expire_entry,timer:timer_expire_exit" }}
+{{- $traceevents = printf "%s,timer:hrtimer_cancel,timer:hrtimer_expire_entry,timer:hrtimer_expire_exit,timer:hrtimer_init,timer:hrtimer_start" $traceevents }}
+{{- $traceevents = printf "%s,irq:*" $traceevents }}
+{{- $traceevents = printf "%s,workqueue:*" $traceevents }}
+{{- $traceevents = printf "%s,sched:sched_migrate_task,sched:sched_pi_setprio,sched:sched_switch,sched:sched_wakeup,sched:sched_wakeup_new" $traceevents }}
+{{- $traceevents = printf "%s,power:clock_set_rate,power:clock_enable,power:clock_disable,power:cpu_frequency" $traceevents }}
+{{- $traceevents = printf "%s,regulator:*" $traceevents }}
+{{- $traceevents = printf "%s,thermal:thermal_zone_trip,thermal:thermal_temperature,thermal:cdev_update" $traceevents }}
+{{- $traceevents = printf "%s,rpmh:rpmh_send_msg" $traceevents }}
+{{- $kernelcmdline = printf "%s ftrace=tracing_on trace_buf_size=5M trace_event=%s" $kernelcmdline $traceevents }}
+
+# download mode is what makes a crash inspectable at all: with it set, qcom_scm
+# leaves SDI (and the TrustZone watchdog debug path) enabled, so a panic or a
+# watchdog bite halts in the firmware with DDR preserved and the board comes
+# back up in EDL for the host to pull a full dump, rather than warm resetting
+# straight back into Linux with the evidence gone.
+#
+# this is deliberately not in the default and performance profiles: a board
+# that crashes stays down until it is dumped or power cycled (a clean reboot or
+# shutdown clears the mode, an unclean one does not), and while it sits in EDL
+# anyone with a USB cable can read all of DDR out of it.
+{{- $kernelcmdline = printf "%s qcom_scm.download_mode=1" $kernelcmdline }}
 {{- end }}
 
 architecture: arm64
@@ -55,6 +104,27 @@ actions:
       set -eux
       mkdir -pv /etc/kernel
       echo "{{ $dtb }}" >/etc/kernel/devicetree
+{{- end }}
+
+{{- if eq $profile "debug" }}
+  - action: run
+    description: Enable systemd hardware watchdog (debug profile)
+    chroot: true
+    command: |
+      set -eux
+      # Have systemd ping /dev/watchdog so a hang resets the board. With
+      # qcom_scm.download_mode=1, the reset leaves a memory dump for debugging.
+      #
+      # Match meta-qcom's 30s timeout. This is close to the qcom-wdt hardware limit
+      # and avoids false watchdog bites during slow, verbose debug boots. Use a
+      # systemd drop-in rather than modifying Debian's packaged system.conf.
+      #
+      # Boards without a hardware watchdog are unaffected.
+      mkdir -pv /etc/systemd/system.conf.d
+      cat >/etc/systemd/system.conf.d/10-qcom-debug-watchdog.conf <<'EOF'
+      [Manager]
+      RuntimeWatchdogSec=30s
+      EOF
 {{- end }}
 
   # parttype values are from:
