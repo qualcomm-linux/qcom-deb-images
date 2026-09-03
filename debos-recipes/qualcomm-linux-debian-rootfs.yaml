@@ -4,7 +4,7 @@
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-{{- $kernelpackages := or .kernelpackages "linux-image-arm64" }}
+{{- $kernelpackages := or .kernelpackages "linux-image-qcom-next" }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}

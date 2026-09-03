@@ -49,10 +49,6 @@ jobs:
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
-      # QLI targets qcom-next; consume the debs published to EFS by the
-      # "qcom-next linux build" workflow rather than a kernel from an
-      # APT repository
-      kernelpackages: efs/qcom-next
 
   test:
     # don't run from forks of the main repository or from other branches;
