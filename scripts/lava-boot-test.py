@@ -55,6 +55,11 @@ from pathlib import Path
 
 DEFAULT_LAVA_HOST = "lava.infra.foundries.io"
 
+# a LAVA instance is a bare hostname, optionally with a port; keeping
+# --lava-host to that shape stops it from injecting a userinfo, path or
+# query into the URL api_call() builds
+HOST_RE = re.compile(r"\A[A-Za-z0-9.-]+(:[0-9]{1,5})?\Z")
+
 # stands in for {{GITHUB_REPOSITORY}} in the job metadata
 REPOSITORY = "qualcomm-linux/qcom-deb-images"
 
@@ -367,6 +372,8 @@ def local_commit():
 
 def api_call(host, path, token, payload=None, method=None):
     """Call the LAVA REST API v0.2; return (status, decoded body)."""
+    if not HOST_RE.match(host):
+        sys.exit(f"error: not a valid LAVA host: {host}")
     url = f"https://{host}/api/v0.2/{path}"
     data = None
     headers = {"Accept": "application/json"}
@@ -378,7 +385,13 @@ def api_call(host, path, token, payload=None, method=None):
     request = urllib.request.Request(
         url, data=data, headers=headers, method=method
     )
+    # the scheme is a literal above and the host is validated, so this can
+    # only ever be an https request, never a local file; belt and braces in
+    # case the URL grows more moving parts later
+    if request.type != "https":
+        sys.exit(f"error: refusing to call non-https URL: {url}")
     try:
+        # nosemgrep
         with urllib.request.urlopen(request) as response:
             body = response.read().decode(errors="replace")
             status = response.status
