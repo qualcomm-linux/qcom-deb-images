@@ -68,13 +68,18 @@ jobs:
     with:
       url: ${{ needs.build-debian.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
-      # qrb2210-rb1 testing is disabled until it can be resurrected; see #424
-      # glymur-crd can't boot the distro kernel, only qcom-next
-      # monaco-arduino-monza, monaco-evk and qrb2210-arduino-imola only
-      # validated against the linux-next/qcom-next/arduino
-      # kernels so far, not the distro kernel; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
-      boards_exclude: '["glymur-crd", "lemans-evk", "monaco-arduino-monza", "monaco-evk", "qcs615-ride", "qcs8300-ride", "qrb2210-arduino-imola", "qrb2210-rb1"]'
+      # boards below were last manually checked on 2026-09-04 by boot testing
+      # the trixie and forky images from build 33744987559-1 with linux debs
+      # 7.1.8-1~bpo13+1 and 7.1.12-1; both suites have the same gaps:
+      # - glymur-crd flashes fine but no linux output
+      # - qrb2210-rb1 starts linux but it stops in initramfs on trixie and
+      #   goes in a boot loop on forky; see #424
+      # - qrb2210-arduino-imola probably starts linux on trixie, but doesn't
+      #   reach console output, and goes in a boot loop on forky
+      # - monaco-arduino-monza, monaco-evk and qcs8300-ride do boot the
+      #   distro kernel, but wlan-smoke fails on them (no WLAN interface, or
+      #   it never comes up), so they stay out until WLAN works; see #440
+      boards_exclude: '["glymur-crd", "monaco-arduino-monza", "monaco-evk", "qcs8300-ride", "qrb2210-arduino-imola", "qrb2210-rb1"]'
       # failures here are about upstream Debian, not about qcom-deb-images;
       # they are reported through this workflow instead of gating our work
       report_test_results_externally: false
