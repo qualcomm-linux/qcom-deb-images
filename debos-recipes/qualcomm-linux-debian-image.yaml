@@ -80,11 +80,18 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Enable snapshot sources for image build
+    description: Pin APT to the snapshot archive
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle enable
+      # /etc/buildinfo carries the timestamp forward from the rootfs build via
+      # rootfs.tar; the pin itself was removed at the end of that build, so it
+      # is recreated here rather than merely re-enabled.
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+      tee /etc/apt/apt.conf.d/99snapshot <<EOF
+      APT::Snapshot "${SNAPSHOT}";
+      Acquire::Check-Valid-Until "false";
+      EOF
       apt-get update
 {{- end }}
 
@@ -155,13 +162,11 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Restore APT sources to live mirrors and clean up snapshot helpers
+    description: Remove APT snapshot pin
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle disable
-      rm -f /etc/apt/sources.list.d/snapshot_*.sources
-      rm -f /usr/local/bin/apt-snapshot-toggle
+      rm -f /etc/apt/apt.conf.d/99snapshot
 {{- end }}
 
   - action: run
