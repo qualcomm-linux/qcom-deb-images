@@ -60,6 +60,9 @@ env:
   #
   # All builds in a workflow run upload to the same S3 directory so this prefix
   # identifies the artifacts for a particular suite/variant combination.
+  #
+  # lava-test.yml derives the same prefix when selecting an image to boot; keep
+  # the two expressions in sync.
   ARTIFACT_PREFIX: >-
     ${{ format(
       '{0}{1}',
