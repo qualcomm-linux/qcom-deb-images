@@ -168,6 +168,9 @@ For the image recipe:
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
+- `profile`: select the intended runtime configuration of the image; defaults to
+  `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
+  `default`. See the *Supported profiles* section below.
 
 For the flash recipe:
 
@@ -231,6 +234,23 @@ Here is the list of supported overlays:
         Special value to disable all overlays; this is the default.
     </dd>
 </dl>
+
+#### Supported profiles
+
+A profile selects the intended runtime configuration of the image. It is passed
+to the image recipe with `-t profile:<profile>`, e.g.:
+
+```bash
+make EXTRA_DEBOS_OPTS="-t profile:<profile>" disk-ufs.img
+```
+
+If no profile is passed, the `default` profile is used; there is no need to pass
+`-t profile:default`. The root filesystem is profile-independent, so the same
+`rootfs.tar` can be used to build every profile.
+
+The following profiles are supported:
+
+- `default`: the default profile; no additional configuration is applied.
 
 ### Flash the image
 
