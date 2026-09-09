@@ -58,7 +58,7 @@ env:
 
 jobs:
   build-debos:
-    name: Build and upload debos recipes (${{ inputs.variant && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
+    name: "Build and upload debos recipes (suite: ${{ inputs.suite }}, variant: ${{ inputs.variant || 'default' }})"
     permissions:
       contents: read # actions/checkout
     outputs:
