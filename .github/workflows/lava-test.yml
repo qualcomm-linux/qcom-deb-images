@@ -48,7 +48,6 @@ permissions: {}
 env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
-  SUITE: ${{ inputs.suite }}
   # Filename prefix for the artifacts. Must stay in sync with debos.yml.
   ARTIFACT_PREFIX: >-
     ${{ format(
@@ -146,16 +145,10 @@ jobs:
         run: |
           # e.g. qrb2210-rb1/boot.yaml
           TEMPLATE="${LAVA_CI}${TARGET}"
-          # left-side – e.g. qrb2210-rb1
-          DEVICE_TYPE="${TARGET%/*}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="unused"
           sed \
               -e "s|{{ARTIFACT_PREFIX}}|${ARTIFACT_PREFIX}|g" \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
-              -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
-              -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
-              -e "s|{{SUITE}}|${SUITE}|g" \
               -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
               -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
