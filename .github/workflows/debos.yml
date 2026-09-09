@@ -31,6 +31,15 @@ on:
           other. Empty or "default" builds the default image.
         type: string
         default: default
+      profile:
+        description: >
+          Name of the image profile to build; it selects the intended runtime
+          configuration of the image and is appended to the name of every
+          published artifact, so that profiles of the same suite and variant
+          don't overwrite each other. Empty or "default" builds the default
+          profile.
+        type: string
+        default: default
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -54,26 +63,33 @@ env:
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
 
-  # Filename prefix for all published artifacts: "<suite>[-<variant>]".
+  # Filename prefix for all published artifacts:
+  # "<suite>[-<variant>][-<profile>]".
   #
-  # The variant is omitted when it is "default".
+  # The variant and the profile are omitted when they are "default".
   #
   # All builds in a workflow run upload to the same S3 directory so this prefix
-  # identifies the artifacts for a particular suite/variant combination.
+  # identifies the artifacts for a particular suite/variant/profile combination.
   #
   # lava-test.yml derives the same prefix when selecting an image to boot; keep
   # the two expressions in sync.
   ARTIFACT_PREFIX: >-
     ${{ format(
-      '{0}{1}',
+      '{0}{1}{2}',
       inputs.suite,
       (inputs.variant && inputs.variant != 'default') &&
-        format('-{0}', inputs.variant) || ''
+        format('-{0}', inputs.variant) || '',
+      (inputs.profile && inputs.profile != 'default') &&
+        format('-{0}', inputs.profile) || ''
     ) }}
 
 jobs:
   build-debos:
-    name: "Build and upload debos recipes (suite: ${{ inputs.suite }}, variant: ${{ inputs.variant || 'default' }})"
+    name: >-
+      Build and upload debos recipes
+      (suite: ${{ inputs.suite }},
+      variant: ${{ inputs.variant || 'default' }},
+      profile: ${{ inputs.profile || 'default' }})
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -111,6 +127,26 @@ jobs:
           esac
           # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
           echo "DEBOS_VARIANT_ARGS=${variant_args}" >>"$GITHUB_ENV"
+
+      - name: Validate profile
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          set -u
+          # an empty profile input builds the default profile
+          PROFILE="${PROFILE:-default}"
+          # keep this list in sync with the list in the "Supported profiles"
+          # section of README.md
+          case "$PROFILE" in
+            default)
+              ;;
+            *)
+              echo "ERROR: unknown profile '${PROFILE}'" >&2
+              exit 1
+              ;;
+          esac
+          # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
+          echo "DEBOS_PROFILE_ARGS=-t profile:${PROFILE}" >>"$GITHUB_ENV"
 
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
@@ -212,6 +248,7 @@ jobs:
               -t "buildid:${BUILD_ID}" \
               ${DEBOS_EXTRA_ARGS} \
               ${DEBOS_VARIANT_ARGS} \
+              ${DEBOS_PROFILE_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
@@ -224,13 +261,13 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS} ${DEBOS_PROFILE_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |

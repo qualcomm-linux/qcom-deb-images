@@ -16,6 +16,12 @@ on:
           "default" chooses the default variant.
         type: string
         default: default
+      profile:
+        description: >
+          Name of the image profile to test (e.g. debug). Empty or "default"
+          chooses the default profile.
+        type: string
+        default: default
       boards_include:
         description: JSON array of board names to include (empty = all boards)
         type: string
@@ -52,10 +58,12 @@ env:
   # with test-on-pr.yml, which recovers it from the job details filename.
   ARTIFACT_PREFIX: >-
     ${{ format(
-      '{0}{1}',
+      '{0}{1}{2}',
       inputs.suite,
       (inputs.variant && inputs.variant != 'default') &&
-        format('-{0}', inputs.variant) || ''
+        format('-{0}', inputs.variant) || '',
+      (inputs.profile && inputs.profile != 'default') &&
+        format('-{0}', inputs.profile) || ''
     ) }}
   BOARDS_INCLUDE: ${{ inputs.boards_include }}
   BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
