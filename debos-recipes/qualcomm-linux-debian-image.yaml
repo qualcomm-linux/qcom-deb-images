@@ -3,18 +3,18 @@
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $snapshot := or .snapshot "" }}
+
+{{- $buildid := or .buildid "" }}
+{{- $snapshot := or .snapshot "" }}
+{{- $variant := or .variant "default" }}
 {{- $profile := or .profile "default" }}
 
 # kernel command line appended by the filesystem-deploy action below
 # XXX these kernel options might be specific to a kernel version or board
 {{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
 
-# Validate $profile; keep this list in sync with the list in the
-# "Supported profiles" section of README.md
-{{- $allowed_profiles := list "default" "performance" "debug" }}
-{{- if not (has $profile $allowed_profiles) }}
-{{- fail (printf "unknown profile %q" $profile) }}
-{{- end }}
+
+# TODO: move profile bits into its own recipe....
 
 
 # The performance profile keeps the kernel serial console quiet to avoid the
@@ -87,14 +87,23 @@ actions:
     description: Unpack root filesystem
     file: rootfs.tar
 
-{{- if ne $profile "default" }}
+  # Ensure we're building with the same configuration the rootfs was built with
+  # TODO: mention this in the README.
   - action: run
-    description: Record profile in /etc/buildinfo
+    description: Validate rootfs build configuration
     chroot: true
     command: |
-      set -eux
-      echo "PROFILE={{ $profile }}" >>/etc/buildinfo
-{{- end }}
+      set -eu
+      check() {
+        [ "$2" = "$3" ] || {
+          echo "ERROR: $1 mismatch: rootfs='$2', requested='$3'" >&2
+          exit 1
+        }
+      }
+      check BUILD_ID "${BUILD_ID:-}" "{{$buildid}}"
+      check VARIANT_ID "${VARIANT_ID:-default}" "{{$variant}}"
+      check PROFILE "${PROFILE:-default}" "{{$profile}}"
+      check SNAPSHOT "${SNAPSHOT:-}" "{{$snapshot}}"
 
 {{- if ne $dtb "firmware" }}
   - action: run
