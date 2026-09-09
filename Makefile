@@ -44,6 +44,27 @@ else
 	DEBOS_CMD := debos $(DEBOS_OPTS)
 endif
 
+# AUTO_INSTALL_DEPS=yes lets the dependency check install missing packages
+# instead of failing; off by default so a local build never installs without
+# being asked. CI installs everything up front instead (see debos.yml); the
+# throwaway container can't install (non-root), so the check is skipped there.
+AUTO_INSTALL_DEPS ?= no
+CHECK_INSTALL := $(if $(filter yes,$(AUTO_INSTALL_DEPS)),--install,)
+
+# $(call run_debos,<use-case>,<recipe>[,<extra debos opts>])
+# Native builds validate (or install) the use-case's host dependencies before
+# running debos. The container path runs debos directly; provisioning the
+# throwaway container's tools is a separate, image-level concern.
+ifeq ($(USE_CONTAINER),yes)
+define run_debos
+$(DEBOS_CMD) $(3) $(2)
+endef
+else
+define run_debos
+scripts/check-deps.sh $(CHECK_INSTALL) $(1) && $(DEBOS_CMD) $(3) $(2)
+endef
+endif
+
 # Use http_proxy from the environment, or apt's http_proxy if set, to speed up
 # builds.
 http_proxy ?= $(shell apt-config dump --format '%v%n' Acquire::http::Proxy)
@@ -53,30 +74,30 @@ export http_proxy
 all: disk-ufs.img disk-sdcard.img
 
 rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
-	$(DEBOS_CMD) $<
+	$(call run_debos,rootfs,$<)
 
 DISK_UFS_IMAGES := disk-ufs.img \
 	disk-ufs.img1 \
 	disk-ufs.img2
 
 $(DISK_UFS_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) $<
+	$(call run_debos,image,$<)
 
 DISK_SDCARD_IMAGES := disk-sdcard.img \
 	disk-sdcard.img1 \
 	disk-sdcard.img2
 
 $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) -t imagetype:sdcard $<
+	$(call run_debos,image,$<,-t imagetype:sdcard)
 
 .PHONY: flash
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
-	$(DEBOS_CMD) $<
+	$(call run_debos,flash,$<)
 
 .PHONY: test
 test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
-	py.test-3 --ignore=rootfs
+	scripts/check-deps.sh $(CHECK_INSTALL) test && py.test-3 --ignore=rootfs
 
 .PHONY: clean
 clean:
