@@ -10,6 +10,24 @@ on:
         description: Distribution suite (e.g. trixie, forky)
         type: string
         default: trixie
+      kernel_version:
+        description: >
+          Kernel release string the image boots, i.e. uname -r (e.g.
+          7.3.0-rc2-next-20260907). Empty when the caller cannot know it.
+        type: string
+        default: ''
+      kernel_ref:
+        description: "Git ref the kernel was built from (e.g. next-20260907)"
+        type: string
+        default: ''
+      kernel_commit:
+        description: "Git commit the kernel was built from"
+        type: string
+        default: ''
+      kernel_repo:
+        description: "Git repository the kernel was built from"
+        type: string
+        default: ''
       boards_include:
         description: JSON array of board names to include (empty = all boards)
         type: string
@@ -43,6 +61,10 @@ env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
   SUITE: ${{ inputs.suite }}
+  KERNEL_VERSION: ${{ inputs.kernel_version }}
+  KERNEL_REF: ${{ inputs.kernel_ref }}
+  KERNEL_COMMIT: ${{ inputs.kernel_commit }}
+  KERNEL_REPO: ${{ inputs.kernel_repo }}
   BOARDS_INCLUDE: ${{ inputs.boards_include }}
   BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
 
@@ -136,8 +158,19 @@ jobs:
           DEVICE_TYPE="${TARGET%/*}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
           BUILD_FILE_NAME="unused"
+          # link back from the LAVA job to the workflow run that submitted it
+          GITHUB_RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # the version identifies the kernel; fall back to a marker rather
+          # than leaving a hole in the name when a caller cannot supply it
+          KERNEL_LABEL="${KERNEL_VERSION:-unknown-kernel}"
           sed \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
+              -e "s|{{KERNEL_LABEL}}|${KERNEL_LABEL}|g" \
+              -e "s|{{KERNEL_VERSION}}|${KERNEL_VERSION}|g" \
+              -e "s|{{KERNEL_REF}}|${KERNEL_REF}|g" \
+              -e "s|{{KERNEL_COMMIT}}|${KERNEL_COMMIT}|g" \
+              -e "s|{{KERNEL_REPO}}|${KERNEL_REPO}|g" \
+              -e "s|{{GITHUB_RUN_URL}}|${GITHUB_RUN_URL}|g" \
               -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
               -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
               -e "s|{{SUITE}}|${SUITE}|g" \
