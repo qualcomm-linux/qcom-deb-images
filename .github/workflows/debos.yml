@@ -30,7 +30,7 @@ on:
           artifact, so that variants of the same suite don't overwrite each
           other. Empty or "default" builds the default image.
         type: string
-        default: ''
+        default: default
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
