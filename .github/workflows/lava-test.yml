@@ -48,7 +48,8 @@ permissions: {}
 env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
-  # Filename prefix for the artifacts. Must stay in sync with debos.yml.
+  # Filename prefix for the artifacts. Must stay in sync with debos.yml, and
+  # with test-on-pr.yml, which recovers it from the job details filename.
   ARTIFACT_PREFIX: >-
     ${{ format(
       '{0}{1}',
