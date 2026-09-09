@@ -768,6 +768,49 @@ actions:
 {{- end }}
 {{- end }}
 
+  # record what was installed while dpkg is right here and can be asked; the
+  # image then carries its own identity, for the CI that submits LAVA jobs and
+  # for anyone debugging a board later
+  - action: run
+    description: Record kernel and OS versions in /etc/buildinfo
+    chroot: true
+    command: |
+      set -eux
+      kernel_image=$(ls -1 /boot/vmlinuz-* 2>/dev/null | head -1 || true)
+      if [ -n "${kernel_image}" ]; then
+          kernel_version=${kernel_image#/boot/vmlinuz-}
+          echo "KERNEL_VERSION=${kernel_version}" >>/etc/buildinfo
+          echo "KERNEL_DEB_VERSION=$(dpkg-query -W -f '${Version}' \
+              "linux-image-${kernel_version}")" >>/etc/buildinfo
+      fi
+      . /etc/os-release
+      echo "OS_VERSION=${VERSION_CODENAME:-${VERSION_ID:-${ID}}}" >>/etc/buildinfo
+      # the Qualcomm kernel packages record where they were built from; see
+      # qualcomm-linux/pkg-linux-qcom. Packages built without it (Debian's own
+      # kernel, or bindeb-pkg builds) simply have no such lines.
+      changelog="/usr/share/doc/linux-image-${kernel_version}/changelog.Debian.gz"
+      if [ -n "${kernel_image}" ] && [ -f "${changelog}" ]; then
+          source_line=$(zcat "${changelog}" |
+                            sed -n 's/^ *\* Source: *//p' | head -1)
+          commit=$(zcat "${changelog}" |
+                       sed -n 's/^ *\* Commit: *//p' | head -1)
+          # "Source: <repo> <ref>", either part possibly absent
+          repo=${source_line%% *}
+          ref=""
+          case "${source_line}" in
+          *\ *) ref=${source_line#* } ;;
+          esac
+          if [ -n "${repo}" ]; then
+              echo "KERNEL_REPO=${repo}" >>/etc/buildinfo
+          fi
+          if [ -n "${ref}" ]; then
+              echo "KERNEL_REF=${ref}" >>/etc/buildinfo
+          fi
+          if [ -n "${commit}" ]; then
+              echo "KERNEL_COMMIT=${commit}" >>/etc/buildinfo
+          fi
+      fi
+
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions
   - action: apt
