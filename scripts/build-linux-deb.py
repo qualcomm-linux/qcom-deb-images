@@ -140,6 +140,8 @@ def check_dependencies():
         "rsync",
         # for nproc
         "coreutils",
+        # used to generate kernel BTF debug information
+        "dwarves",
     ]
 
     log_i(f"Checking build-dependencies ({' '.join(packages)})")
@@ -186,13 +188,17 @@ def main():
         help=("Path to an existing Linux kernel source tree;"
               " if not set, the repo will be cloned into ./linux"),
     )
-
     parser.add_argument(
         "fragments",
         metavar="FRAGMENT",
         type=str,
         nargs="*",
-        help="Config fragments to merge",
+        help="Config fragments to merge with defconfig",
+    )
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Skip building; just configure the source",
     )
 
     # Use parse_known_args to allow fragments before and after flags
@@ -225,13 +231,13 @@ def main():
 
     check_dependencies()
 
+    linux_dir = Path("linux")
     if args.local_dir:
         linux_dir = Path(args.local_dir)
         if not linux_dir.exists():
             fatal(f"Provided --local-dir '{linux_dir}' does not exist")
         log_i(f"Using existing kernel source at {linux_dir}")
     else:
-        linux_dir = Path("linux")
         log_i(f"Cloning Linux ({args.repo}:{args.ref}) into {linux_dir}")
         subprocess.run(
             [
@@ -249,7 +255,8 @@ def main():
     log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
     # directory to store local config fragments so they can be picked up by
     # kbuild
-    local_conf_dir = linux_dir / "kernel" / "configs"
+    tree_conf_dir = Path("kernel") / "configs"
+    local_conf_dir = linux_dir / tree_conf_dir
     local_conf_dir.mkdir(parents=True, exist_ok=True)
 
     config_targets = []
@@ -258,15 +265,17 @@ def main():
         if Path(fragment).exists():
             # Create a unique name for the local fragment
             local_frag_name = f"local_{i}.config"
+            tree_path = tree_conf_dir / local_frag_name
             dest_path = local_conf_dir / local_frag_name
 
-            log_i(f"Copying local fragment {fragment} to {dest_path}")
+            log_i(f"Copying local fragment {fragment} into source tree"
+                  f" {tree_path}")
             with open(fragment, "r", encoding="utf-8") as f_in:
                 content = f_in.read()
             with open(dest_path, "w", encoding="utf-8") as f_out:
                 f_out.write(content)
 
-            config_targets.append(f"kernel/configs/{local_frag_name}")
+            config_targets.append(str(tree_path))
         elif (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
             log_i(f"Using config fragment from repo: {fragment}")
             config_targets.append(f"arch/arm64/configs/{fragment}")
@@ -299,7 +308,7 @@ def main():
         subprocess.run(
             merge_command,
             check=True,
-            cwd="linux",
+            cwd=linux_dir,
             env={"ARCH": "arm64", **subprocess.os.environ}
         )
 
@@ -307,8 +316,12 @@ def main():
         subprocess.run(
             make_base_command + ["olddefconfig"],
             check=True,
-            cwd="linux"
+            cwd=linux_dir
         )
+
+    if args.skip_build:
+        log_i("Kernel source configured; skipping build as requested")
+        return
 
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
