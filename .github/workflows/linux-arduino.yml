@@ -35,7 +35,7 @@ jobs:
       # https://github.com/linux-msm/hexagon-dsp-binaries/pull/59
       # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
-      debos_extra_args: '-t overlays:workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
+      overlays: 'workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
       # the boards tested come from .github/lava-boards.yml, under arduino
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
