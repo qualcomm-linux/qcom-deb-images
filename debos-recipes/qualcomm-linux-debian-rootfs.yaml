@@ -205,15 +205,15 @@ actions:
 {{- $backportpackages := list
       "src:alsa-lib:any"
       "src:alsa-ucm-conf:any"
-      "src:efivar"
-      "src:fastrpc"
+      "src:efivar:any"
+      "src:fastrpc:any"
       "src:firmware-free:any"
       "src:firmware-nonfree:any"
-      "src:hexagon-dsp-binaries"
+      "src:hexagon-dsp-binaries:any"
       "src:linux:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
-      "src:u-boot-efi-dtb"
+      "src:u-boot-efi-dtb:any"
       "src:wireplumber:any" }}
 
   - action: run
