@@ -181,7 +181,7 @@ For the flash recipe:
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
 
 Deprecated flash options:
-- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
+- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
 
