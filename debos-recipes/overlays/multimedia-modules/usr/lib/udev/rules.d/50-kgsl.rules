@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="kgsl", KERNEL=="kgsl-3d0", OWNER="root", GROUP="video", MODE="0660"

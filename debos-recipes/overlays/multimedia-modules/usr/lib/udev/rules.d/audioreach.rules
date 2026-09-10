@@ -1,0 +1,2 @@
+KERNEL=="msm_audio_mem", GROUP="audio", MODE="0660"
+KERNEL=="aud_pasthru_adsp", GROUP="audio", MODE="0660"

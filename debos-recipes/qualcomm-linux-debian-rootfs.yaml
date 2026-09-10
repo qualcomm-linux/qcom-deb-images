@@ -785,6 +785,32 @@ actions:
       # CamX - only firmware available for now
       - camx-firmware-glymur
       - camx-firmware-hamoa
+
+  # TODO: The kernel package doesn't install the configuration provided by dkms packages (e.g. modprobe, udev rules)
+  # so for now manually ship the configuration. See https://github.com/qualcomm-linux/pkg-linux-qcom/issues/105
+  - action: overlay
+    description: Configure out-of-tree modules
+    source: overlays/multimedia-modules
+
+{{- else }}
+
+  # TODO: Either make the out-of-tree modules opt in or ship this config with the
+  # kernel package instead; see https://github.com/qualcomm-linux/pkg-linux-qcom/issues/105
+  - action: run
+    description: Disable out-of-tree modules
+    chroot: true
+    command: |
+      set -eux
+      cat > /etc/modprobe.d/disable-out-of-tree.conf <<EOF
+      # Disable out-of-tree modules
+      blacklist audioreach_driver
+      blacklist camera_qcm6490
+      blacklist camera_qcs615
+      blacklist camera_qcs9100
+      blacklist camera_x1e80100
+      blacklist iris_vpu
+      blacklist msm_kgsl
+      EOF
 {{- end }}
 
 {{- if ne $localdebs "none" }}
