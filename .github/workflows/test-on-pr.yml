@@ -61,6 +61,7 @@ jobs:
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
 
   test:
+    name: "Test (suite: ${{ matrix.suite }}, variant: ${{ matrix.variant }})"
     uses: ./.github/workflows/lava-test.yml
     permissions:
       checks: write
@@ -70,12 +71,16 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     needs: retrieve-build-url
+    strategy:
+      fail-fast: false
+      # Keep this matrix in sync with the build matrix in build-on-pr.yml; see #614.
+      matrix:
+        suite: [trixie, forky]
+        variant: [default, weston-multimedia]
     with:
       url: ${{ needs.retrieve-build-url.outputs.url }}
-      # trixie is default in lava-test so this is a no-op
-      # however the publish job below hard-codes this in its artifact
-      # download patterns, so keep them in sync if this changes.
-      suite: trixie
+      suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
 
@@ -91,20 +96,25 @@ jobs:
       # thollander/actions-comment-pull-request
       pull-requests: write
     steps:
-      # Scope to the test suite's current results so a re-run doesn't pull stale
-      # artifacts from superseded attempts and 404 on the orphaned ones. These
-      # patterns must match the names set in lava-test.yml (suite: trixie above).
-      - name: Download test results (latest per board)
+      # Generate a single report containing the results from all test jobs above,
+      # so collect all results from this PR run.
+      #
+      # Results are named "test-results-<board>-<image>" and the action
+      # deletes the previous same-named artifact before uploading, so only the
+      # latest per board and image ever exists and this cannot pick up a stale
+      # one. Job details keep the LAVA job id in their name and are never
+      # replaced, so they still have to be scoped to this run attempt.
+      - name: Download test results (latest per board, all images)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-trixie-*
+          pattern: test-results-*
 
-      - name: Download job details (this run attempt)
+      - name: Download job details (this run attempt, all images)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: trixie-${{ github.run_attempt }}-test-job-*
+          pattern: '*-${{ github.run_attempt }}-test-job-*'
 
       - name: Download event file
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -132,13 +142,22 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          # sorted so that the jobs of one image stay together in the comment
+          for json_file in $(find "$GITHUB_WORKSPACE" -name "*test-job-*.json" | sort)
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
               JOB_ID=$(cat "$json_file" | jq -r ".id")
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
-              echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
+              # more than one image is booted, so say which one this job ran.
+              # lava-action names the file "<ARTIFACT_PREFIX>-<run attempt>-test
+              # -job-<job id>.json"; keep in sync with lava-test.yml, which sets
+              # that name via test_job_file_name_prefix.
+              TEST_JOB_FILENAME=$(basename "$json_file" .json)
+              # strip the "-test-job-<job id>" then "-<run attempt>" tails
+              ARTIFACT_PREFIX="${TEST_JOB_FILENAME%-test-job-*}"
+              ARTIFACT_PREFIX="${ARTIFACT_PREFIX%-*}"
+              echo " * \`$ARTIFACT_PREFIX\`: [Job $JOB_ID on $DEVICE_TYPE]($URL)"
+              echo " * \`$ARTIFACT_PREFIX\`: [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
           done
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
