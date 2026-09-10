@@ -8,6 +8,14 @@ on:
         required: false
         type: string
         default: 'mainline'
+      overlays:
+        description: >
+          Comma-separated list of rootfs overlays to apply from
+          debos-recipes/overlays/ (e.g.
+          workaround-initramfs-firmware-monaco); "none" applies no overlay
+        required: false
+        type: string
+        default: 'none'
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         required: false
@@ -65,6 +73,13 @@ on:
     inputs:
       kernel_name:
         description: 'Name of the kernel to build (default: mainline)'
+        required: false
+        type: string
+      overlays:
+        description: >
+          Comma-separated list of rootfs overlays to apply from
+          debos-recipes/overlays/ (e.g.
+          workaround-initramfs-firmware-monaco); "none" applies no overlay
         required: false
         type: string
       debos_extra_args:
@@ -194,6 +209,7 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      overlays: ${{ inputs.overlays || 'none' }}
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
