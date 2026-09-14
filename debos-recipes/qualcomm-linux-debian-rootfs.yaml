@@ -213,6 +213,7 @@ actions:
       "src:linux:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
+      "src:thermald:any"
       "src:u-boot-efi-dtb:any"
       "src:wireplumber:any" }}
 
@@ -402,6 +403,8 @@ actions:
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
+      # power management, notably throttling
+      - thermald
       # TFTP server implementation for the QRTR protocol; needed for WiFi on
       # some ath10k devices such as on RB1
       - tqftpserv
