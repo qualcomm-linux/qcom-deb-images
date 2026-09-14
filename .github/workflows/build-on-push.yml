@@ -38,5 +38,11 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
+      # identical across the debos matrix legs; see build.yml
+      kernel_version: ${{ needs.build.outputs.kernel_version }}
+      # recorded in the image from the kernel package's own changelog
+      kernel_repo: ${{ needs.build.outputs.kernel_repo }}
+      kernel_ref: ${{ needs.build.outputs.kernel_ref }}
+      kernel_commit: ${{ needs.build.outputs.kernel_commit }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'

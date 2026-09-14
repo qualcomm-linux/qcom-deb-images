@@ -74,9 +74,18 @@ actions:
 context:
   test_character_delay: 10
 device_type: monaco-evk
-job_name: smoke tests {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
+job_name: smoke tests {{KERNEL_LABEL}} {{SUITE}} {{GITHUB_REPOSITORY}} {{GITHUB_RUN_ID}}-{{GITHUB_RUN_ATTEMPT}}
 metadata:
+  # placeholders are substituted by .github/workflows/lava-test.yml;
+  # keep this list in sync with the sed there
   build-commit: '{{GITHUB_SHA}}'
+  kernel-version: '{{KERNEL_VERSION}}'
+  kernel-ref: '{{KERNEL_REF}}'
+  kernel-commit: '{{KERNEL_COMMIT}}'
+  kernel-repo: '{{KERNEL_REPO}}'
+  suite: '{{SUITE}}'
+  build-url: '{{BUILD_DOWNLOAD_URL}}'
+  ci-run-url: '{{GITHUB_RUN_URL}}'
 priority: 50
 timeouts:
   job:

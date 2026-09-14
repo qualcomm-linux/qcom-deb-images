@@ -41,6 +41,27 @@ on:
       artifacts_url:
         description: "URL to retrieve build artifacts"
         value: ${{ jobs.build-debos.outputs.url }}
+      kernel_version:
+        description: >
+          Kernel release string of the kernel installed in the image, i.e.
+          what uname -r reports on the booted board (e.g.
+          7.3.0-rc2-next-20260907)
+        value: ${{ jobs.build-debos.outputs.kernel_version }}
+      kernel_deb_version:
+        description: "dpkg version of the installed linux-image package"
+        value: ${{ jobs.build-debos.outputs.kernel_deb_version }}
+      os_version:
+        description: "Debian version of the image (from /etc/os-release)"
+        value: ${{ jobs.build-debos.outputs.os_version }}
+      kernel_repo:
+        description: "Git repository the installed kernel was built from"
+        value: ${{ jobs.build-debos.outputs.kernel_repo }}
+      kernel_ref:
+        description: "Git ref the installed kernel was built from"
+        value: ${{ jobs.build-debos.outputs.kernel_ref }}
+      kernel_commit:
+        description: "Git commit the installed kernel was built from"
+        value: ${{ jobs.build-debos.outputs.kernel_commit }}
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to
@@ -63,6 +84,12 @@ jobs:
       contents: read # actions/checkout
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
+      kernel_version: ${{ steps.versions.outputs.kernel_version }}
+      kernel_deb_version: ${{ steps.versions.outputs.kernel_deb_version }}
+      os_version: ${{ steps.versions.outputs.os_version }}
+      kernel_repo: ${{ steps.versions.outputs.kernel_repo }}
+      kernel_ref: ${{ steps.versions.outputs.kernel_ref }}
+      kernel_commit: ${{ steps.versions.outputs.kernel_commit }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
       image: public.ecr.aws/debian/debian:trixie
@@ -338,6 +365,24 @@ jobs:
           # every -o above writes to a file, so echo the table to the log too
           cat rootfs-vulns.grype.txt
 
+      # the rootfs recipe records these in /etc/buildinfo while it builds the
+      # image, so just read them back: no second opinion about what is
+      # installed, and the same file ships on the board
+      - name: Record image versions
+        id: versions
+        run: |
+          set -ux
+          . rootfs/etc/buildinfo
+          {
+              echo "kernel_version=${KERNEL_VERSION:-}"
+              echo "kernel_deb_version=${KERNEL_DEB_VERSION:-}"
+              echo "os_version=${OS_VERSION:-}"
+              echo "kernel_repo=${KERNEL_REPO:-}"
+              echo "kernel_ref=${KERNEL_REF:-}"
+              echo "kernel_commit=${KERNEL_COMMIT:-}"
+          } >> "$GITHUB_OUTPUT"
+          cat rootfs/etc/buildinfo
+
       - name: Stage SBOMs and Vulnerability report for publishing
         run: |
           set -ux
@@ -346,6 +391,8 @@ jobs:
           for f in rootfs-sbom.* rootfs-vulns.*; do
               gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
           done
+          # the image's own build metadata, handy to fetch without unpacking
+          cp -av rootfs/etc/buildinfo "${dir}/${PREFIX}-buildinfo"
 
       - name: Upload SBOMs as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
