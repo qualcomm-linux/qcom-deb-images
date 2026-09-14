@@ -276,6 +276,20 @@ actions:
 
 {{- if $snapshot }}
   - action: run
+    description: Seed live APT metadata before pinning to the snapshot
+    chroot: true
+    command: |
+      set -eux
+      # APT only learns that an archive supports snapshots (via the
+      # Snapshots: field in its Release file) after fetching that archive's
+      # live Release at least once in a prior, separate apt-get update.
+      # deb.debian.org has this preseeded into APT itself and works from a
+      # cold cache; qli does not. Update once, unpinned, before the pin
+      # exists below, so the pinned update resolves every source - qli
+      # included - through the dated archive from the start.
+      apt-get -y update
+
+  - action: run
     description: Pin APT to the snapshot archive
     chroot: true
     command: |
@@ -303,6 +317,24 @@ actions:
 {{- end }}
       # APT update and upgrade to pickup changes from overlays
       apt-get -y update
+{{- if $snapshot }}
+      # Verify the pin actually took effect for every source before
+      # upgrading anything; fail loudly rather than silently resolving a
+      # source live. Checked against the cached apt list filenames, which
+      # encode the resolved URL (slashes become underscores, host kept
+      # as-is).
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+      cached="$(ls /var/lib/apt/lists/)"
+      for marker in \
+          "snapshot.debian.org_archive_debian_${SNAPSHOT}_dists" \
+          "snapshot.debian.org_archive_debian-security_${SNAPSHOT}_dists" \
+          "qualcomm_qli_${SNAPSHOT}_dists"; do
+        if ! echo "$cached" | grep -qF "$marker"; then
+          echo "ERROR: no cached APT list matches '${marker}'; a source did not resolve through the snapshot archive and the pin silently failed to take effect" >&2
+          exit 1
+        fi
+      done
+{{- end }}
       apt-get -y full-upgrade
 
   - action: apt
