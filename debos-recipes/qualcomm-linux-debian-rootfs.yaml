@@ -7,7 +7,7 @@
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
 {{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "none" }}
-{{- $qliaptrepo := or .qliaptrepo "true" }}
+{{- $qliaptrepo := or .qliaptrepo "qli" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
@@ -27,6 +27,25 @@
 # Rename sid to unstable to reduce if/else complexity
 {{- if eq $suite "sid" }}
 {{- $suite = "unstable" }}
+{{- end }}
+
+# $qliaptrepo selects which Qualcomm Linux (QLI) repositories are configured:
+# - "qli" (default) configures the QLI release repository
+# - "qli-staging" configures both the QLI staging repository and the QLI release repository
+# - "false" doesn't configure any QLI repositories (e.g. vanilla debian)
+{{- $qlirepos := list }}
+{{- if eq $qliaptrepo "qli" }}
+{{- $qlirepos = list "qli" }}
+{{- else if eq $qliaptrepo "qli-staging" }}
+{{- $qlirepos = list "qli" "qli-staging" }}
+{{- else if ne $qliaptrepo "false" }}
+# Fail on unknown QLI repository variant
+{{ template "ERR" }}
+{{- end }}
+
+# The QLI repositories are only available for trixie and forky.
+{{- if and (ne $qliaptrepo "false") (and (ne $suite "trixie") (ne $suite "forky")) }}
+{{ template "ERR" }}
 {{- end }}
 
 architecture: arm64
@@ -118,6 +137,12 @@ actions:
       URIs: file:///media/apt-local-repo
       Suites: /
       Trusted: true
+      EOF
+      cat >/etc/apt/preferences.d/apt-local-repo.pref <<EOF
+      # Packages in a local APT repo are preferred over all other APT repositories
+      Package: *
+      Pin: origin ""
+      Pin-Priority: 1002
       EOF
 {{- end }}
 
@@ -249,23 +274,23 @@ actions:
 {{- end }}
 {{- end }}
 
-# Qualcomm Linux maintains overlays for trixie/forky
-# but only configure the sources when enabled. Some builds (e.g. Vanilla Debian)
-# may not want to setup the QLI repo.
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
+# Configure Qualcomm Linux APT repositories
+{{- if ne $qliaptrepo "false" }}
+{{- range $qlirepo := $qlirepos }}
   - action: run
-    description: Create Qualcomm Linux APT sources for {{ $suite }}
+    description: Create Qualcomm Linux APT sources {{ $qlirepo }} for {{ $suite }}
     chroot: true
     command: |
       set -eux
-      tee /etc/apt/sources.list.d/qli.sources <<EOF
+      tee /etc/apt/sources.list.d/{{ $qlirepo }}.sources <<EOF
       # Qualcomm Linux repository
       Types: deb
-      URIs: https://deb.debusine.qualcomm.com/qualcomm/qli
+      URIs: https://deb.debusine.qualcomm.com/qualcomm/{{ $qlirepo }}
       Suites: {{ $suite }}
       Components: main contrib non-free-firmware non-free
       Enabled: yes
       Signed-By:
+{{- if eq $qlirepo "qli" }}
        -----BEGIN PGP PUBLIC KEY BLOCK-----
        .
        mDMEag8p/xYJKwYBBAHaRw8BAQdAdB6JSNF1OXxnsTgp4VTUekW52BM7e6ZQVRsq
@@ -275,6 +300,50 @@ actions:
        kTJoiInuulQ6rEUBANo+GOKILH71VRnZ5jWtsu7IlVk7oUMlTtC0eE5tcBwB
        =bX6V
        -----END PGP PUBLIC KEY BLOCK-----
+{{- else if eq $qlirepo "qli-staging" }}
+       -----BEGIN PGP PUBLIC KEY BLOCK-----
+       .
+       mDMEajuyfxYJKwYBBAHaRw8BAQdASazjfos7KwJJ+G6xdBRzc3v7orITHEY6jKc3
+       RJ9SKQ+0LEFyY2hpdmUgc2lnbmluZyBrZXkgZm9yIHF1YWxjb21tL3FsaS1zdGFn
+       aW5niJAEExYKADgWIQQHaA+DhymsE9b1W++Bhz/mnjKc1AUCajuyfwIbAwULCQgH
+       AgYVCgkICwIEFgIDAQIeAQIXgAAKCRCBhz/mnjKc1BFAAQCBx/l+c5fPIl1yxrHZ
+       oesE1USx5864EapEurg7g8Ov6gD/ZJbguusDuXxCCPkZtyR/APq3ckIEy6zIl7/0
+       9RR1JgI=
+       =sKJS
+       -----END PGP PUBLIC KEY BLOCK-----
+{{- end }}
+      EOF
+{{- end }}
+
+  - action: run
+    description: Prefer Qualcomm Linux packages over Debian
+    chroot: true
+    command: |
+      set -eux
+      tee /etc/apt/preferences.d/qli.pref <<EOF
+      # Prefer packages from the QLI repositories over Debian.
+      #
+      # The Debusine-generated Release file carries no Origin or Label fields;
+      # its Suite and Codename fields are identical to Debian's so there is
+      # nothing for "Pin: release o=/l=/n=" to match on so we have to pin on the
+      # hostname instead. This matches the host as a whole rather than the
+      # archive path, so it covers both qli and qli-staging and any future
+      # repositories served from the same hostname.
+      #
+      # Pin-Priority outranks package versions; any priority above Debian's
+      # default of 500 makes the QLI version the candidate. Only a priority of
+      # at least 1000 lets APT replace a package already installed from Debian
+      # at a higher version.
+      #
+      # Backports have a priority of 900; less than the QLI repository.
+      #
+      # For the same reason qli and qli-staging cannot be given different
+      # priorities as we currently pin on the QLI APR repository hostname.
+      # When both are enabled they sit at the same priority so the repository
+      # with the higher version wins.
+      Package: *
+      Pin: origin "deb.debusine.qualcomm.com"
+      Pin-Priority: 1001
       EOF
 
 {{- /* prefer installing these packages from Qualcomm Linux over backports */}}
@@ -322,11 +391,13 @@ actions:
               set -- \
                 -e "s#http://deb\.debian\.org/debian\$#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#"
               ;;
-            qli)
-              assert='https://deb.debusine.qualcomm.com/qualcomm/qli'
+{{- range $qlirepo := $qlirepos }}
+            {{ $qlirepo }})
+              assert='https://deb.debusine.qualcomm.com/qualcomm/{{ $qlirepo }}'
               set -- \
-                -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#"
+                -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/{{ $qlirepo }}#&/${SNAPSHOT}#"
               ;;
+{{- end }}
             *)
               echo "WARNING: skipping apt snapshot for $src" >&2
               continue
@@ -365,7 +436,10 @@ actions:
 {{- end }}
       # APT update and upgrade to pickup changes from overlays
       apt-get -y update
-      apt-get -y full-upgrade
+      # the bootstrapped package set predates the QLI sources, so this upgrade
+      # is where packages move to their pinned QLI version; that can be a
+      # downgrade, which apt refuses to perform non-interactively by default
+      apt-get -y --allow-downgrades full-upgrade
 
   - action: apt
     description: Install foundational packages
@@ -412,10 +486,9 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
-  # fastrpc-tests is available from QLI overlays for trixie and forky
+{{- if ne $qliaptrepo "false" }}
   - action: apt
-    description: Install fastrpc-tests from QLI overlay
+    description: Install fastrpc-tests from QLI APT repository
     recommends: true
     packages:
       # fastrpc-tests pulls in fastrpc-support
@@ -778,7 +851,7 @@ actions:
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
 # closed source user-space from the Qualcomm Linux APT repository.
 
-{{- if ne $qliaptrepo "true" }}
+{{- if eq $qliaptrepo "false" }}
 # Call an unexisting template to err out of the recipe
 {{ template "ERR" }}
 {{- end }}
@@ -863,6 +936,7 @@ actions:
     command: |
       set -eux
       rm -v /etc/apt/sources.list.d/apt-local-repo.sources
+      rm -v /etc/apt/preferences.d/apt-local-repo.pref
       apt-get update
 {{- end }}
 
