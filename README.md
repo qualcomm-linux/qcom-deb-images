@@ -365,6 +365,61 @@ Notes:
 - On Linux, the script looks for `/usr/share/qemu-efi-aarch64/QEMU_EFI.fd`. On macOS with Homebrew, it uses `share/qemu/edk2-aarch64-code.fd` from the `qemu` formula.
 - The overlay is cleaned up automatically when QEMU exits. Use `--no-cow` to make changes persistent on the base image.
 
+### Boot test a build on real hardware in LAVA (helper script)
+
+Use the `scripts/lava-boot-test.py` helper to flash and boot an existing build
+on a board in the LAVA lab, without waiting for CI. It takes the presigned URL
+of a `*-flash-ufs.tar.gz` or `*-flash-emmc.tar.gz` bundle (as published by the
+build workflow, see its job summary) plus the board to test on.
+
+The job it submits is rendered from the very same `ci/lava/<board>/boot.yaml`
+template CI uses, so a manual run exercises the same flash and boot path. Only
+three things are changed: the artifact URL is replaced with your presigned one,
+the `QLIAuthorization` header is dropped (a presigned URL authenticates itself),
+and the job defaults to `visibility: personal` because that URL is a credential
+and it is stored verbatim in the job definition.
+
+Set `$LAVATOKEN` (or `$LAVA_TOKEN`) to an API token from your LAVA profile, or
+pass `--token-file`. No token is needed for `--dry-run`.
+
+Basic usage:
+```bash
+# list the boards that have a template, with the bundle flavour each one needs
+scripts/lava-boot-test.py --list-boards
+
+# flash and boot, running the template's usual smoke tests
+scripts/lava-boot-test.py -b qcs6490-rb3gen2-vision-kit "$URL"
+
+# just check it boots: drop the template's test actions
+scripts/lava-boot-test.py -b qrb2210-rb1 --boot-only "$URL"
+
+# boot and run your own commands, one LAVA test case each
+scripts/lava-boot-test.py -b lemans-evk "$URL" \
+    --command "uname -a" --command "cat /etc/buildinfo"
+
+# print the job definition without submitting it, or have LAVA check it
+scripts/lava-boot-test.py -b lemans-evk "$URL" --dry-run
+scripts/lava-boot-test.py -b lemans-evk "$URL" --validate
+
+# submit, then follow the job to completion and print its results
+scripts/lava-boot-test.py -b lemans-evk "$URL" --wait
+```
+
+Notes:
+- The bundle flavour has to suit the board: a UFS board needs
+  `-flash-ufs.tar.gz` and an eMMC one `-flash-emmc.tar.gz`. A mismatch is
+  refused up front, rather than failing after the job has queued and flashed;
+  `--force` submits anyway. `--list-boards` shows which flavour each board
+  takes.
+- Presigned URLs expire (typically within hours). If a job fails in the deploy
+  action with a download error, generate a fresh URL.
+- The template's device tags are kept, since a tag such as `cambridge-lab` may
+  be what pins the job to the lab that physically has the board. Use `--no-tags`
+  or `--tag` to change them.
+- To use a build artifact that is *not* presigned, pass `--token-name` with the
+  name of one of your LAVA remote artifact tokens; LAVA then substitutes it
+  server-side, exactly as CI does.
+
 ## Reporting Issues
 
 We'd love to hear if you run into issues or have ideas for improvements. [Report an Issue on GitHub](../../issues) to discuss, and try to include as much information as possible on your specific environment.
