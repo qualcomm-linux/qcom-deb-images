@@ -80,12 +80,47 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Enable snapshot sources for image build
+    description: Seed live APT metadata before pinning to the snapshot
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle enable
+      # Same reasoning as the rootfs recipe: qli has no snapshot behaviour
+      # preseeded into APT itself, so it needs a plain, unpinned update at
+      # least once before APT can read its Snapshots: field and resolve the
+      # pin below. rootfs.tar may already carry a cached qli Release from
+      # the rootfs build, but this recipe should not rely on that - update
+      # fresh so it is correct on its own.
       apt-get update
+
+  - action: run
+    description: Pin APT to the snapshot archive
+    chroot: true
+    command: |
+      set -eux
+      # /etc/buildinfo carries the timestamp forward from the rootfs build via
+      # rootfs.tar; the pin itself was removed at the end of that build, so it
+      # is recreated here rather than merely re-enabled.
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+      tee /etc/apt/apt.conf.d/99snapshot <<EOF
+      APT::Snapshot "${SNAPSHOT}";
+      Acquire::Check-Valid-Until "false";
+      EOF
+      apt-get update
+      # Verify the pin actually took effect for every source before
+      # installing anything against it; fail loudly rather than silently
+      # resolving a source live. Checked against the cached apt list
+      # filenames, which encode the resolved URL (slashes become
+      # underscores, host kept as-is).
+      cached="$(ls /var/lib/apt/lists/)"
+      for marker in \
+          "snapshot.debian.org_archive_debian_${SNAPSHOT}_dists" \
+          "snapshot.debian.org_archive_debian-security_${SNAPSHOT}_dists" \
+          "qualcomm_qli_${SNAPSHOT}_dists"; do
+        if ! echo "$cached" | grep -qF "$marker"; then
+          echo "ERROR: no cached APT list matches '${marker}'; a source did not resolve through the snapshot archive and the pin silently failed to take effect" >&2
+          exit 1
+        fi
+      done
 {{- end }}
 
   - action: apt
@@ -155,13 +190,11 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Restore APT sources to live mirrors and clean up snapshot helpers
+    description: Remove APT snapshot pin
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle disable
-      rm -f /etc/apt/sources.list.d/snapshot_*.sources
-      rm -f /usr/local/bin/apt-snapshot-toggle
+      rm -f /etc/apt/apt.conf.d/99snapshot
 {{- end }}
 
   - action: run
