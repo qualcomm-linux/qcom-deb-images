@@ -9,6 +9,7 @@ permissions: {}
 
 jobs:
   build:
+    name: "Build (suite: ${{ matrix.suite }})"
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +28,7 @@ jobs:
     permissions:
       contents: read
   test:
+    name: "Test (suite: ${{ matrix.suite }})"
     uses: ./.github/workflows/lava-test.yml
     needs: [build, schema-check]
     permissions:
@@ -36,7 +38,13 @@ jobs:
       pull-requests: write
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+    strategy:
+      fail-fast: false
+      # Keep this matrix in sync with the build matrix above; see #614.
+      matrix:
+        suite: [trixie, forky]
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
+      suite: ${{ matrix.suite }}
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
