@@ -1,3 +1,5 @@
+# WARNING: Modifying this file will block Coral/Axiom workflows
+# See ci/coral/axiom.md for details and required notifications
 name: Build debos recipe
 
 on:
