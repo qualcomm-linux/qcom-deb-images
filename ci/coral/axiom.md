@@ -14,8 +14,8 @@ If you need to modify any workflow listed in the "Workflows that must not break"
 sections below, please:
 
 1. **Notify the Coral team** before merging your changes
-   - Contact: Coral maintainers in the QLI Open Development project
-   - Reason: Changes may break Coral's pre-merge validation or nightly tests
+   - Contact: Headsup qclinux.image.qipl/pyarra/bmaturu to update checkrun/workflow ID 
+   - Reason: Changes of workflow or checkrun may break Coral's pre-merge validation or nightly tests
 
 2. **Test your changes thoroughly**
    - Ensure the Coral gate check-run still appears: `test (trixie) / Submit glymur-crd boot`
