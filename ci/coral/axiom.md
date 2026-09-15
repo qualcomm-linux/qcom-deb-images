@@ -8,11 +8,23 @@
 Coral project: **QLI Open Development**
 Coral base URL: <https://qswat.qualcomm.com/coral/qli-open-development/workflows/>
 
+## If you modify any of these workflows
+
+If you need to modify any workflow listed in the "Workflows that must not break"
+sections below, please:
+
+1. **Notify the Coral team** before merging your changes
+   - Contact: Coral maintainers in the QLI Open Development project
+   - Reason: Changes may break Coral's pre-merge validation or nightly tests
+
+2. **Test your changes thoroughly**
+   - Ensure the Coral gate check-run still appears: `test (trixie) / Submit glymur-crd boot`
+   - Verify that `glymur-crd` is not excluded from the test matrix
+   - Check that the check-run name format remains unchanged
+
+3. **Update this file** if the workflow IDs, job names, or dependencies change
+
 ---
-
-## Pre-merge
-
-**Coral workflow**: `Debian_Pre-Merge_Workflow`
 
 ## Pre-merge
 
