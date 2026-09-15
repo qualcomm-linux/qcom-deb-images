@@ -76,7 +76,7 @@ actions:
   - action: filesystem-deploy
     description: Deploy root filesystem to mounted image
     setup-fstab: true
-    append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30
+    append-kernel-cmdline: clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30 quiet
 
 {{- if $snapshot }}
   - action: run
