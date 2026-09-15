@@ -35,7 +35,10 @@ jobs:
       # https://github.com/linux-msm/hexagon-dsp-binaries/pull/59
       # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
-      debos_extra_args: '-t overlays:workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
+      # workaround-fastrpc-audiopd-qrb2210 disables fastrpc audiopd on QRB2210
+      # devices (RB1 and Arduino Uno Q); see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/572
+      overlays: 'workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco,workaround-fastrpc-audiopd-qrb2210'
       lava_boards_include: '["monaco-arduino-monza", "monaco-evk", "qrb2210-arduino-imola"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}

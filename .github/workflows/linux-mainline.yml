@@ -29,6 +29,10 @@ jobs:
       pull-requests: write
     with:
       kernel_name: mainline
+      # workaround-fastrpc-audiopd-qrb2210 disables fastrpc audiopd on QRB2210
+      # devices (RB1 and Arduino Uno Q); see
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/572
+      overlays: 'workaround-fastrpc-audiopd-qrb2210'
       # reference build: we want the debs and the LAVA results to compare
       # against, but its failures must not gate qcom-deb-images work
       lava_report_test_results_externally: false
