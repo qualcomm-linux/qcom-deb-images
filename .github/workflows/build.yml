@@ -76,6 +76,10 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
+      # every leg of the build matrix uploads to the same S3 directory,
+      # which debos.yml keys on the run id and attempt alone, so any leg's
+      # URL reaches all of the images; the artifact prefix, not the URL,
+      # selects which one to boot.
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # monaco-arduino-monza and qrb2210-arduino-imola are only validated

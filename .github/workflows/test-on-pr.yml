@@ -35,6 +35,12 @@ jobs:
                repo: context.repo.repo,
                run_id: context.payload.workflow_run.id,
             });
+            // every leg of the build matrix uploads its own "build_url", so
+            // several same-named artifacts exist here and this picks an
+            // arbitrary one. debos.yml keys its S3 destination on the run id
+            // and attempt alone, so all legs upload to the same directory and
+            // any URL reaches all of the images; the artifact prefix, not the
+            // URL, selects which one to boot.
             let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "build_url"
             })[0];
