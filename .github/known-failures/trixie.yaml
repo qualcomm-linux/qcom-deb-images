@@ -1,0 +1,5 @@
+# Tests that are known to fail on trixie images. See README.md for the format.
+#
+# Add the issue each failure is tracked in as its comment, and remove the entry
+# once the issue is fixed: a listed test that passes is reported as an
+# unexpected pass and fails the run.
