@@ -109,7 +109,7 @@ The subject of each commit message (e.g. the first line) should be in the form:
 <type>(<scope>): <description>
 ```
 
-The `scope` is optional; please add one when the change is confined to a single area of the tree. Use the path-like scopes already in use in the history; for instance: `debos/flash`, `debos/rootfs`, `ci`, `ci/lava`, `kernel`, `kernel-configs`, `Makefile`, `README` or `scripts/build-linux-deb`.
+The `scope` is optional; please add one when the change is confined to a single area of the tree. Use the path-like scopes already in use in the history; for instance: `debos/flash`, `debos/rootfs`, `ci`, `kernel`, `kernel-configs`, `Makefile`, `README` or `scripts/build-linux-deb`.
 
 The common types used in this repository are:
 
