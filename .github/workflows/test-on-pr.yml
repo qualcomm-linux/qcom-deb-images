@@ -78,6 +78,12 @@ jobs:
       suite: trixie
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
+      # the publish-test-results job below reports these results against the
+      # pull request head. leave the reporting done by lava-test.yml itself
+      # off: it duplicates that check, and having no commit to pass it would
+      # attach to github.sha, which under workflow_run is main's head rather
+      # than the pull request. The job summary is written either way.
+      report_test_results_externally: false
 
   publish-test-results:
     name: "Publish Tests Results"
