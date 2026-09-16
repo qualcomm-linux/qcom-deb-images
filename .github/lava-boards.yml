@@ -1,0 +1,64 @@
+# Boards tested per kernel flavour.
+#
+# This is the single place board coverage is described. The lists are the ones
+# the daily builds exercise; the weekly mainline build and the pull request and
+# push builds reuse them rather than carrying their own.
+#
+# A name is a device in the qcom-deb-images project of lava-test-plans, i.e. a
+# file under lava_test_plans/projects/qcom-deb-images/devices/. Boards are named
+# after their device tree, which is not always the LAVA device type:
+# qcs6490-rb3gen2 is submitted as qcs6490-rb3gen2-vision-kit.
+#
+# boot      boards the image is flashed and booted on
+# premerge  boards the qcom-linux-testkit tests run on; empty means "every
+#           board in boot that actually booted", which is what you normally
+#           want. Name boards here only to narrow that down.
+
+qcom-next:
+  # every board with a qcom-deb-images device. lemans-evk and monaco-evk often
+  # fail to reach a login prompt, see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/620 - they are
+  # tested anyway, a board that does not boot no longer holds up the others.
+  boot:
+    - glymur-crd
+    - lemans-evk
+    - monaco-arduino-monza
+    - monaco-evk
+    - qcs615-ride
+    - qcs6490-rb3gen2
+    - qrb2210-arduino-imola
+    - qrb2210-rb1
+
+arduino:
+  # the arduino kernel is only validated on the monza, monaco and imola boards
+  boot:
+    - monaco-arduino-monza
+    - monaco-evk
+    - qrb2210-arduino-imola
+
+linux-next:
+  # glymur-crd, lemans-evk and qcs615-ride are not validated against
+  # linux-next; see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+  boot:
+    - monaco-arduino-monza
+    - monaco-evk
+    - qcs6490-rb3gen2
+    - qrb2210-arduino-imola
+    - qrb2210-rb1
+
+debian:
+  # the stock Debian kernel only boots on qcs6490-rb3gen2 so far; see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/440 and
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/424
+  boot:
+    - qcs6490-rb3gen2
+
+mainline:
+  # as linux-next, minus monaco-evk; see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+  boot:
+    - monaco-arduino-monza
+    - qcs6490-rb3gen2
+    - qrb2210-arduino-imola
+    - qrb2210-rb1
