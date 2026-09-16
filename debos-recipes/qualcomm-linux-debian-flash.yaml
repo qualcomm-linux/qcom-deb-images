@@ -118,10 +118,10 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-cqm_boot-binaries"
         "filename" "shikra-cqm_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
         "description" "Shikra EVK CDT"
@@ -140,10 +140,10 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-cqs_boot-binaries"
         "filename" "shikra-cqs_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
         "description" "Shikra EVK CDT"
@@ -162,10 +162,10 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-iqs_boot-binaries"
         "filename" "shikra-iqs_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
         "description" "Shikra EVK CDT"
