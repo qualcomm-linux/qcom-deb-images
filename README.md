@@ -142,7 +142,9 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   environment
 - `gnomedesktop`: install a GNOME desktop environment; default: console only environment
 - `westonsession`: install a Weston session; default: console only environment
-- `multimedia`: install the Qualcomm accelerated multimedia stack; default: don't install
+- `multimedia`: install the Qualcomm accelerated multimedia stack; default: don't install.
+  The stack is large and does not fit in the default image size, so build the image
+  recipe with `-t imagesize:8GiB`.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
