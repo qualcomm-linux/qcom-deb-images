@@ -41,8 +41,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
-        variant: [default, weston-multimedia]
+        include:
+          - suite: trixie
+            variant: default
+          - suite: trixie
+            variant: weston-multimedia
+          - suite: forky
+            variant: default
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
