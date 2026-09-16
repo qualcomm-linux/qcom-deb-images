@@ -81,7 +81,10 @@ jobs:
 
   publish-test-results:
     name: "Publish Tests Results"
-    needs: test
+    needs: [retrieve-build-url, test]
+    # Publish any results that are available even if some jobs failed.
+    # Skip if the workflow was cancelled or if the image URL isn't available.
+    if: ${{ !cancelled() && needs.retrieve-build-url.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action

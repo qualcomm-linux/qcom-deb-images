@@ -169,7 +169,10 @@ jobs:
 
   publish-test-results:
     name: Publish Tests Results
-    needs: submit-job
+    needs: [prepare-job-list, submit-job]
+    # Publish any results that are available even if some jobs failed.
+    # Quit if the workflow was cancelled or no jobs were created.
+    if: ${{ !cancelled() && needs.prepare-job-list.outputs.has_jobs == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
