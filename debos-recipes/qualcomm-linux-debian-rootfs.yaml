@@ -209,6 +209,7 @@ actions:
       "src:fastrpc:any"
       "src:firmware-free:any"
       "src:firmware-nonfree:any"
+      "src:greetd:any"
       "src:hexagon-dsp-binaries:any"
       "src:linux:any"
       "src:linux-signed-arm64:any"
