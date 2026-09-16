@@ -55,6 +55,7 @@ jobs:
       kernelpackages: efs/qcom-next
 
   test:
+    name: "Test (suite: ${{ matrix.suite }}, variant: ${{ matrix.variant }})"
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -64,8 +65,10 @@ jobs:
       github.ref == 'refs/heads/main')
     strategy:
       fail-fast: false
+      # Keep this matrix in sync with the build matrix above; see #614.
       matrix:
         suite: [trixie, forky]
+        variant: [default, weston-multimedia]
     uses: ./.github/workflows/lava-test.yml
     needs: build
     permissions:
@@ -82,6 +85,7 @@ jobs:
       # selects which one to boot.
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       # monaco-arduino-monza and qrb2210-arduino-imola are only validated
       # against the arduino kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
