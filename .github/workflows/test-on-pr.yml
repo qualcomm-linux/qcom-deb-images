@@ -141,7 +141,7 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $(find "$GITHUB_WORKSPACE" -name "*test-job-*.json" | sort)
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")

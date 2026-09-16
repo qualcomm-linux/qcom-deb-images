@@ -215,7 +215,7 @@ jobs:
 
       - name: Publish Test Job Details
         run: |
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $(find "$GITHUB_WORKSPACE" -name "*test-job-*.json" | sort)
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
