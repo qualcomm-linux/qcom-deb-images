@@ -1,0 +1,17 @@
+# TEMPORARY, together with the ci-testing entry in build-on-push.yml.
+#
+# Put the URL of an existing build here and a push to ci-testing will skip the
+# image build and test that build instead. Leave it empty (or comment it out)
+# and the images are rebuilt as usual.
+#
+# The URL is the artifact prefix of a previous run, which holds the images of
+# every suite, so one URL serves the whole test matrix. Take it from the
+# "Downloads URL" line of a debos job, or from the build-url metadata of any
+# LAVA job that run submitted, e.g.
+#
+
+https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35226840721-1/
+
+#
+# Remember that a reused build pins the images under test: a change to the
+# debos recipes will not be picked up until this is emptied again.
