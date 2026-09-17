@@ -109,8 +109,9 @@ actions:
 {{- /*
     Shikra EVK ships in three SKUs (CQM, CQS, IQS), each with its own soc_id
     (shikracqm / shikracqs / shikraiqs) and DTB. They share the same qcom-ptool
-    platform (shikra-evk/emmc), boot binaries and CDT, so they get one board
-    entry each differing only in name, soc_id and dtb.
+    platform (shikra-evk/emmc) and boot binaries, but not the CDT: the IQS board
+    has its own (iq2390-itp) while CQM and CQS use cq2390-itp. So they get one
+    board entry each, differing in name, soc_id, dtb and CDT.
 */}}
 {{- $boards = append $boards (dict
     "name" "shikra-cqm-evk"
@@ -118,10 +119,10 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-cqm_boot-binaries"
         "filename" "shikra-cqm_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
         "description" "Shikra EVK CDT"
@@ -140,10 +141,10 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-cqs_boot-binaries"
         "filename" "shikra-cqs_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
         "description" "Shikra EVK CDT"
@@ -162,19 +163,19 @@ actions:
     "ptool_platforms" (list "shikra-evk/emmc")
     "boot_binaries_download" (dict
         "description" "Shikra boot binaries"
-        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00036/SHIKRA_bootbinaries_00036.zip"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/SHIKRA_bootbinaries.1.0/shikra_bootbinaries.1.0-test-device-public/00078/SHIKRA_bootbinaries_00078.zip"
         "name" "shikra-iqs_boot-binaries"
         "filename" "shikra-iqs_boot-binaries.zip"
-        "sha256sum" "df2437405516034fb2d33585c8436891f7fb765e92022256364b4cf609089d0e"
+        "sha256sum" "1ccb06dc7ff54f788b7c7971e89a6424cffcec7adb2e7af24e530d665dbd5ca4"
     )
     "cdt_download" (dict
-        "description" "Shikra EVK CDT"
-        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/cq2390-itp.zip"
+        "description" "Shikra IQS EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ2390/cdt/iq2390-itp.zip"
         "name" "shikra-iqs-evk_cdt"
         "filename" "shikra-iqs-evk_cdt.zip"
-        "sha256sum" "acc8b39a9a8ccde5e04b762e9e4c7bbddf66f0420a5d32ed69a5a74761699f7b"
+        "sha256sum" "f4ee601a81bfbf55bde8ce5e6215128844d39ba5d43c855b233a05e1ff2476c5"
     )
-    "cdt_filename" "cdt_cq2390_itp_0.2.0.bin"
+    "cdt_filename" "cdt_iq2390_itp_0.4.0.bin"
     "dtb" "qcom/shikra-iqs-evk.dtb"
     "dtb_bin_type" "multidtb"
 )}}
