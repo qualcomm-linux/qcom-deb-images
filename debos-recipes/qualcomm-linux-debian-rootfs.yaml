@@ -790,6 +790,24 @@ actions:
       - camx-firmware-hamoa
 {{- end }}
 
+  # TODO: Either make the out-of-tree modules opt in or ship this config with the
+  # kernel package instead; see https://github.com/qualcomm-linux/pkg-linux-qcom/issues/105
+  - action: run
+    description: Disable out-of-tree modules
+    chroot: true
+    command: |
+      set -eux
+      cat > /etc/modprobe.d/disable-out-of-tree.conf <<EOF
+      # Disable out-of-tree modules
+      blacklist audioreach_driver
+      blacklist camera_qcm6490
+      blacklist camera_qcs615
+      blacklist camera_qcs9100
+      blacklist camera_x1e80100
+      blacklist iris_vpu
+      blacklist msm_kgsl
+      EOF
+
 {{- if ne $localdebs "none" }}
   - action: overlay
     description: Overlay local debs directory {{ $localdebs }} to /root/
