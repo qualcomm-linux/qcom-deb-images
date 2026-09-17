@@ -12,7 +12,54 @@ on:
 permissions: {}
 
 jobs:
+  # TEMPORARY, with the ci-testing trigger above: testing the migration means
+  # pushing to the branch over and over, and rebuilding the images every time
+  # costs an hour of self-hosted runner for a change that only touches the test
+  # half. Pin a build in .github/ci-testing-build-url to reuse it instead.
+  build-url:
+    name: Resolve the build to test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      url: ${{ steps.resolve.outputs.url }}
+      rebuild: ${{ steps.resolve.outputs.rebuild }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the build to test
+        id: resolve
+        env:
+          PINNED_BUILD_FILE: .github/ci-testing-build-url
+        run: |
+          set -euo pipefail
+          URL=""
+          if [ -f "${PINNED_BUILD_FILE}" ]; then
+              # everything that is not a comment, whitespace stripped
+              URL=$(sed 's/#.*//' "${PINNED_BUILD_FILE}" | tr -d '[:space:]' | head -1)
+          fi
+          if [ -n "${URL}" ]; then
+              case "${URL}" in
+                  https://*) ;;
+                  *)
+                      echo "::error::${PINNED_BUILD_FILE} must hold an https:// URL, got '${URL}'"
+                      exit 1
+                      ;;
+              esac
+              echo "::notice::reusing the build at ${URL}, not rebuilding the images"
+              echo "rebuild=false" >> "$GITHUB_OUTPUT"
+          else
+              echo "no build pinned in ${PINNED_BUILD_FILE}, building the images"
+              echo "rebuild=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: build-url
+    if: needs.build-url.outputs.rebuild == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +81,12 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: ./.github/workflows/test.yml
-    needs: build
+    needs: [build-url, build]
+    # the build job is skipped when a build is pinned, which "always()" is
+    # needed to see; a build that actually failed must still stop the tests
+    if: >-
+      always() && needs.build-url.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     permissions:
       checks: write
       contents: read
@@ -43,7 +95,8 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      url: ${{ needs.build.outputs.artifacts_url }}
+      # the pinned build if there is one, the build we just made otherwise
+      url: ${{ needs.build-url.outputs.url || needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
