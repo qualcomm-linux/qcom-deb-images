@@ -19,20 +19,20 @@
 #           want. Name boards here only to narrow that down.
 
 qcom-next:
-  # every board that has a device in the qcom-deb-images project of
-  # lava-test-plans. lemans-evk and monaco-evk often fail to reach a login
-  # prompt, see
+  # monaco-arduino-monza and qrb2210-arduino-imola are left out: they are only
+  # validated against the arduino kernel and do not boot this one, see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
+  #
+  # lemans-evk and monaco-evk often fail to reach a login prompt, see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/620 - they are
   # tested anyway, a board that does not boot no longer holds up the others.
   boot:
     - glymur-crd
     - lemans-evk
-    - monaco-arduino-monza
     - monaco-evk
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
-    - qrb2210-arduino-imola
     - qrb2210-rb1
 
 qcom-7.2:
