@@ -788,7 +788,14 @@ actions:
       # CamX - only firmware available for now
       - camx-firmware-glymur
       - camx-firmware-hamoa
-{{- end }}
+
+  # TODO: The kernel package doesn't install the configuration provided by dkms packages (e.g. modprobe, udev rules)
+  # so for now manually ship the configuration. See https://github.com/qualcomm-linux/pkg-linux-qcom/issues/105
+  - action: overlay
+    description: Configure out-of-tree modules
+    source: overlays/multimedia-modules
+
+{{- else }}
 
   # TODO: Either make the out-of-tree modules opt in or ship this config with the
   # kernel package instead; see https://github.com/qualcomm-linux/pkg-linux-qcom/issues/105
@@ -807,6 +814,7 @@ actions:
       blacklist iris_vpu
       blacklist msm_kgsl
       EOF
+{{- end }}
 
 {{- if ne $localdebs "none" }}
   - action: overlay
