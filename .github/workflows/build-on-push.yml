@@ -23,6 +23,12 @@ jobs:
       # APT repository
       kernelpackages: efs/qcom-next
   test:
+    # one test run per suite, matching the images the build job produces;
+    # without this only the default suite, trixie, is ever tested
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
     uses: ./.github/workflows/test.yml
     needs: build
     permissions:
@@ -34,5 +40,6 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
+      suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
