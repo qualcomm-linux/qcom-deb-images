@@ -2,7 +2,11 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    # ci-testing is where the migration to test-distro.yml is being validated.
+    # Nothing else runs there: the daily builds and the workflow_run chains are
+    # all bound to main, so without this the branch builds and tests nothing.
+    # Drop ci-testing from this list once the migration lands on main.
+    branches: [main, ci-testing]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
