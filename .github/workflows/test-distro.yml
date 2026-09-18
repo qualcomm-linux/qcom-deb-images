@@ -358,7 +358,7 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
-        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@20c20dc63f436f59a207a68dccc454b836b7ee1c # test-job-summary, PR #55
+        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@e0dc67fe2ca54f585a4e377d61489715b595adbd # test-job-summary, PR #55
         with:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}
