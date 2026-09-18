@@ -170,6 +170,9 @@ For the image recipe:
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
+- `profile`: select the intended runtime configuration of the image; defaults to
+  `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
+  `default`. See the *Supported profiles* section below.
 
 For the flash recipe:
 
@@ -233,6 +236,46 @@ Here is the list of supported overlays:
         Special value to disable all overlays; this is the default.
     </dd>
 </dl>
+
+#### Supported profiles
+
+A profile selects the intended runtime configuration of the image. It is passed
+to the image recipe with `-t profile:<profile>`, e.g.:
+
+```bash
+make EXTRA_DEBOS_OPTS="-t profile:<profile>" disk-ufs.img
+```
+
+If no profile is passed, the `default` profile is used; there is no need to pass
+`-t profile:default`. The root filesystem is profile-independent, so the same
+`rootfs.tar` can be used to build every profile.
+
+The following profiles are supported:
+
+- `default`: the default profile; no additional configuration is applied.
+- `performance`: appends `quiet systemd.tty.term.console=dumb` to the kernel
+  command line, so that the kernel doesn't print the boot log to the (slow)
+  console. It uses the default kernel configuration. Based on [meta-qcom's `ci/performance.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml).
+- `debug`: **not ready for use yet**; it still installs the default kernel, so
+  it is not a debug image. It depends on the custom `qcom-next-debug` kernel
+  package which is still pending. What it does so far is:
+  - enable ftrace at boot by appending
+    `ftrace=tracing_on trace_buf_size=5M trace_event=<events>` to the kernel
+    command line, where `<events>` covers the timer, irq, workqueue, sched,
+    power, regulator, thermal and rpmh tracepoints of interest; see the image
+    recipe for the exact list;
+  - append `qcom_scm.download_mode=1` to the kernel command line, so that a
+    crash leaves a memory dump to collect rather than silently rebooting;
+  - set `RuntimeWatchdogSec=30s` in `/etc/systemd/system.conf.d/`, so that
+    systemd pings the hardware watchdog and a hang resets the board (and, with
+    download mode above, produces a dump).
+
+  Note that with download mode enabled a board that crashes comes back up in
+  EDL waiting for a host to collect the dump, rather than rebooting; recover it
+  with a power cycle.
+
+  Based on [meta-qcom's `ci/debug.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/debug.yml)
+  and [`ci/base.yml`](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/base.yml).
 
 ### Flash the image
 
