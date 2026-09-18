@@ -183,7 +183,14 @@ jobs:
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
   debos-linux-deb:
-    if: ${{ !inputs.skip_image_build }}
+    # an explicit if: replaces the implicit success(), so the state of the
+    # dependency has to be checked here as well; without it the image would
+    # be built from a kernel build which failed or never ran. checking the
+    # result rather than calling success() also covers the skipped case,
+    # e.g. when build-linux-deb is guarded out on a fork
+    if: >-
+      ${{ !inputs.skip_image_build &&
+      needs.build-linux-deb.result == 'success' }}
     needs: build-linux-deb
     strategy:
       fail-fast: false
@@ -199,7 +206,11 @@ jobs:
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
   test-linux-deb:
-    if: ${{ !inputs.skip_lava_tests }}
+    # as above: without checking the dependency's result, LAVA jobs would be
+    # submitted with an empty image url after a failed or skipped image build
+    if: >-
+      ${{ !inputs.skip_lava_tests &&
+      needs.debos-linux-deb.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:

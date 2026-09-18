@@ -78,10 +78,21 @@ jobs:
       suite: trixie
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537
       boards_exclude: '["monaco-arduino-monza", "qrb2210-arduino-imola"]'
+      # the publish job below owns all external reporting: under workflow_run,
+      # github.sha is the default branch tip, so lava-test's own check run and
+      # PR comment would target the wrong commit. it has no way to know the PR
+      # head, while the job below passes commit:, event_file: and event_name:
+      # explicitly. results still land in lava-test's job summary.
+      report_test_results_externally: false
 
   publish-test-results:
     name: "Publish Tests Results"
     needs: test
+    # a failed submit job (LAVA submission error, timeout, ...) must not hide
+    # the results of the boards that did run: publish whatever artifacts exist
+    # and comment on the PR anyway. only skip when there is nothing to report,
+    # i.e. when the test workflow itself never ran or the run was cancelled.
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
@@ -130,9 +141,15 @@ jobs:
         id: pr_comment_prep
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # the "Build on PR" run this workflow was triggered by
+          BUILD_RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           echo "## Test jobs for commit ${HEAD_SHA}" > pr-comment.txt
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          echo "" >> pr-comment.txt
+          echo "Triggered by [build workflow run](${BUILD_RUN_URL})" >> pr-comment.txt
+          echo "" >> pr-comment.txt
+          JOB_FILES=$(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $JOB_FILES
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
@@ -140,6 +157,12 @@ jobs:
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)"
               echo " * [Job $JOB_ID on $DEVICE_TYPE]($URL)" >> pr-comment.txt
           done
+          # every board failed to submit, or none matched the filters: say so
+          # rather than posting a comment with an empty job list, which reads
+          # like the tests passed
+          if [ -z "$JOB_FILES" ]; then
+              echo "No test jobs were submitted." >> pr-comment.txt
+          fi
           PR_NUMBER=$(cat "artifacts/Event File/event.json" | jq -r ".number")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
