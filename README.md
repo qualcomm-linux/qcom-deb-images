@@ -46,23 +46,6 @@ version 2.1 as it contains important fixes.
 
 ## Steps
 
-### (optional) Build and flash U-Boot
-
-U-Boot is needed for the RB1 board. If you are not targeting this board, you
-can go to the next section.
-
-Building U-Boot for the RB1 requires the following extra build-dependencies:
-
-```bash
-apt -y install git crossbuild-essential-arm64 make bison flex bc libssl-dev gnutls-dev xxd coreutils gzip mkbootimg
-```
-
-To build U-Boot for the RB1, run:
-
-```bash
-scripts/build-u-boot-rb1.sh
-```
-
 ### (optional) Build custom kernel
 
 By default the image recipes will install the kernel provided by Debian.
@@ -104,9 +87,6 @@ To build flashable assets for all supported boards, follow these steps:
 1. build flashable assets from downloaded boot binaries, the DTBs, and pointing at the UFS/SD card disk images
     ```bash
     make flash
-
-    # (optional) if you've built U-Boot for the RB1, run this instead:
-    #EXTRA_DEBOS_OPTS="-t u_boot_rb1:u-boot/rb1-boot.img" make flash
 
     # (optional) build only a subset of boards:
     #EXTRA_DEBOS_OPTS="-t target_boards:qcs615-ride,qcs6490-rb3gen2-vision-kit" make flash
@@ -171,8 +151,6 @@ For the image recipe:
 
 For the flash recipe:
 
-- `u_boot_rb1`: prebuilt U-Boot binary for RB1 in Android boot image format --
-  see below (NB: debos expects relative pathnames)
 - `target_boards`: comma-separated list of board names to build (default:
   `all`). Accepted values are the board names defined in the flash recipe, e.g.
   `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
@@ -181,7 +159,7 @@ For the flash recipe:
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
 
 Deprecated flash options:
-- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`, `build_rb1`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
+- `build_qcs615`, `build_qcm6490`, `build_qcs8300`, `build_qcs9100`: these per-family/per-board toggles are deprecated and will be removed. Use `target_boards` instead to select which boards to build.
 
 Here are some example invocations:
 
