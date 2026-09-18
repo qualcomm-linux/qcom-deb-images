@@ -83,6 +83,14 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      # both suites install the same EFS kernel, so this is identical across
+      # the debos matrix legs (whose outputs are merged last-writer-wins by
+      # GitHub) and safe to read here
+      kernel_version: ${{ needs.build.outputs.kernel_version }}
+      # recorded in the image from the kernel package's own changelog
+      kernel_repo: ${{ needs.build.outputs.kernel_repo }}
+      kernel_ref: ${{ needs.build.outputs.kernel_ref }}
+      kernel_commit: ${{ needs.build.outputs.kernel_commit }}
       # monaco-arduino-monza and qrb2210-arduino-imola are only validated
       # against the arduino kernel; see
       # https://github.com/qualcomm-linux/qcom-deb-images/issues/537

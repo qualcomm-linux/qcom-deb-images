@@ -108,6 +108,11 @@ jobs:
       github.ref == 'refs/heads/main')
     permissions:
       contents: read # actions/checkout
+    outputs:
+      kernel_version: ${{ steps.kernelinfo.outputs.kernel_version }}
+      kernel_ref: ${{ steps.kernelinfo.outputs.kernel_ref }}
+      kernel_commit: ${{ steps.kernelinfo.outputs.kernel_commit }}
+      kernel_repo: ${{ steps.kernelinfo.outputs.kernel_repo }}
     # for cross-builds
     runs-on: [self-hosted, qcom-u2404, amd64]
     # alternative for native builds, but overkill to do both
@@ -145,6 +150,26 @@ jobs:
                 debhelper kmod python3 rsync coreutils
             scripts/build-linux-deb.py ${BUILD_LINUX_DEB_EXTRA_ARGS} \
                 `ls kernel-configs/*.config | sort` \
+
+      # build-linux-deb.py resolves -next/qcom-next to the latest dated tag
+      # at build time, so the exact tree is only knowable here. Recording it
+      # lets a LAVA result be traced back to a commit without guessing.
+      - name: Record kernel version
+        id: kernelinfo
+        run: |
+          set -ux
+          # what the board will report as uname -r
+          kernel_version=$(cat linux/include/config/kernel.release)
+          kernel_commit=$(git -C linux rev-parse HEAD || true)
+          kernel_ref=$(git -C linux describe --tags --always 2>/dev/null ||
+                           git -C linux rev-parse --abbrev-ref HEAD || true)
+          kernel_repo=$(git -C linux remote get-url origin || true)
+          {
+              echo "kernel_version=${kernel_version}"
+              echo "kernel_commit=${kernel_commit}"
+              echo "kernel_ref=${kernel_ref}"
+              echo "kernel_repo=${kernel_repo}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Stage artifacts for upload
         run: |
@@ -205,7 +230,7 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: ./.github/workflows/lava-test.yml
-    needs: debos-linux-deb
+    needs: [build-linux-deb, debos-linux-deb]
     permissions:
       checks: write
       contents: read
@@ -216,6 +241,12 @@ jobs:
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      # from build-linux-deb: one kernel is built and installed into both
+      # suites, and that job is not a matrix, so these are exact
+      kernel_version: ${{ needs.build-linux-deb.outputs.kernel_version }}
+      kernel_ref: ${{ needs.build-linux-deb.outputs.kernel_ref }}
+      kernel_commit: ${{ needs.build-linux-deb.outputs.kernel_commit }}
+      kernel_repo: ${{ needs.build-linux-deb.outputs.kernel_repo }}
       boards_include: ${{ inputs.lava_boards_include }}
       boards_exclude: ${{ inputs.lava_boards_exclude }}
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}
