@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read # actions/checkout
     outputs:
-      url: ${{ steps.resolve.outputs.url }}
+      test_matrix: ${{ steps.resolve.outputs.test_matrix }}
       rebuild: ${{ steps.resolve.outputs.rebuild }}
     steps:
       - name: Clone repository
@@ -30,32 +30,52 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve the build to test
+      - name: Resolve the builds to test
         id: resolve
         env:
           PINNED_BUILD_FILE: .github/ci-testing-build-url
+          SUITES: '["trixie","forky"]'
         run: |
           set -euo pipefail
-          URL=""
+          ENTRIES='[]'
           if [ -f "${PINNED_BUILD_FILE}" ]; then
-              # everything that is not a comment, whitespace stripped
-              URL=$(sed 's/#.*//' "${PINNED_BUILD_FILE}" | tr -d '[:space:]' | head -1)
-          fi
-          if [ -n "${URL}" ]; then
-              case "${URL}" in
-                  https://*) ;;
-                  *)
-                      echo "::error::${PINNED_BUILD_FILE} must hold an https:// URL, got '${URL}'"
+              while read -r KERNEL URL _; do
+                  [ -n "${KERNEL}" ] || continue
+                  if [ -z "${URL}" ]; then
+                      echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} has no URL"
                       exit 1
-                      ;;
-              esac
-              echo "::notice::reusing the build at ${URL}, not rebuilding the images"
-              echo "rebuild=false" >> "$GITHUB_OUTPUT"
-          else
-              echo "no build pinned in ${PINNED_BUILD_FILE}, building the images"
-              echo "rebuild=true" >> "$GITHUB_OUTPUT"
+                  fi
+                  case "${URL}" in
+                      https://*) ;;
+                      *)
+                          echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} must name an https:// URL, got '${URL}'"
+                          exit 1
+                          ;;
+                  esac
+                  if ! yq -e ".\"${KERNEL}\"" .github/lava-boards.yml >/dev/null 2>&1; then
+                      echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} is not a kernel in .github/lava-boards.yml"
+                      exit 1
+                  fi
+                  ENTRIES=$(echo "${ENTRIES}" | jq -c --arg k "${KERNEL}" --arg u "${URL}" '. + [$ARGS.named]')
+              done < <(sed 's/#.*//' "${PINNED_BUILD_FILE}")
           fi
-          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+          if [ "$(echo "${ENTRIES}" | jq 'length')" -eq 0 ]; then
+              # nothing pinned: build qcom-next and test what was just built,
+              # which is what this workflow does on main
+              echo "no build pinned in ${PINNED_BUILD_FILE}, building the images"
+              ENTRIES='[{"k":"qcom-next","u":""}]'
+              echo "rebuild=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "::notice::testing $(echo "${ENTRIES}" | jq -r '[.[].k] | join(", ")') against pinned builds, not rebuilding"
+              echo "rebuild=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # one leg per kernel and suite
+          MATRIX=$(echo "${ENTRIES}" | jq -c --argjson suites "${SUITES}" \
+              '{include: [.[] as $e | $suites[] as $s | {kernel: $e.k, url: $e.u, suite: $s}]}')
+          echo "${MATRIX}" | jq
+          echo "test_matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: build-url
@@ -74,12 +94,10 @@ jobs:
       # APT repository
       kernelpackages: efs/qcom-next
   test:
-    # one test run per suite, matching the images the build job produces;
-    # without this only the default suite, trixie, is ever tested
+    # one run per kernel and suite, from the matrix the resolver built
     strategy:
       fail-fast: false
-      matrix:
-        suite: [trixie, forky]
+      matrix: ${{ fromJson(needs.build-url.outputs.test_matrix) }}
     uses: ./.github/workflows/test.yml
     needs: [build-url, build]
     # the build job is skipped when a build is pinned, which "always()" is
@@ -96,7 +114,7 @@ jobs:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
       # the pinned build if there is one, the build we just made otherwise
-      url: ${{ needs.build-url.outputs.url || needs.build.outputs.artifacts_url }}
+      url: ${{ matrix.url || needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
-      kernel: qcom-next
+      kernel: ${{ matrix.kernel }}

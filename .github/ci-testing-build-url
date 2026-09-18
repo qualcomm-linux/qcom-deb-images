@@ -1,17 +1,21 @@
 # TEMPORARY, together with the ci-testing entry in build-on-push.yml.
 #
-# Put the URL of an existing build here and a push to ci-testing will skip the
-# image build and test that build instead. Leave it empty (or comment it out)
-# and the images are rebuilt as usual.
+# One "<kernel> <url>" per line. Each named kernel is tested against the build
+# at that URL, for every suite, and nothing is rebuilt. The kernel has to be one
+# of the keys of .github/lava-boards.yml, which is what decides the boards:
 #
-# The URL is the artifact prefix of a previous run, which holds the images of
-# every suite, so one URL serves the whole test matrix. Take it from the
-# "Downloads URL" line of a debos job, or from the build-url metadata of any
-# LAVA job that run submitted, e.g.
+#   qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35226840721-1/
+#   linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35100000000-1/
 #
-
-https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35226840721-1/
-
+# Leave it with no entry, as committed, and the qcom-next images are built and
+# tested as they are on main.
 #
-# Remember that a reused build pins the images under test: a change to the
-# debos recipes will not be picked up until this is emptied again.
+# A URL is the artifact prefix of a previous run, which holds the images of
+# every suite. Take it from the "Downloads URL" line of that run's debos job, or
+# from the build-url metadata of any LAVA job it submitted.
+#
+# Why one URL per kernel rather than a kernel axis on the build job: debos
+# uploads to <run id>-<attempt>/ and names the images after the suite alone, so
+# two kernels built in one run would write the same file over each other. Each
+# kernel gets its own build only by being its own workflow run, which on main is
+# what the daily workflows are.
