@@ -15,3 +15,7 @@ lemans-evk:
 qrb2210-rb1:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet"
+
+qrb2210-arduino-imola:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet"
