@@ -209,6 +209,7 @@ actions:
       "src:fastrpc:any"
       "src:firmware-free:any"
       "src:firmware-nonfree:any"
+      "src:greetd:any"
       "src:hexagon-dsp-binaries:any"
       "src:linux:any"
       "src:linux-signed-arm64:any"
@@ -818,11 +819,32 @@ actions:
       - adreno-opencl-icd
       - adreno-vulkan-icd
 
-      # CamX - only firmware available for now
+      # CamX
       # camx-dkms fails to build in fakemachine; see https://github.com/qualcomm-linux/pkg-camx-dkms/pull/42
       #- camx-dkms
+
+      # CamX device-specific firmware
       - camx-firmware-glymur
       - camx-firmware-hamoa
+
+      # CamX camera service
+      - qti-camera-server
+
+      # CamX device-specific runtime libraries
+      # camx-glymur and camx-hamoa are only built for trixie; see
+      # https://github.com/qualcomm-linux/pkg-camx-glymur/issues/8 and
+      # https://github.com/qualcomm-linux/pkg-camx-hamoa/issues/20
+{{- if eq $suite "trixie" }}
+      - camx-server-runtime-all
+{{- end }}
+
+      # CamX firmware
+      - camx-firmware-glymur
+      - camx-firmware-hamoa
+
+      # CamX test applications
+      - camx-nhx
+      - qcom-fastcv-utils
 
       # Iris Video Processing Unit
       - iris-vpu-dkms

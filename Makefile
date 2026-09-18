@@ -6,11 +6,14 @@
 
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
+# The image recipe unpacks rootfs.tar into the scratch directory before copying
+# it into the filesystem image, so the scratch space has to be larger than the
+# biggest imagesize we build.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
 FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
 
 EXTRA_DEBOS_OPTS ?=
-DEBOS_OPTS := $(FAKEMACHINE_OPTS) --memory 1GiB --scratchsize 6GiB $(EXTRA_DEBOS_OPTS)
+DEBOS_OPTS := $(FAKEMACHINE_OPTS) --memory 1GiB --scratchsize 12GiB $(EXTRA_DEBOS_OPTS)
 
 # Container support: auto-detect if debos is available, otherwise use container
 USE_CONTAINER ?= auto
