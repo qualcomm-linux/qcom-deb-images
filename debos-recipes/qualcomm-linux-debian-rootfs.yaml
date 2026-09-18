@@ -93,9 +93,10 @@ actions:
         exit 1
       fi
 
-      # Remove the generated config to not disable `Check-Valid-Until` globally;
-      # the later generated snapshot_*.sources config disables it for the
-      # relevant sources.
+      # Remove the generated config to not disable `Check-Valid-Until` globally
+      # for the shipped image; the later apt.conf.d/99snapshot config disables
+      # it for the duration of the build instead, and is removed before the
+      # rootfs is packed.
       rm -v "$conf"
 {{- end }}
 
@@ -119,30 +120,6 @@ actions:
       Suites: /
       Trusted: true
       EOF
-{{- end }}
-
-{{- if $snapshot }}
-  - action: run
-    description: Install apt-snapshot-toggle into rootfs
-    chroot: false
-    command: |
-      set -eux
-      cat > "${ROOTDIR}/usr/local/bin/apt-snapshot-toggle" <<'TOGGLE'
-      #!/bin/sh
-      mode="$1"
-      for f in /etc/apt/sources.list.d/*.sources; do
-          case "$f" in
-            */snapshot_*) want=$([ "$mode" = "enable" ] && echo yes || echo no) ;;
-            *)             want=$([ "$mode" = "enable" ] && echo no  || echo yes) ;;
-          esac
-          if ! grep -q "^Enabled:" "$f"; then
-              echo "Warning: no Enabled: field in ${f}" >&2
-          else
-              sed -i "s/^Enabled:.*/Enabled: ${want}/" "$f"
-          fi
-      done
-      TOGGLE
-      chmod +x "${ROOTDIR}/usr/local/bin/apt-snapshot-toggle"
 {{- end }}
 
   - action: run
@@ -301,52 +278,33 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Derive snapshot_*.sources from live APT sources
+    description: Seed live APT metadata before pinning to the snapshot
+    chroot: true
+    command: |
+      set -eux
+      # APT only learns that an archive supports snapshots (via the
+      # Snapshots: field in its Release file) after fetching that archive's
+      # live Release at least once in a prior, separate apt-get update.
+      # deb.debian.org has this preseeded into APT itself and works from a
+      # cold cache; qli does not. Update once, unpinned, before the pin
+      # exists below, so the pinned update resolves every source - qli
+      # included - through the dated archive from the start.
+      apt-get -y update
+
+  - action: run
+    description: Pin APT to the snapshot archive
     chroot: true
     command: |
       set -eux
       SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
-      for src in /etc/apt/sources.list.d/*.sources; do
-          name=$(basename "$src" .sources)
-          # skip already-derived snapshot files
-          case "$name" in snapshot_*) continue ;; esac
-          # table: per-source mirror URL (assert) -> snapshot rewrite (sed exprs);
-          # sources with no snapshot archive fall through and are skipped
-          case "$name" in
-            debian)
-              assert='http://deb.debian.org/debian'
-              set -- \
-                -e "s#http://deb\.debian\.org/debian/#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#g" \
-                -e "s#http://deb\.debian\.org/debian-security/#https://snapshot.debian.org/archive/debian-security/${SNAPSHOT}/#g"
-              ;;
-            debian-backports)
-              assert='http://deb.debian.org/debian'
-              set -- \
-                -e "s#http://deb\.debian\.org/debian\$#https://snapshot.debian.org/archive/debian/${SNAPSHOT}/#"
-              ;;
-            qli)
-              assert='https://deb.debusine.qualcomm.com/qualcomm/qli'
-              set -- \
-                -e "s#https://deb\.debusine\.qualcomm\.com/qualcomm/qli#&/${SNAPSHOT}#"
-              ;;
-            *)
-              echo "WARNING: skipping apt snapshot for $src" >&2
-              continue
-              ;;
-          esac
-          # fail loudly if the upstream mirror URL isn't what we expect
-          if ! grep -qF "$assert" "$src"; then
-              echo "ERROR: expected mirror '$assert' not found in $src" >&2
-              exit 1
-          fi
-          # rewrite the mirror URL to the dated snapshot archive and disable
-          # Check-Valid-Until (snapshots are static, so the Release becomes stale)
-          sed "$@" \
-              -e "/^Enabled:/a\\# TODO: remove Check-Valid-Until once Debusine-based snapshots are available" \
-              -e "/^Enabled:/a\\Check-Valid-Until: no" \
-              "$src" > "/etc/apt/sources.list.d/snapshot_${name}.sources"
-      done
-      apt-snapshot-toggle enable
+      # APT resolves every configured source through the dated archive on its
+      # own, for any archive that supports snapshot metadata (Debian and the
+      # Qualcomm Linux qli archive both do); no per-source URL rewriting is
+      # needed.
+      tee /etc/apt/apt.conf.d/99snapshot <<EOF
+      APT::Snapshot "${SNAPSHOT}";
+      Acquire::Check-Valid-Until "false";
+      EOF
 {{- end }}
 
   - action: run
@@ -356,17 +314,29 @@ actions:
       set -eux
       # remove old style, incomplete sources, superseded in apt-sources overlay
       rm -vf /etc/apt/sources.list
-{{- if $snapshot }}
-      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
-      for f in /etc/apt/sources.list.d/*.sources; do
-          case "$f" in */snapshot_*) continue ;; esac
-          if grep -q "^Enabled: yes" "$f"; then
-              echo "Warning: $(basename "$f" .sources) has no snapshot support; packages from this source will be the latest available" >&2
-          fi
-      done
+{{- if and $snapshot (ne $aptlocalrepo "none") }}
+      echo "Warning: aptlocalrepo has no snapshot equivalent; packages from it will be the latest available" >&2
 {{- end }}
       # APT update and upgrade to pickup changes from overlays
       apt-get -y update
+{{- if $snapshot }}
+      # Verify the pin actually took effect for every source before
+      # upgrading anything; fail loudly rather than silently resolving a
+      # source live. Checked against the cached apt list filenames, which
+      # encode the resolved URL (slashes become underscores, host kept
+      # as-is).
+      SNAPSHOT=$(grep '^SNAPSHOT=' /etc/buildinfo | cut -d= -f2)
+      cached="$(ls /var/lib/apt/lists/)"
+      for marker in \
+          "snapshot.debian.org_archive_debian_${SNAPSHOT}_dists" \
+          "snapshot.debian.org_archive_debian-security_${SNAPSHOT}_dists" \
+          "qualcomm_qli_${SNAPSHOT}_dists"; do
+        if ! echo "$cached" | grep -qF "$marker"; then
+          echo "ERROR: no cached APT list matches '${marker}'; a source did not resolve through the snapshot archive and the pin silently failed to take effect" >&2
+          exit 1
+        fi
+      done
+{{- end }}
       apt-get -y full-upgrade
 
   - action: apt
@@ -893,11 +863,11 @@ actions:
 
 {{- if $snapshot }}
   - action: run
-    description: Restore APT sources to live mirrors
+    description: Remove APT snapshot pin
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle disable
+      rm -f /etc/apt/apt.conf.d/99snapshot
 {{- end }}
 
   - action: run
