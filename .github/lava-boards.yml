@@ -34,6 +34,7 @@ qcom-next:
     - qcs6490-rb3gen2
     - qcs8300-ride
     - qrb2210-rb1
+    - shikra-iqs-evk
 
 qcom-7.2:
   # the nightly qcom-7.2 build tests one board; see linux-qcom-7.2.yml
@@ -58,6 +59,7 @@ linux-next:
     - qcs6490-rb3gen2
     - qrb2210-arduino-imola
     - qrb2210-rb1
+    - shikra-iqs-evk
 
 debian:
   # the boards left out either do not boot the distro kernel or have no WLAN
@@ -68,6 +70,7 @@ debian:
     - lemans-evk
     - qcs615-ride
     - qcs6490-rb3gen2
+    - shikra-iqs-evk
 
 mainline:
   # as linux-next, minus monaco-evk; see
@@ -78,3 +81,4 @@ mainline:
     - qcs6490-rb3gen2
     - qrb2210-arduino-imola
     - qrb2210-rb1
+    - shikra-iqs-evk
