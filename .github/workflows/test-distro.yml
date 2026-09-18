@@ -350,7 +350,8 @@ jobs:
     outputs:
       summary_id: ${{ steps.generate-summary.outputs.artifact_id }}
     steps:
-      # the known failures list this reads lives in this repository
+      # both the summary action and the known failures list it reads live
+      # in this repository, so the checkout has to come first
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -358,7 +359,7 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
-        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@79486c4840edc4a7c4af3932c82639ac53568fcb # test-job-summary, PR #55
+        uses: ./.github/actions/test-job-summary
         with:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}
