@@ -1,0 +1,380 @@
+name: Test distro
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: Base URL the images under test were published to
+        required: true
+        type: string
+      build_id:
+        description: ID of the workflow run that built the image under test
+        required: true
+        type: string
+      devices:
+        description: Comma separated list of devices to boot test
+        required: true
+        type: string
+      devices_premerge:
+        description: >
+          Comma separated list of devices to run the pre-merge tests on. Empty
+          means "every device that boots", which is the usual case; set it to
+          narrow the pre-merge run down to a subset.
+        required: false
+        type: string
+        default: ''
+      suite:
+        description: Debian suite (e.g. trixie, forky)
+        required: true
+        type: string
+      variant:
+        description: Image variant (e.g. weston-multimedia), 'default' for none
+        required: false
+        type: string
+        default: default
+      kernel:
+        description: Kernel flavour in the image (e.g. qcom-next)
+        required: true
+        type: string
+      project_name:
+        description: Project name in lava-test-plans
+        required: false
+        type: string
+        default: qcom-deb-images
+      testkit_ref:
+        description: "Ref in qcom-linux-testkit: CalVer tag or commit SHA"
+        required: true
+        type: string
+      known_failures_file:
+        description: >
+          Known failures list to apply, relative to the workspace. Empty
+          disables the mechanism.
+        required: false
+        type: string
+        default: ''
+      pr_number:
+        description: Pull request number, recorded in the LAVA job metadata
+        required: false
+        type: string
+        default: ''
+      pr_url:
+        description: Pull request URL, recorded in the LAVA job metadata
+        required: false
+        type: string
+        default: ''
+    outputs:
+      summary_id:
+        description: ID of the test summary artifact
+        value: ${{ jobs.publish-test-summary.outputs.summary_id }}
+    secrets:
+      LAVATOKEN:
+        description: Token used to submit jobs to the LAVA lab
+        required: true
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+env:
+  # the build variant, used to name artifacts and to tell the results of one
+  # (kernel, suite, variant) combination from another within the same run
+  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+  # The revision of lava-test-plans the jobs are rendered with. It is pinned on
+  # the uses: lines below, which cannot take an expression, so keep this in step
+  # with them - it is only recorded in the job metadata.
+  LAVA_TEST_PLANS_REF: 69bc11ed573b52b42d1a10384c10969620e62e74
+
+jobs:
+  prepare-boot-jobs:
+    name: Prepare boot jobs
+    runs-on: ubuntu-latest
+    outputs:
+      jobmatrix: ${{ steps.lava-test-plans.outputs.jobmatrix }}
+      artifact_id: ${{ steps.lava-test-plans.outputs.artifact_id }}
+    steps:
+      - name: Collect the build metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="${GITHUB_SHA}"
+          SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          BUILD_TYPE="${GITHUB_EVENT_NAME^^}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+              BUILD_TYPE="PR"
+              if [ -f "${GITHUB_EVENT_PATH:-}" ]; then
+                  # github.sha is the target branch here, not the built commit
+                  SOURCE_SHA=$(jq -r '.workflow_run.head_sha // ""' "${GITHUB_EVENT_PATH}")
+                  SOURCE_BRANCH=$(jq -r '.workflow_run.head_branch // ""' "${GITHUB_EVENT_PATH}")
+              fi
+          fi
+          {
+            echo "build_type=${BUILD_TYPE}"
+            echo "source_sha=${SOURCE_SHA}"
+            echo "source_branch=${SOURCE_BRANCH}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render boot jobs
+        id: lava-test-plans
+        uses: qualcomm-linux/lava-test-plans@69bc11ed573b52b42d1a10384c10969620e62e74 # debian-support, PR #30
+        with:
+          machines: ${{ inputs.devices }}
+          build_url: ${{ inputs.url }}
+          project: ${{ inputs.project_name }}
+          testplan: debian/boot
+          prefix: boottest-${{ env.VARIANT }}
+          os_info: debian
+          testkit_ref: ${{ inputs.testkit_ref }}
+          pr_number: ${{ inputs.pr_number }}
+          pr_url: ${{ inputs.pr_url }}
+          # Everything after the section header belongs to EXTRA_METADATA, which
+          # lava-test-plans renders into the job metadata as is, so recording a
+          # new key needs no change there. %MACHINE% is substituted per board.
+          variables: |
+            AUTH_HEADER_NAME=QLIAuthorization
+            AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            [EXTRA_METADATA]
+            build-type = "${{ steps.meta.outputs.build_type }}"
+            build-run-id = "${{ inputs.build_id }}"
+            build-url = "${{ inputs.url }}"
+            source-repo = "${{ github.server_url }}/${{ github.repository }}"
+            source-branch = "${{ steps.meta.outputs.source_branch }}"
+            source-sha = "${{ steps.meta.outputs.source_sha }}"
+            distro = "debian"
+            suite = "${{ inputs.suite }}"
+            variant = "${{ inputs.variant }}"
+            kernel = "${{ inputs.kernel }}"
+            testplan = "debian/boot"
+            testkit-ref = "${{ inputs.testkit_ref }}"
+            lava-test-plans-ref = "${{ env.LAVA_TEST_PLANS_REF }}"
+            gh-workflow-name = "${{ github.workflow }}"
+            machine = "%MACHINE%"
+
+  submit-boot-job:
+    needs: prepare-boot-jobs
+    runs-on: ubuntu-latest
+    # one red board must not stop the others; the failure is reported through
+    # the summary and the JUnit results instead
+    continue-on-error: true
+    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare-boot-jobs.outputs.jobmatrix) }}
+    steps:
+      - name: Download job templates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.prepare-boot-jobs.outputs.artifact_id }}
+
+      - name: Submit ${{ matrix.target.name }}
+        # the timeout starts when the job is submitted, and a job may spend a
+        # while in the LAVA queue as there is a limited number of devices
+        timeout-minutes: 120
+        id: submit
+        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
+        with:
+          lava_token: ${{ secrets.LAVATOKEN }}
+          lava_url: 'lava.infra.foundries.io'
+          job_definition: ${{ matrix.target.path }}
+          wait_for_job: true
+          fail_action_on_failure: true
+          fail_action_on_incomplete: true
+          save_result_as_artifact: true
+          save_job_details: true
+          result_file_name: ${{ matrix.target.result_file }}
+          test_job_file_name_prefix: ${{ env.VARIANT }}-
+
+      # job level matrix outputs do not aggregate in GitHub Actions, so the
+      # per-device results are written out and read back in the next job
+      - uses: qualcomm-linux/github-action-matrix-outputs-write@59fdd8db9c91b623ec1111b9c081435b1533f529 # v3
+        if: always()
+        id: out
+        with:
+          matrix-step-name: submit-boot-job-${{ env.VARIANT }}
+          matrix-key: ${{ matrix.target.name }}
+          artifact-name: submit-boot-job-${{ env.VARIANT }}-${{ matrix.target.name }}
+          outputs: |-
+            result: ${{ steps.submit.outcome }}
+
+  boot-job-result:
+    name: Collect boot results
+    runs-on: ubuntu-latest
+    needs: [submit-boot-job]
+    if: always()
+    permissions:
+      contents: read
+    outputs:
+      booted_devices: ${{ steps.collect.outputs.booted_devices }}
+    steps:
+      - uses: qualcomm-linux/github-action-matrix-outputs-read@2b2498aa0fc6c565e02af0f3a3c5b7e1b6ae07f4
+        id: read
+        with:
+          matrix-step-name: submit-boot-job-${{ env.VARIANT }}
+          download-file-pattern: submit-boot-job-${{ env.VARIANT }}*
+
+      - name: Collect the devices that booted
+        id: collect
+        env:
+          OUTPUTS_RESULT: ${{ steps.read.outputs.result }}
+          INPUTS_DEVICES_PREMERGE: ${{ inputs.devices_premerge }}
+        run: |
+          set -euo pipefail
+          # Unlike meta-qcom, a single failing board does not skip the whole
+          # pre-merge run: boards that are known to be flaky would keep every
+          # other board untested. Run the tests on whatever booted instead.
+          #
+          # The read action returns {"<output name>": {"<matrix key>": value}},
+          # and the matrix key is the device name.
+          echo "${OUTPUTS_RESULT}" | yq
+          BOOTED=$(echo "${OUTPUTS_RESULT}" | yq -o=json -I=0 '.result // {}' |
+              jq -r --arg wanted "${INPUTS_DEVICES_PREMERGE}" '
+                  ($wanted | split(",") | map(select(. != ""))) as $wanted
+                  | to_entries
+                  | map(select(.value == "success") | .key)
+                  # an empty devices_premerge means every board that booted
+                  | if ($wanted | length) > 0 then map(select(. as $d | $wanted | index($d))) else . end
+                  | join(",")')
+          echo "devices that booted: ${BOOTED:-(none)}"
+          echo "booted_devices=${BOOTED}" >> "$GITHUB_OUTPUT"
+
+  prepare-premerge-jobs:
+    name: Prepare pre-merge jobs
+    runs-on: ubuntu-latest
+    needs: boot-job-result
+    if: ${{ needs.boot-job-result.outputs.booted_devices != '' }}
+    outputs:
+      jobmatrix: ${{ steps.lava-test-plans.outputs.jobmatrix }}
+      artifact_id: ${{ steps.lava-test-plans.outputs.artifact_id }}
+    steps:
+      - name: Collect the build metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="${GITHUB_SHA}"
+          SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          BUILD_TYPE="${GITHUB_EVENT_NAME^^}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+              BUILD_TYPE="PR"
+              if [ -f "${GITHUB_EVENT_PATH:-}" ]; then
+                  # github.sha is the target branch here, not the built commit
+                  SOURCE_SHA=$(jq -r '.workflow_run.head_sha // ""' "${GITHUB_EVENT_PATH}")
+                  SOURCE_BRANCH=$(jq -r '.workflow_run.head_branch // ""' "${GITHUB_EVENT_PATH}")
+              fi
+          fi
+          {
+            echo "build_type=${BUILD_TYPE}"
+            echo "source_sha=${SOURCE_SHA}"
+            echo "source_branch=${SOURCE_BRANCH}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render pre-merge jobs
+        id: lava-test-plans
+        uses: qualcomm-linux/lava-test-plans@69bc11ed573b52b42d1a10384c10969620e62e74 # debian-support, PR #30
+        with:
+          machines: ${{ needs.boot-job-result.outputs.booted_devices }}
+          build_url: ${{ inputs.url }}
+          project: ${{ inputs.project_name }}
+          testplan: debian/pre-merge
+          prefix: premerge-${{ env.VARIANT }}
+          os_info: debian
+          testkit_ref: ${{ inputs.testkit_ref }}
+          pr_number: ${{ inputs.pr_number }}
+          pr_url: ${{ inputs.pr_url }}
+          # Everything after the section header belongs to EXTRA_METADATA, which
+          # lava-test-plans renders into the job metadata as is, so recording a
+          # new key needs no change there. %MACHINE% is substituted per board.
+          variables: |
+            AUTH_HEADER_NAME=QLIAuthorization
+            AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            [EXTRA_METADATA]
+            build-type = "${{ steps.meta.outputs.build_type }}"
+            build-run-id = "${{ inputs.build_id }}"
+            build-url = "${{ inputs.url }}"
+            source-repo = "${{ github.server_url }}/${{ github.repository }}"
+            source-branch = "${{ steps.meta.outputs.source_branch }}"
+            source-sha = "${{ steps.meta.outputs.source_sha }}"
+            distro = "debian"
+            suite = "${{ inputs.suite }}"
+            variant = "${{ inputs.variant }}"
+            kernel = "${{ inputs.kernel }}"
+            testplan = "debian/pre-merge"
+            testkit-ref = "${{ inputs.testkit_ref }}"
+            lava-test-plans-ref = "${{ env.LAVA_TEST_PLANS_REF }}"
+            gh-workflow-name = "${{ github.workflow }}"
+            machine = "%MACHINE%"
+
+  submit-premerge-job:
+    needs: prepare-premerge-jobs
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare-premerge-jobs.outputs.jobmatrix) }}
+    steps:
+      - name: Download job templates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.prepare-premerge-jobs.outputs.artifact_id }}
+
+      - name: Submit ${{ matrix.target.name }}
+        timeout-minutes: 120
+        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
+        with:
+          lava_token: ${{ secrets.LAVATOKEN }}
+          lava_url: 'lava.infra.foundries.io'
+          job_definition: ${{ matrix.target.path }}
+          wait_for_job: true
+          fail_action_on_failure: true
+          fail_action_on_incomplete: true
+          save_result_as_artifact: true
+          save_job_details: true
+          result_file_name: ${{ matrix.target.result_file }}
+          test_job_file_name_prefix: ${{ env.VARIANT }}-
+
+  publish-test-summary:
+    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
+    needs: [boot-job-result, submit-premerge-job]
+    if: always() && needs.boot-job-result.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+      checks: write
+      pull-requests: write
+    outputs:
+      summary_id: ${{ steps.generate-summary.outputs.artifact_id }}
+    steps:
+      # the known failures list this reads lives in this repository
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Generate summary
+        id: generate-summary
+        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@79486c4840edc4a7c4af3932c82639ac53568fcb # test-job-summary, PR #55
+        with:
+          # the job detail artifacts are attached to this run, not to the build
+          build_id: ${{ github.run_id }}
+          gh_token: ${{ github.token }}
+          prefix: ${{ env.VARIANT }}-test-job*
+          summary_file_name: ${{ env.VARIANT }}-test_job_summary
+          summary_title: ${{ env.VARIANT }}
+          known_failures_file: ${{ inputs.known_failures_file }}
+          kernel: ${{ inputs.kernel }}
+
+      - name: Download summary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ steps.generate-summary.outputs.artifact_id }}
+
+      - name: Publish test job details
+        env:
+          SUMMARY_FILE: ${{ env.VARIANT }}-test_job_summary
+        run: cat "${SUMMARY_FILE}" >> "$GITHUB_STEP_SUMMARY"

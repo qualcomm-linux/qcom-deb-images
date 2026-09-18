@@ -1,0 +1,39 @@
+name: Check known failures lists
+
+# An entry naming a device or a kernel flavour that is not tested is silently
+# never applied, so the lists are checked against the board table on every
+# change to either.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/known-failures/**
+      - .github/lava-boards.yml
+      - .github/scripts/apply-known-failures.py
+      - .github/workflows/known-failures.yml
+  push:
+    branches: [main]
+    paths:
+      - .github/known-failures/**
+      - .github/lava-boards.yml
+      - .github/scripts/apply-known-failures.py
+      - .github/workflows/known-failures.yml
+
+permissions: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt -y install python3-defusedxml python3-yaml
+
+      - name: Validate the known failures lists
+        run: .github/scripts/apply-known-failures.py --validate

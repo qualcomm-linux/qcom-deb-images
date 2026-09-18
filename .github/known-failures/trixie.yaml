@@ -1,0 +1,17 @@
+# Tests that are known to fail on trixie images. See README.md for the format.
+#
+# Add the issue each failure is tracked in as its comment, and remove the entry
+# once the issue is fixed: a listed test that passes is reported as an
+# unexpected pass and fails the run.
+
+lemans-evk:
+  - test: cdsp_remoteproc
+    comment: "fails on lemans-evk with the qcom-next kernel"
+    kernels: [qcom-next]
+  - test: fastrpc_test
+    comment: "fails on lemans-evk with the qcom-next kernel"
+    kernels: [qcom-next]
+
+qrb2210-rb1:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet"
