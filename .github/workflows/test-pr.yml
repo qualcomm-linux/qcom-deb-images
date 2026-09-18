@@ -107,7 +107,6 @@ jobs:
       pr_url: ${{ needs.retrieve-build-url.outputs.pr_url }}
       # this run is on the base branch, the results belong to the pull request
       commit: ${{ github.event.workflow_run.head_sha }}
-      event_name: ${{ github.event.workflow_run.event }}
       head_repository: ${{ github.event.workflow_run.head_repository.full_name }}
 
   comment-on-pr:
@@ -143,3 +142,17 @@ jobs:
           pr-number: ${{ needs.retrieve-build-url.outputs.pr_number }}
           # update the same comment instead of appending one per re-run
           comment-tag: test-results
+
+  publish-test-results:
+    if: always() && needs.test.result != 'skipped'
+    needs: test
+    uses: ./.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
+      commit: ${{ github.event.workflow_run.head_sha }}
+      event_name: ${{ github.event.workflow_run.event }}
+      build_id: ${{ github.event.workflow_run.id }}

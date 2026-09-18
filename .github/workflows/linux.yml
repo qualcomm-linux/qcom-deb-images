@@ -208,4 +208,15 @@ jobs:
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml, keyed by kernel
       kernel: ${{ inputs.kernel_name || 'mainline' }}
+
+  publish-test-results:
+    if: always() && needs.test-linux-deb.result != 'skipped'
+    needs: test-linux-deb
+    uses: ./.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

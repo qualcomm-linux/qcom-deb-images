@@ -72,4 +72,15 @@ jobs:
       kernel: debian
       # failures here are about upstream Debian, not about qcom-deb-images;
       # they are reported through this workflow instead of gating our work
+
+  publish-test-results:
+    if: always() && needs.test-debian.result != 'skipped'
+    needs: test-debian
+    uses: ./.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
       report_test_results_externally: false
