@@ -19,3 +19,7 @@ qrb2210-rb1:
 qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet"
+
+monaco-evk:
+  - test: BT_ON_OFF
+    comment: "expected to work on this board, does not yet"
