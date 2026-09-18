@@ -26,6 +26,8 @@ qcom-next:
   # lemans-evk and monaco-evk often fail to reach a login prompt, see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/620 - they are
   # tested anyway, a board that does not boot no longer holds up the others.
+  #
+  # shikra-iqs-evk is left out: it reached no login prompt on any boot
   boot:
     - glymur-crd
     - lemans-evk
@@ -34,7 +36,6 @@ qcom-next:
     - qcs6490-rb3gen2
     - qcs8300-ride
     - qrb2210-rb1
-    - shikra-iqs-evk
 
 qcom-7.2:
   # the nightly qcom-7.2 build tests one board; see linux-qcom-7.2.yml
@@ -66,19 +67,24 @@ debian:
   # interface for the wlan tests; see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/440 and
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/424
+  #
+  # shikra-iqs-evk is left out: the stock Debian kernel ships neither
+  # qcom/shikra-iqs-evk.dtb nor the shikraiqs multidtb FIT, so the flash
+  # recipe skips the board and flash-emmc.tar.gz carries no
+  # flash_shikra-iqs-evk_emmc directory for qdl to flash from.
   boot:
     - lemans-evk
     - qcs615-ride
     - qcs6490-rb3gen2
-    - shikra-iqs-evk
 
 mainline:
   # as linux-next, minus monaco-evk; see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+  #
+  # qrb2210-rb1 and shikra-iqs-evk are left out: neither reached a login
+  # prompt on any attempt
   boot:
     - glymur-crd
     - monaco-arduino-monza
     - qcs6490-rb3gen2
     - qrb2210-arduino-imola
-    - qrb2210-rb1
-    - shikra-iqs-evk
