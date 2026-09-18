@@ -85,3 +85,13 @@ jobs:
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
+
+  publish-test-results:
+    if: always() && needs.test.result != 'skipped'
+    needs: test
+    uses: ./.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write

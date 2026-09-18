@@ -40,28 +40,12 @@ on:
         required: false
         type: string
         default: ''
-      report_test_results_externally:
-        description: >
-          true for builds whose failures say something about qcom-deb-images,
-          false for builds whose failures say something about the code under
-          test rather than about qcom-deb-images; results then stay in the job
-          summary, which is written either way.
-        required: false
-        type: boolean
-        default: true
       commit:
         description: >
           Commit the test results check is reported against. Empty means the
           commit this run is for, which is right everywhere but on the pull
           request path, where this run is the base branch and the results
           belong to the pull request head.
-        required: false
-        type: string
-        default: ''
-      event_name:
-        description: >
-          Event the results are reported for. Only needed alongside commit, as
-          github.event_name is workflow_run there rather than pull_request.
         required: false
         type: string
         default: ''
@@ -168,16 +152,14 @@ jobs:
       pr_number: ${{ inputs.pr_number }}
       pr_url: ${{ inputs.pr_url }}
 
-  publish-test-results:
-    name: Publish test results (${{ inputs.kernel }} ${{ inputs.suite }})
+  prepare-test-results:
+    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
     needs: test
     if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
-      contents: read # actions/checkout, EnricoMi/publish-unit-test-result-action
-      checks: write # EnricoMi/publish-unit-test-result-action
+      contents: read # actions/checkout
       packages: read # actions/download-artifact
-      pull-requests: write # EnricoMi/publish-unit-test-result-action
     env:
       # the build variant, as the lava-test-plans action names its result files
       VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
@@ -237,27 +219,12 @@ jobs:
               --kernel "${KERNEL}" \
               --results-dir artifacts
 
-      - name: Download event file
-        if: ${{ inputs.commit != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      # Hand the rewritten results to the caller rather than publishing them
+      # here: one check covering every kernel and suite reads better than one
+      # per variant, and only the caller knows when they are all in.
+      - name: Upload test results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          run-id: ${{ inputs.build_id }}
-          name: Event File
-          path: event-file
-          github-token: ${{ github.token }}
-
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
-        with:
-          files: "${{ github.workspace }}/artifacts/**/*.xml"
-          commit: ${{ inputs.commit }}
-          event_file: ${{ inputs.commit != '' && format('{0}/event-file/event.json', github.workspace) || '' }}
-          event_name: ${{ inputs.event_name }}
-          check_name: Test Results (${{ env.VARIANT }})
-          # when not reporting externally, failures must not show up as a red
-          # check on the commit (which may well be on main) or as a pull
-          # request comment; the job summary keeps the full table either way.
-          # note the action never fails this job on test failures: that would
-          # need action_fail, which defaults to false and we leave alone.
-          check_run: ${{ inputs.report_test_results_externally }}
-          comment_mode: ${{ inputs.report_test_results_externally && 'always' || 'off' }}
+          name: results-${{ env.VARIANT }}
+          path: artifacts
+          if-no-files-found: ignore
