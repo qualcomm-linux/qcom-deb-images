@@ -9,6 +9,13 @@
 # XXX these kernel options might be specific to a kernel version or board
 {{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
 
+# Snapdragon Windows-on-ARM laptops advertise a TPM2 in the EFI
+# variables but expose no device for it ("TPM2 Support: firmware
+# only, driver unavailable" in bootctl status), so the systemd units
+# that wait for one timeout TODO check if this is detrimental on IoT
+# systems
+{{- $kernelcmdline = printf "%s systemd.tpm2_wait=0" $kernelcmdline }}
+
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
 {{- $allowed_profiles := list "default" "performance" "debug" }}
