@@ -10,7 +10,7 @@ on:
       overlays:
         description: List of overlays to use
         type: string
-        default: 'none'
+        default: 'dtb-loader'
       kernelpackages:
         description: >
           Comma-separated list of kernel packages to install from APT
