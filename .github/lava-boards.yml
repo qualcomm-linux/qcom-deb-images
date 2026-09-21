@@ -22,6 +22,10 @@ qcom-next:
   # lemans-evk and monaco-evk often fail to reach a login prompt, see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/620 - they are
   # tested anyway, a board that does not boot no longer holds up the others.
+  #
+  # shikra-iqs-evk is left out: it reached no login prompt on either suite in
+  # run 35371401209 (jobs 434660, 434668), and flashing succeeds first, so it
+  # is not the image download. See the mainline list for the same failure.
   boot:
     - glymur-crd
     - lemans-evk
@@ -29,7 +33,6 @@ qcom-next:
     - qcs615-ride
     - qcs6490-rb3gen2
     - qrb2210-rb1
-    - shikra-iqs-evk
 
 arduino:
   # the arduino kernel is only validated on the monza, monaco and imola boards
@@ -65,9 +68,12 @@ debian:
 mainline:
   # as linux-next, minus monaco-evk; see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/440
+  #
+  # qrb2210-rb1 and shikra-iqs-evk are left out: neither reached a login
+  # prompt on either suite in run 35371401209 (jobs 434682, 434690, 434686,
+  # 434693). qrb2210-rb1 starts Linux and then hangs in login; it boots the
+  # other kernels, so this is specific to mainline.
   boot:
     - monaco-arduino-monza
     - qcs6490-rb3gen2
     - qrb2210-arduino-imola
-    - qrb2210-rb1
-    - shikra-iqs-evk
