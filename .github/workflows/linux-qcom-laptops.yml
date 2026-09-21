@@ -1,0 +1,35 @@
+name: qcom-laptops linux build
+
+on:
+  # run daily at 7:00am, once the qcom-next build (0:30am) and the "Build"
+  # workflow chained onto it have submitted their LAVA jobs
+  schedule:
+    - cron: '00 7 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  build:
+    # don't run cron from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    uses: $/.github/workflows/linux.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
+      kernel_name: laptops
+      build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel/tree/qcom-laptops --ref qcom-laptops'
+      suites: '["forky"]'
+      lava_boards_include: '["glymur-crd"]'
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
