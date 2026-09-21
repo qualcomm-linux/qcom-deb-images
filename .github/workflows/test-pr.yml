@@ -87,7 +87,7 @@ jobs:
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
   test:
-    uses: ./.github/workflows/test.yml
+    uses: $/.github/workflows/test.yml
     permissions:
       checks: write
       contents: read
@@ -146,7 +146,7 @@ jobs:
   publish-test-results:
     if: always() && needs.test.result != 'skipped'
     needs: test
-    uses: ./.github/workflows/publish-results.yml
+    uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read

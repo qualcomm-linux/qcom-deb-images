@@ -30,7 +30,7 @@ jobs:
             variant: weston-multimedia
           - suite: forky
             variant: default
-    uses: ./.github/workflows/debos.yml
+    uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:

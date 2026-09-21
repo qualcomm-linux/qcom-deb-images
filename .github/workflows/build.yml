@@ -48,7 +48,7 @@ jobs:
             variant: weston-multimedia
           - suite: forky
             variant: default
-    uses: ./.github/workflows/debos.yml
+    uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
@@ -71,7 +71,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: [trixie, forky]
-    uses: ./.github/workflows/test.yml
+    uses: $/.github/workflows/test.yml
     needs: build
     permissions:
       checks: write
@@ -89,7 +89,7 @@ jobs:
   publish-test-results:
     if: always() && needs.test.result != 'skipped'
     needs: test
-    uses: ./.github/workflows/publish-results.yml
+    uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read

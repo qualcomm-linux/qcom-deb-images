@@ -350,8 +350,9 @@ jobs:
     outputs:
       summary_id: ${{ steps.generate-summary.outputs.artifact_id }}
     steps:
-      # both the summary action and the known failures list it reads live
-      # in this repository, so the checkout has to come first
+      # the known failures list the summary reads is a file in this
+      # repository, so it has to be checked out. The action itself is
+      # referenced as $/ and is fetched by the runner, not from the workspace.
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -359,7 +360,7 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
-        uses: ./.github/actions/test-job-summary
+        uses: $/.github/actions/test-job-summary
         with:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}

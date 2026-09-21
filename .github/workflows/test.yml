@@ -131,7 +131,7 @@ jobs:
   test:
     name: ${{ inputs.kernel }} ${{ inputs.suite }}
     needs: prepare-env
-    uses: ./.github/workflows/test-distro.yml
+    uses: $/.github/workflows/test-distro.yml
     permissions:
       checks: write
       contents: read

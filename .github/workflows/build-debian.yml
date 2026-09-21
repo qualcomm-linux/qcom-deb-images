@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: [trixie, forky]
-    uses: ./.github/workflows/debos.yml
+    uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
@@ -56,7 +56,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: [trixie, forky]
-    uses: ./.github/workflows/test.yml
+    uses: $/.github/workflows/test.yml
     needs: build-debian
     permissions:
       checks: write
@@ -76,7 +76,7 @@ jobs:
   publish-test-results:
     if: always() && needs.test-debian.result != 'skipped'
     needs: test-debian
-    uses: ./.github/workflows/publish-results.yml
+    uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read

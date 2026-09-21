@@ -192,7 +192,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
-    uses: ./.github/workflows/debos.yml
+    uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
@@ -207,7 +207,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
-    uses: ./.github/workflows/test.yml
+    uses: $/.github/workflows/test.yml
     needs: debos-linux-deb
     permissions:
       checks: write
@@ -225,7 +225,7 @@ jobs:
   publish-test-results:
     if: always() && needs.test-linux-deb.result != 'skipped'
     needs: test-linux-deb
-    uses: ./.github/workflows/publish-results.yml
+    uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read
