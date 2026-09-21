@@ -3,23 +3,39 @@
 # Add the issue each failure is tracked in as its comment, and remove the entry
 # once the issue is fixed: a listed test that passes is reported as an
 # unexpected pass and fails the run.
+#
+# The failures below were all observed in run 35371401209 and are collected in
+# https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
 lemans-evk:
   - test: cdsp_remoteproc
-    comment: "fails on lemans-evk with the qcom-next kernel"
+    comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [qcom-next]
   - test: fastrpc_test
-    comment: "fails on lemans-evk with the qcom-next kernel"
+    comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [qcom-next]
-
-qrb2210-rb1:
-  - test: EFI_Variable_Validation
-    comment: "expected to work on this board, does not yet"
-
-qrb2210-arduino-imola:
-  - test: EFI_Variable_Validation
-    comment: "expected to work on this board, does not yet"
 
 monaco-evk:
   - test: BT_ON_OFF
-    comment: "expected to work on this board, does not yet"
+    comment: "fails on arduino, passes on qcom-next in forky, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [arduino]
+
+qcs6490-rb3gen2:
+  # these three pass on every other kernel flavour on this board
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: hotplug
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+
+qrb2210-arduino-imola:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+
+qrb2210-rb1:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"

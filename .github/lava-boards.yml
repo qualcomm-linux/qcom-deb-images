@@ -6,8 +6,8 @@
 #
 # A name is a device in the qcom-deb-images project of lava-test-plans, i.e. a
 # file under lava_test_plans/projects/qcom-deb-images/devices/. Boards are named
-# after their device tree, which is not always the LAVA device type:
-# qcs6490-rb3gen2 is submitted as qcs6490-rb3gen2-vision-kit.
+# after their device tree, which is also the LAVA device type the job is
+# submitted for and the device key of .github/known-failures/.
 #
 # boot      boards the image is flashed and booted on
 # premerge  boards the qcom-linux-testkit tests run on; empty means "every
