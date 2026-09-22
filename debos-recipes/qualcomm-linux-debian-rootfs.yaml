@@ -837,10 +837,6 @@ actions:
       - camx-server-runtime-all
 {{- end }}
 
-      # CamX firmware
-      - camx-firmware-glymur
-      - camx-firmware-hamoa
-
       # CamX test applications
       - camx-nhx
       - qcom-fastcv-utils
