@@ -35,6 +35,13 @@ on:
         required: false
         type: boolean
         default: false
+      suites:
+        description: >
+          JSON array of Debian suites to build images for and test
+          (empty = trixie and forky)
+        required: false
+        type: string
+        default: ''
       lava_boards_include:
         description: JSON array of board names to include in LAVA tests (empty = all boards)
         required: false
@@ -73,6 +80,12 @@ on:
         type: string
       build_linux_deb_extra_args:
         description: Extra arguments to pass to build-linux-deb.py
+        required: false
+        type: string
+      suites:
+        description: >
+          JSON array of Debian suites to build images for and test
+          (empty = trixie and forky)
         required: false
         type: string
 
@@ -188,7 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
+        suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
     uses: ./.github/workflows/debos.yml
     permissions:
       contents: read
@@ -203,7 +216,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
+        suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
     uses: ./.github/workflows/lava-test.yml
     needs: debos-linux-deb
     permissions:

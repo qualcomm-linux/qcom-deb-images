@@ -25,7 +25,7 @@ tuned!
 | Qualcomm Linux | [![qcom-next kernel][qcom-next-badge]][qcom-next] | [![images][images-badge]][images] |
 | Debian | *uses kernel from Debian Archive* | [![Debian images][debian-images-badge]][debian-images] |
 | Reference upstream kernels | [![linux-next][linux-next-badge]][linux-next] [![mainline][mainline-badge]][mainline] | *covered by the kernel build* [^1] |
-| Project-specific builds | [![arduino][arduino-badge]][arduino] | *covered by the kernel build* [^1] |
+| Project-specific builds | [![arduino][arduino-badge]][arduino] [![qcom-7.2][qcom-7.2-badge]][qcom-7.2] | *covered by the kernel build* [^1] |
 
 [^1]: these builds compile the kernel, build an image and boot test the image in a single workflow, so the Kernel build reports all three.
 
@@ -433,3 +433,5 @@ This project is licensed under the [BSD-3-clause License](https://spdx.org/licen
 [mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-mainline.yml?label=mainline
 [arduino]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-arduino.yml
 [arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-arduino.yml?label=arduino
+[qcom-7.2]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-7.2.yml
+[qcom-7.2-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-7.2.yml?label=qcom-7.2
