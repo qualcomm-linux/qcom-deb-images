@@ -820,8 +820,7 @@ actions:
       - adreno-vulkan-icd
 
       # CamX
-      # camx-dkms fails to build in fakemachine; see https://github.com/qualcomm-linux/pkg-camx-dkms/pull/42
-      #- camx-dkms
+      - camx-dkms
 
       # CamX device-specific firmware
       - camx-firmware-glymur
