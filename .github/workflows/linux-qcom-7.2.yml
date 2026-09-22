@@ -28,6 +28,7 @@ jobs:
     with:
       kernel_name: qcom-7.2
       build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel --ref qcom-7.2-20260915 prune.config qcom.config'
+      suites: '["trixie"]'
       lava_boards_include: '["glymur-crd"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
