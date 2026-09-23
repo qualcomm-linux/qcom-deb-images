@@ -360,6 +360,8 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
+        # local action pinned to the running workflow's commit
+        # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
         uses: $/.github/actions/test-job-summary
         with:
           # the job detail artifacts are attached to this run, not to the build
