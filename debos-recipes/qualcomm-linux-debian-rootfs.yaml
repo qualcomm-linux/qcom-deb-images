@@ -1,7 +1,3 @@
-{{- $xfcedesktop := or .xfcedesktop "false" }}
-{{- $gnomedesktop := or .gnomedesktop "false" }}
-{{- $westonsession := or .westonsession "false" }}
-{{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
@@ -12,21 +8,32 @@
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
 
-{{- $variantid := "console" }}
-{{- if eq $xfcedesktop "true" }}
-{{- $variantid = "xfce" }}
-{{- else if eq $gnomedesktop "true" }}
-{{- $variantid = "gnome" }}
-{{- else if eq $westonsession "true" }}
-{{- $variantid = "weston" }}
-{{- end }}
-{{- if eq $multimedia "true" }}
-{{- $variantid = printf "%s-multimedia" $variantid }}
-{{- end }}
-
 # Rename sid to unstable to reduce if/else complexity
 {{- if eq $suite "sid" }}
 {{- $suite = "unstable" }}
+{{- end }}
+
+# Validate $variant; keep this list in sync with the list in the
+# "Supported variants" section of README.md
+# TODO: originally default was "console"
+{{- $variant := or .variant "default" }}
+{{- $allowed_variants := list "default" "xfcedesktop" "gnomedesktop" "weston" "weston-multimedia" }}
+{{- if not (has $variant $allowed_variants) }}
+{{- fail (printf "unknown variant %q" $variant) }}
+{{- end }}
+
+# Validate $profile; keep this list in sync with the list in the
+# "Supported profiles" section of README.md
+{{- $profile := or .profile "default" }}
+{{- $allowed_profiles := list "default" "performance" "debug" }}
+{{- if not (has $profile $allowed_profiles) }}
+{{- fail (printf "unknown profile %q" $profile) }}
+{{- end }}
+
+# Force installation of qcom-next-debug kernel when building debug profile
+# TODO: Do it in debos.yml instead ????? Also missing headers ????
+{{- if eq $profile "debug" }}
+{{- $kernelpackages := "linux-image-qcom-next-debug" }}
 {{- end }}
 
 architecture: arm64
@@ -155,8 +162,11 @@ actions:
 {{- if $buildid }}
       echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
 {{- end }}
-{{- if $variantid }}
-      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
+{{- if ne $variant "default" }}
+      echo "VARIANT_ID={{$variant}}" >>/etc/buildinfo
+{{- end }}
+{{- if ne $profile "default" }}
+      echo "PROFILE={{$profile}}" >>/etc/buildinfo
 {{- end }}
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
@@ -541,7 +551,8 @@ actions:
       set -eux
       usermod -a -G docker debian
 
-{{- if eq $xfcedesktop "true" }}
+# TODO: move variant && profile install into separate recipe, make this base
+{{- if eq $variant "xfcedesktop" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
   # instead, curate from the Depends and Recommends of task-xfce-desktop and
   # task-desktop recursively; also, disable Recommends
@@ -598,7 +609,7 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
-{{- if eq $gnomedesktop "true" }}
+{{- if eq $variant "gnomedesktop" }}
 
 # The following list of package is a manual selection from the gnome-core
 # metapackage from trixie with some pruning. The list of packages is longer in
@@ -698,7 +709,7 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
-{{- if eq $westonsession "true" }}
+{{- if has $variant (list "weston" "weston-multimedia") }}
 # Install Weston, a lightweight Wayland compositor.
 #
 # The Weston package does not have any mechanism to start automatically at boot
@@ -780,7 +791,9 @@ actions:
       # marks the current Android boot partition as booted successfully
       - qbootctl
 
-{{- if eq $multimedia "true" }}
+# TODO: this has the hard limit that for now we can only install multimedia packages
+# on weston. I think for now that's fine; come back to it later.
+{{- if eq $variant "weston-multimedia" }}
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
 # closed source user-space from the Qualcomm Linux APT repository.
 
