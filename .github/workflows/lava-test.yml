@@ -10,6 +10,12 @@ on:
         description: Distribution suite (e.g. trixie, forky)
         type: string
         default: trixie
+      variant:
+        description: >
+          Name of the image variant to test (e.g. multimedia). Empty or
+          "default" chooses the default variant.
+        type: string
+        default: default
       boards_include:
         description: JSON array of board names to include (empty = all boards)
         type: string
@@ -42,7 +48,14 @@ permissions: {}
 env:
   BUILD_URL: ${{ inputs.url }}
   LAVA_CI: ci/lava/
-  SUITE: ${{ inputs.suite }}
+  # Filename prefix for the artifacts. Must stay in sync with debos.yml.
+  ARTIFACT_PREFIX: >-
+    ${{ format(
+      '{0}{1}',
+      inputs.suite,
+      (inputs.variant && inputs.variant != 'default') &&
+        format('-{0}', inputs.variant) || ''
+    ) }}
   BOARDS_INCLUDE: ${{ inputs.boards_include }}
   BOARDS_EXCLUDE: ${{ inputs.boards_exclude }}
 
@@ -132,15 +145,10 @@ jobs:
         run: |
           # e.g. qrb2210-rb1/boot.yaml
           TEMPLATE="${LAVA_CI}${TARGET}"
-          # left-side – e.g. qrb2210-rb1
-          DEVICE_TYPE="${TARGET%/*}"
           BUILD_DOWNLOAD_URL="$BUILD_URL"
-          BUILD_FILE_NAME="unused"
           sed \
+              -e "s|{{ARTIFACT_PREFIX}}|${ARTIFACT_PREFIX}|g" \
               -e "s|{{BUILD_DOWNLOAD_URL}}|${BUILD_DOWNLOAD_URL}|g" \
-              -e "s|{{BUILD_FILE_NAME}}|${BUILD_FILE_NAME}|g" \
-              -e "s|{{DEVICE_TYPE}}|${DEVICE_TYPE}|g" \
-              -e "s|{{SUITE}}|${SUITE}|g" \
               -e "s|{{GITHUB_REPOSITORY}}|${GITHUB_REPOSITORY}|g" \
               -e "s|{{GITHUB_RUN_ATTEMPT}}|${GITHUB_RUN_ATTEMPT}|g" \
               -e "s|{{GITHUB_RUN_ID}}|${GITHUB_RUN_ID}|g" \
@@ -159,17 +167,30 @@ jobs:
           fail_action_on_failure: false
           save_result_as_artifact: true
           save_job_details: true
-          # Stable per-suite/per-board name: the action deletes the previous
+          # Stable per-image/per-board name: the action deletes the previous
           # same-named artifact before uploading, so a re-run overwrites in
-          # place and only the latest result per board ever exists.
-          result_file_name: test-results-${{ inputs.suite }}-${{ matrix.slug }}
+          # place and only the latest result per board ever exists. Scoped by
+          # the artifact prefix rather than by the suite alone, so that two
+          # calls testing different images of one suite in the same run do not
+          # delete each other's results.
+          #
+          # The prefix goes last so that the download pattern below can anchor
+          # on it: one prefix can be a prefix of another ("trixie" of
+          # "trixie-weston-multimedia"), so a leading "test-results-trixie-*"
+          # would also match the other image's results.
+          result_file_name: test-results-${{ matrix.slug }}-${{ env.ARTIFACT_PREFIX }}
           # Job-details artifacts always keep the (changing) LAVA job id and are
-          # never overwritten, so scope them by suite + run attempt instead.
-          test_job_file_name_prefix: ${{ inputs.suite }}-${{ github.run_attempt }}-
+          # never overwritten, so scope them by image + run attempt instead.
+          # These stay prefixed (the action only offers a prefix), which is
+          # unambiguous because the run attempt follows the prefix directly.
+          test_job_file_name_prefix: ${{ env.ARTIFACT_PREFIX }}-${{ github.run_attempt }}-
 
   publish-test-results:
     name: Publish Tests Results
-    needs: submit-job
+    needs: [prepare-job-list, submit-job]
+    # Publish any results that are available even if some jobs failed.
+    # Quit if the workflow was cancelled or no jobs were created.
+    if: ${{ !cancelled() && needs.prepare-job-list.outputs.has_jobs == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write # EnricoMi/publish-unit-test-result-action
@@ -179,19 +200,20 @@ jobs:
 
     steps:
       # Artifacts live at the run level and persist across re-run attempts, so
-      # scope the download to this suite's current results only. Without this,
+      # scope the download to this image's current results only. Without this,
       # download-artifact tries to fetch stale artifacts from superseded
-      # attempts (and the other suite) and 404s on the orphaned ones.
-      - name: Download test results (this debian suite; latest per board)
+      # attempts (and from the other images tested in the same run) and 404s on
+      # the orphaned ones.
+      - name: Download test results (this image; latest per board)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: test-results-${{ inputs.suite }}-*
-      - name: Download job details (this debian suite, this run attempt)
+          pattern: test-results-*-${{ env.ARTIFACT_PREFIX }}
+      - name: Download job details (this image, this run attempt)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-          pattern: ${{ inputs.suite }}-${{ github.run_attempt }}-test-job-*
+          pattern: ${{ env.ARTIFACT_PREFIX }}-${{ github.run_attempt }}-test-job-*
 
       - name: List files
         run: |
@@ -212,7 +234,7 @@ jobs:
 
       - name: Publish Test Job Details
         run: |
-          for json_file in $(find ${{ github.workspace }} -name "*test-job-*.json")
+          for json_file in $(find "$GITHUB_WORKSPACE" -name "*test-job-*.json" | sort)
           do
               DEVICE_TYPE=$(cat "$json_file" | jq -r ".requested_device_type")
               URL=$(cat "$json_file" | jq -r ".url")
