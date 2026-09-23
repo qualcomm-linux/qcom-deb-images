@@ -31,6 +31,7 @@
 {{- end }}
 
 # Force installation of qcom-next-debug kernel when building debug profile
+# TODO: Do it in debos.yml instead ????? Also missing headers ????
 {{- if eq $profile "debug" }}
 {{- $kernelpackages := "linux-image-qcom-next-debug" }}
 {{- end }}
