@@ -83,7 +83,7 @@ env:
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
-  LAVA_TEST_PLANS_REF: d77173d2251d88cb182c90ae47f11e806238bfef
+  LAVA_TEST_PLANS_REF: b794ef447467eef305520984ca789134a5f4adde
 
 jobs:
   prepare-boot-jobs:
