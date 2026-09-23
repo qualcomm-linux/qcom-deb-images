@@ -8,7 +8,10 @@ on:
         type: string
         default: trixie
       overlays:
-        description: List of overlays to use
+        description: >
+          Comma-separated list of rootfs overlays to apply from
+          debos-recipes/overlays/ (e.g. workaround-name); "none" or unset
+          applies no overlay.
         type: string
         default: 'none'
       kernelpackages:
