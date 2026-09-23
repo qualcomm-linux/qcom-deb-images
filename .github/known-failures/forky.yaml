@@ -1,0 +1,45 @@
+# Tests that are known to fail on forky images. See README.md for the format.
+#
+# Add the issue each failure is tracked in as its comment, and remove the entry
+# once the issue is fixed: a listed test that passes is reported as an
+# unexpected pass and fails the run.
+#
+# The failures below were all observed in run 35371401209 and are collected in
+# https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
+
+lemans-evk:
+  - test: cdsp_remoteproc
+    comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [qcom-next]
+  - test: fastrpc_test
+    comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [qcom-next]
+
+monaco-evk:
+  - test: BT_ON_OFF
+    comment: "fails on arduino and linux-next, passes on qcom-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [arduino, linux-next]
+  - test: WiFi_Firmware_Driver
+    comment: "fails on linux-next, passes on qcom-next and arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [linux-next]
+
+qcs6490-rb3gen2:
+  # EFI_Variable_Validation and WiFi_Firmware_Driver pass on every other kernel
+  # flavour on this board; hotplug passes only on qcom-next
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: hotplug
+    comment: "passes only on qcom-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian, linux-next, mainline]
+
+qrb2210-arduino-imola:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+
+qrb2210-rb1:
+  - test: EFI_Variable_Validation
+    comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"

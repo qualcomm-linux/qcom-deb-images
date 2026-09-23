@@ -20,7 +20,7 @@ jobs:
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main')
-    uses: ./.github/workflows/linux.yml
+    uses: $/.github/workflows/linux.yml
     permissions:
       checks: write
       contents: read
@@ -32,6 +32,6 @@ jobs:
       # reference build: we want the debs and the LAVA results to compare
       # against, but its failures must not gate qcom-deb-images work
       lava_report_test_results_externally: false
-      lava_boards_exclude: '["qcs615-ride", "qcs8300-ride", "lemans-evk"]'
+      # the boards tested come from .github/lava-boards.yml, under linux-next
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}

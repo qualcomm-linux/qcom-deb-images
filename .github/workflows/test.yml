@@ -1,0 +1,230 @@
+name: Tests
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: Base URL the images under test were published to
+        required: true
+        type: string
+      build_id:
+        description: >
+          ID of the workflow run that built the image under test. Usually this
+          run; for a pull request it is the triggering "Build on PR" run.
+        required: false
+        type: string
+        default: ''
+      kernel:
+        description: >
+          Kernel flavour in the image. Selects the boards to test from
+          .github/lava-boards.yml; one of its top level keys.
+        required: true
+        type: string
+      suite:
+        description: Debian suite (e.g. trixie, forky)
+        required: false
+        type: string
+        default: trixie
+      variant:
+        description: Image variant (e.g. weston-multimedia), 'default' for none
+        required: false
+        type: string
+        default: default
+      pr_number:
+        description: Pull request number, recorded in the LAVA job metadata
+        required: false
+        type: string
+        default: ''
+      pr_url:
+        description: Pull request URL, recorded in the LAVA job metadata
+        required: false
+        type: string
+        default: ''
+      commit:
+        description: >
+          Commit the test results check is reported against. Empty means the
+          commit this run is for, which is right everywhere but on the pull
+          request path, where this run is the base branch and the results
+          belong to the pull request head.
+        required: false
+        type: string
+        default: ''
+      head_repository:
+        description: >
+          Repository the tested commit lives in, "owner/name". Only needed
+          alongside commit, to read the known failures lists of a pull request
+          that comes from a fork.
+        required: false
+        type: string
+        default: ''
+    outputs:
+      summary_id:
+        description: ID of the test summary artifact
+        value: ${{ jobs.test.outputs.summary_id }}
+    # this is the only workflow that consumes a secret; like permissions:, it
+    # has to be named again by every caller down the chain
+    secrets:
+      LAVATOKEN:
+        required: true
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+env:
+  # CalVer tag in the qcom-linux-testkit repository (testkit-YYYY.MM.DD).
+  # The lava-test-plans revision is pinned on the uses: lines of test-distro.yml,
+  # which render the jobs and ship the test plans from the same revision.
+  TESTKIT_REF: "testkit-2026.08.23"
+
+jobs:
+  prepare-env:
+    name: Select boards
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      testkit-ref: ${{ env.TESTKIT_REF }}
+      devices: ${{ steps.boards.outputs.devices }}
+      devices_premerge: ${{ steps.boards.outputs.devices_premerge }}
+      known_failures_file: ${{ steps.boards.outputs.known_failures_file }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the board table
+        id: boards
+        env:
+          KERNEL: ${{ inputs.kernel }}
+          SUITE: ${{ inputs.suite }}
+        run: |
+          set -euo pipefail
+          echo "qcom-linux-testkit ref: ${TESTKIT_REF}"
+
+          if ! yq -e ".\"${KERNEL}\"" .github/lava-boards.yml >/dev/null 2>&1; then
+              echo "::error::no board list for kernel '${KERNEL}' in .github/lava-boards.yml"
+              exit 1
+          fi
+          DEVICES=$(yq -o=json -I=0 ".\"${KERNEL}\".boot" .github/lava-boards.yml | jq -r 'join(",")')
+          PREMERGE=$(yq -o=json -I=0 ".\"${KERNEL}\".premerge // []" .github/lava-boards.yml | jq -r 'join(",")')
+          if [ -z "${DEVICES}" ]; then
+              echo "::error::empty board list for kernel '${KERNEL}'"
+              exit 1
+          fi
+          echo "boot boards: ${DEVICES}"
+          echo "pre-merge boards: ${PREMERGE:-(every board that boots)}"
+          echo "devices=${DEVICES}" >> "$GITHUB_OUTPUT"
+          echo "devices_premerge=${PREMERGE}" >> "$GITHUB_OUTPUT"
+
+          # known failures are carried per debian suite; a suite with no list
+          # simply has no known failure
+          KNOWN_FAILURES_FILE=".github/known-failures/${SUITE}.yaml"
+          if [ ! -f "${KNOWN_FAILURES_FILE}" ]; then
+              echo "::warning::no known failures list for suite '${SUITE}'"
+              KNOWN_FAILURES_FILE=""
+          fi
+          echo "known_failures_file=${KNOWN_FAILURES_FILE}" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: ${{ inputs.kernel }} ${{ inputs.suite }}
+    needs: prepare-env
+    uses: $/.github/workflows/test-distro.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
+    with:
+      url: ${{ inputs.url }}
+      build_id: ${{ inputs.build_id || github.run_id }}
+      devices: ${{ needs.prepare-env.outputs.devices }}
+      devices_premerge: ${{ needs.prepare-env.outputs.devices_premerge }}
+      suite: ${{ inputs.suite }}
+      variant: ${{ inputs.variant }}
+      kernel: ${{ inputs.kernel }}
+      testkit_ref: ${{ needs.prepare-env.outputs.testkit-ref }}
+      known_failures_file: ${{ needs.prepare-env.outputs.known_failures_file }}
+      pr_number: ${{ inputs.pr_number }}
+      pr_url: ${{ inputs.pr_url }}
+
+  prepare-test-results:
+    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
+    needs: test
+    if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+      packages: read # actions/download-artifact
+    env:
+      # the build variant, as the lava-test-plans action names its result files
+      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Artifacts live at the run level and persist across re-run attempts, so
+      # scope the download to this variant's results only. The result files are
+      # named <prefix>-<device>-<job file> by the lava-test-plans action, and
+      # the prefix ends with the variant.
+      - name: Download test results (this variant)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+          pattern: "*-${{ env.VARIANT }}-*"
+
+      - name: Check out the known failures lists of the pull request
+        # the test chain runs in the base branch context, so the lists of the
+        # pull request under test have to be fetched explicitly. Only data is
+        # taken from it, never code: the script and the workflows always come
+        # from the base branch.
+        if: ${{ inputs.commit != '' }}
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.head_repository || github.repository }}
+          ref: ${{ inputs.commit }}
+          path: known-failures-pr
+          sparse-checkout: .github/known-failures
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt -y install python3-defusedxml python3-yaml
+
+      - name: Apply the known failures list
+        env:
+          KERNEL: ${{ inputs.kernel }}
+          SUITE: ${{ inputs.suite }}
+        run: |
+          set -euo pipefail
+          # prefer the lists of the pull request, so that a change to them takes
+          # effect in the same run, but only once they have been checked
+          DIR=".github/known-failures"
+          if [ -d known-failures-pr/.github/known-failures ] &&
+             python3 .github/scripts/apply-known-failures.py \
+                 --known-failures-dir known-failures-pr/.github/known-failures \
+                 --validate --syntax-only; then
+              DIR="known-failures-pr/.github/known-failures"
+          fi
+          echo "using the known failures lists in ${DIR}"
+          python3 .github/scripts/apply-known-failures.py \
+              --known-failures-file "${DIR}/${SUITE}.yaml" \
+              --kernel "${KERNEL}" \
+              --results-dir artifacts
+
+      # Hand the rewritten results to the caller rather than publishing them
+      # here: one check covering every kernel and suite reads better than one
+      # per variant, and only the caller knows when they are all in.
+      - name: Upload test results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: results-${{ env.VARIANT }}
+          path: artifacts
+          if-no-files-found: ignore

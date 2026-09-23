@@ -42,16 +42,6 @@ on:
         required: false
         type: string
         default: ''
-      lava_boards_include:
-        description: JSON array of board names to include in LAVA tests (empty = all boards)
-        required: false
-        type: string
-        default: ''
-      lava_boards_exclude:
-        description: JSON array of board names to exclude from LAVA tests (empty = none excluded)
-        required: false
-        type: string
-        default: ''
       lava_report_test_results_externally:
         description: >
           Report LAVA results as a check run on the commit and a comment on
@@ -64,7 +54,7 @@ on:
     secrets:
       LAVATOKEN:
         description: API token used to submit jobs to LAVA
-        # only forwarded to lava-test.yml; callers passing skip_lava_tests
+        # only forwarded to test.yml; callers passing skip_lava_tests
         # never reach that job, so this stays optional
         required: false
   # allow manual runs
@@ -202,7 +192,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
-    uses: ./.github/workflows/debos.yml
+    uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
@@ -217,7 +207,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
-    uses: ./.github/workflows/lava-test.yml
+    uses: $/.github/workflows/test.yml
     needs: debos-linux-deb
     permissions:
       checks: write
@@ -229,6 +219,17 @@ jobs:
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
-      boards_include: ${{ inputs.lava_boards_include }}
-      boards_exclude: ${{ inputs.lava_boards_exclude }}
+      # the boards tested come from .github/lava-boards.yml, keyed by kernel
+      kernel: ${{ inputs.kernel_name || 'mainline' }}
+
+  publish-test-results:
+    if: always() && needs.test-linux-deb.result != 'skipped'
+    needs: test-linux-deb
+    uses: $/.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

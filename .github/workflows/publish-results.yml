@@ -1,0 +1,96 @@
+name: Publish test results
+
+# Publishes the LAVA results of a whole run as one check. The test workflow
+# runs once per kernel and suite and hands its results over as an artifact;
+# this collects every one of them, so the check covers all the kernel
+# configurations the run tested rather than one of them at a time.
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: >
+          Commit the check is reported against. Empty means the commit this run
+          is for, which is right everywhere but on the pull request path, where
+          this run is the base branch and the results belong to the pull
+          request head.
+        required: false
+        type: string
+        default: ''
+      event_name:
+        description: >
+          Event the results are reported for. Only needed alongside commit, as
+          github.event_name is workflow_run there rather than pull_request.
+        required: false
+        type: string
+        default: ''
+      build_id:
+        description: >
+          Run holding the event file, needed alongside commit. This is the
+          triggering "Build on PR" run.
+        required: false
+        type: string
+        default: ''
+      report_test_results_externally:
+        description: >
+          true for builds whose failures say something about qcom-deb-images,
+          false for builds whose failures say something about the code under
+          test rather than about qcom-deb-images; results then stay in the job
+          summary, which is written either way.
+        required: false
+        type: boolean
+        default: true
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish test results
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # EnricoMi/publish-unit-test-result-action
+      checks: write # EnricoMi/publish-unit-test-result-action
+      packages: read # actions/download-artifact
+      pull-requests: write # EnricoMi/publish-unit-test-result-action
+    steps:
+      # every variant of this run, and only this run: artifacts live at the run
+      # level and persist across re-run attempts
+      - name: Download the results of every variant
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+          pattern: results-*
+
+      - name: Download event file
+        if: ${{ inputs.commit != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          run-id: ${{ inputs.build_id }}
+          name: Event File
+          path: event-file
+          github-token: ${{ github.token }}
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        with:
+          files: "${{ github.workspace }}/artifacts/**/*.xml"
+          commit: ${{ inputs.commit }}
+          event_file: ${{ inputs.commit != '' && format('{0}/event-file/event.json', github.workspace) || '' }}
+          event_name: ${{ inputs.event_name }}
+          check_name: Test Results
+          # when not reporting externally, failures must not show up as a red
+          # check on the commit (which may well be on main), as a pull request
+          # comment, or as a red run; the job summary keeps the full table
+          # either way.
+          check_run: ${{ inputs.report_test_results_externally }}
+          comment_mode: ${{ inputs.report_test_results_externally && 'always' || 'off' }}
+          # A failed test has to fail this job too. The jobs that submit to
+          # LAVA are continue-on-error, so that one dead board does not stop
+          # the others, which leaves this the only place a red result can reach
+          # the run. Without it the check went red while the run stayed green.
+          action_fail: ${{ inputs.report_test_results_externally }}
+          # no results at all, or files that parse to nothing, is a failure of
+          # this workflow rather than a pass
+          action_fail_on_inconclusive: ${{ inputs.report_test_results_externally }}

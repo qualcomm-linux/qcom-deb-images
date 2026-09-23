@@ -29,6 +29,10 @@ tuned!
 
 [^1]: these builds compile the kernel, build an image and boot test the image in a single workflow, so the Kernel build reports all three.
 
+Every image is flashed onto real boards and tested in the LAVA lab; see
+[docs/testing.md](docs/testing.md) for which boards run which tests and how to
+change that.
+
 
 ## Requirements
 
