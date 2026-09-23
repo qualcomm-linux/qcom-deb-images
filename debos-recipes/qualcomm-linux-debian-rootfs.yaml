@@ -820,8 +820,7 @@ actions:
       - adreno-vulkan-icd
 
       # CamX
-      # camx-dkms fails to build in fakemachine; see https://github.com/qualcomm-linux/pkg-camx-dkms/pull/42
-      #- camx-dkms
+      - camx-dkms
 
       # CamX device-specific firmware
       - camx-firmware-glymur
@@ -838,16 +837,16 @@ actions:
       - camx-server-runtime-all
 {{- end }}
 
-      # CamX firmware
-      - camx-firmware-glymur
-      - camx-firmware-hamoa
-
       # CamX test applications
       - camx-nhx
       - qcom-fastcv-utils
 
       # Iris Video Processing Unit
-      - iris-vpu-dkms
+      # TODO: iris-vpu-dkms 1.0.26 fails to build against Linux 7.3 due to
+      # upstream changes to the qcom_ubwc_cfg_data structure and QCOM PAS API.
+      # Re-enable once iris-vpu 1.0.28 is available; see
+      # https://github.com/qualcomm-linux/pkg-video-driver/issues/121
+      #- iris-vpu-dkms
 
   - action: run
     description: Remove temporary DKMS configuration
