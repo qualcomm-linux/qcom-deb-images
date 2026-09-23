@@ -42,7 +42,7 @@ qcom-7.2:
   boot:
     - glymur-crd
 
-laptops:
+qcom-laptops:
   # the nightly laptops build tests one board; see linux-qcom-laptops.yml
   boot:
     - glymur-crd
