@@ -27,9 +27,8 @@ jobs:
       packages: read
       pull-requests: write
     with:
-      kernel_name: laptops
+      kernel_name: qcom-laptops
       build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel/tree/qcom-laptops --ref qcom-laptops'
       suites: '["forky"]'
-      lava_boards_include: '["glymur-crd"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
