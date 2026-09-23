@@ -14,6 +14,12 @@
 {{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
 
 
+# Set image size... hack...
+{{- if eq $variant "weston-multimedia" }}
+{{- $imagesize := "8GiB" }}
+{{- end }}
+
+
 # TODO: move profile bits into its own recipe....
 
 

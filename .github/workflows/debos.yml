@@ -73,6 +73,7 @@ env:
   #
   # All builds in a workflow run upload to the same S3 directory so this prefix
   # identifies the artifacts for a particular suite/variant/profile combination.
+  # TODO: ensure artifact prefix is built the same way in lava?
   ARTIFACT_PREFIX: >-
     ${{ format(
       '{0}{1}{2}',
@@ -80,8 +81,6 @@ env:
       (inputs.variant && inputs.variant != 'default') && format('-{0}', inputs.variant) || '',
       (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '')
     }}
-
-    # TODO: ensure artifact prefix is built the same way in lava?
 
 jobs:
   build-debos:
