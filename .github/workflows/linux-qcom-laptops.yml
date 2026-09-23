@@ -28,7 +28,7 @@ jobs:
       pull-requests: write
     with:
       kernel_name: qcom-laptops
-      build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel/tree/qcom-laptops --ref qcom-laptops'
+      build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel --ref qcom-laptops'
       suites: '["forky"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
