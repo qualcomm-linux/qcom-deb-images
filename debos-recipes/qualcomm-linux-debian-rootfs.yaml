@@ -564,6 +564,8 @@ actions:
       - lightdm
       - light-locker
       - xfce4-terminal
+      - xfce4-power-manager
+      - xfce4-power-manager-plugins
       - tango-icon-theme
       - network-manager-applet
       - nm-connection-editor
