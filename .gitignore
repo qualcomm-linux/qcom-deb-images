@@ -1,10 +1,10 @@
-disk-sdcard.img*
-disk-ufs.img*
-dtbs.tar.gz
-dtb-multidtb.bin
-dtb-combineddtb.bin
+disk-*.img*
+dtbs.tar*
+dtb-*.bin
 *.deb
 *.buildinfo
 *.changes
 rootfs.tar*
-fake-scratch.img.*
+fake-scratch.img*
+__pycache__/
+flash_*/
