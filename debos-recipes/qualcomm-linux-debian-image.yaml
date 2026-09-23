@@ -16,7 +16,7 @@
 
 # Set image size... hack...
 {{- if eq $variant "weston-multimedia" }}
-{{- $imagesize := "8GiB" }}
+{{- $imagesize = "8GiB" }}
 {{- end }}
 
 
