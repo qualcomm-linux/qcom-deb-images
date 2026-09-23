@@ -100,6 +100,7 @@ actions:
           exit 1
         }
       }
+      . /etc/buildinfo
       check BUILD_ID "${BUILD_ID:-}" "{{$buildid}}"
       check VARIANT_ID "${VARIANT_ID:-default}" "{{$variant}}"
       check PROFILE "${PROFILE:-default}" "{{$profile}}"

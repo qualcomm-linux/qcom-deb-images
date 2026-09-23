@@ -24,7 +24,7 @@ jobs:
             variant: xfcedesktop
             profile: performance
           - suite: trixie
-            variant: multimedia
+            variant: weston-multimedia
           - suite: forky
 
     uses: $/.github/workflows/debos.yml
