@@ -214,8 +214,8 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe -t buildid:${BUILD_ID} ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe -t buildid:${BUILD_ID} ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
