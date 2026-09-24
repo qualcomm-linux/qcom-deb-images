@@ -195,15 +195,16 @@ jobs:
               ;;
           esac
 
-          debos \
-              -t "overlays:$OVERLAYS" \
-              -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackages:"$kernel_packages" \
-              -t "buildid:${BUILD_ID}" \
-              ${DEBOS_EXTRA_ARGS} \
-              ${DEBOS_VARIANT_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+          # make passes these to a shell which parses them again, so only
+          # accept the characters package and overlay names are made of
+          case "${OVERLAYS},${kernel_packages}" in
+            *[!A-Za-z0-9,.+_-]*)
+              echo "ERROR: invalid overlays '${OVERLAYS}' or kernel packages '${kernel_packages}'" >&2
+              exit 1
+              ;;
+          esac
+
+          make rootfs-arm64.tar FAKEMACHINE_OPTS= EXTRA_DEBOS_OPTS="-t overlays:${OVERLAYS} -t aptlocalrepo:${PWD}/local-apt-repo -t kernelpackages:${kernel_packages} -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
 
       - name: Build UFS and SD card images with debos
         run: |
