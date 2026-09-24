@@ -1,0 +1,38 @@
+name: Build armhf debos images
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+jobs:
+  build-armhf:
+    name: Build armhf debos images (${{ inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
+    runs-on: [self-hosted, qcom-u2404, arm64]
+    container:
+      image: public.ecr.aws/debian/debian:trixie
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # the kernels built by CI are arm64 only, so leave kernelpackages unset
+      # to install the recipe's default armhf kernel
+      - name: Build rootfs and disk images
+        # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
+        uses: $/.github/actions/debos-build
+        with:
+          architecture: armhf
+          suite: ${{ inputs.suite }}

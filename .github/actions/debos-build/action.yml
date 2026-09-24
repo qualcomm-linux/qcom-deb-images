@@ -164,7 +164,17 @@ runs:
             kernel_args="-t kernelpackages:${kernel_packages}"
         fi
 
-        make "rootfs-${ARCHITECTURE}.tar" FAKEMACHINE_OPTS= EXTRA_DEBOS_OPTS="-t overlays:${OVERLAYS} -t aptlocalrepo:${PWD}/local-apt-repo ${kernel_args} -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+        fakemachine_opts=""
+        case "$ARCHITECTURE" in
+          # the runners cannot execute armhf binaries and Debian registers no
+          # qemu-user binfmt for armhf on arm64, so build in a qemu
+          # fakemachine, whose emulated CPU runs them
+          armhf)
+            fakemachine_opts="-b qemu"
+            ;;
+        esac
+
+        make "rootfs-${ARCHITECTURE}.tar" FAKEMACHINE_OPTS="${fakemachine_opts}" EXTRA_DEBOS_OPTS="-t overlays:${OVERLAYS} -t aptlocalrepo:${PWD}/local-apt-repo ${kernel_args} -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
 
     - name: Build UFS and SD card images with debos
       shell: bash

@@ -59,6 +59,24 @@ jobs:
       # APT repository
       kernelpackages: efs/qcom-next
 
+  build-armhf:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: $/.github/workflows/debos-armhf.yml
+    permissions:
+      contents: read
+    with:
+      suite: ${{ matrix.suite }}
+
   test:
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
