@@ -29,7 +29,7 @@ on:
         description: >
           Name of the image variant to build (e.g. multimedia); it selects the
           debos arguments listed in the "Select debos arguments for the image
-          variant" step below and is appended to the name of every published
+          variant" step of the debos-build action and is appended to the name of every published
           artifact, so that variants of the same suite don't overwrite each
           other. Empty or "default" builds the default image.
         type: string
@@ -54,7 +54,6 @@ env:
   # image build id; used for SBOM generation
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
-  OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
   # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
   PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
@@ -73,44 +72,6 @@ jobs:
         - /efs/qli/qcom-deb-images:/efs
       options: --privileged
     steps:
-      # runs first so that an unknown variant fails the job in seconds rather
-      # than after a full image build
-      - name: Select debos arguments for the image variant
-        env:
-          VARIANT: ${{ inputs.variant }}
-        run: |
-          set -u
-          # debos arguments building each image variant, keyed on its name; to
-          # add a variant, add a case here and pass its name as the "variant"
-          # input; its artifacts are named after it (see PREFIX above)
-          case "$VARIANT" in
-            ''|default)
-              variant_args='-t xfcedesktop:true'
-              ;;
-            weston-multimedia)
-              # configures a Weston session and installs the accelerated multimedia stack
-              #
-              # the additional multimedia components require a larger image than default
-              variant_args='-t westonsession:true -t multimedia:true -t imagesize:8GiB'
-              ;;
-            *)
-              echo "ERROR: unknown image variant '${VARIANT}'" >&2
-              echo "add it to this step to build it" >&2
-              exit 1
-              ;;
-          esac
-          # every debos invocation below passes this alongside DEBOS_EXTRA_ARGS
-          echo "DEBOS_VARIANT_ARGS=${variant_args}" >>"$GITHUB_ENV"
-
-      # make sure we have latest packages first, to get latest fixes and to
-      # avoid an automated update while we're building
-      - name: Update OS packages
-        run: |
-          set -ux
-          apt update
-          apt -y upgrade
-          apt -y full-upgrade
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -119,47 +80,17 @@ jobs:
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
-      # mtools is needed for the flash recipe
-      # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
-
-      - name: Setup local APT repo
-        run: |
-          set -ux -o pipefail
-
-          # needed for apt-ftparchive
-          apt -y install --no-install-recommends apt-utils
-          mkdir -v local-apt-repo
-
-          # optionally, copy kernel debs from EFS
-          case "$KERNEL_PACKAGES" in
-            efs/*)
-              mkdir -v local-apt-repo/kernel
-              # get kernel from EFS; the directory is a symlink published by
-              # the matching kernel workflow (linux.yml via e.g.
-              # linux-qcom-next.yml), so report a missing or empty one
-              # rather than failing later with a confusing APT error
-              efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
-              if [ ! -d "$efs_kernel_dir" ]; then
-                  echo "ERROR: ${efs_kernel_dir} does not exist" >&2
-                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
-                  exit 1
-              fi
-              cp -av "${efs_kernel_dir}/"*.deb local-apt-repo/kernel
-              if ! ls local-apt-repo/kernel/linux-image-*.deb >/dev/null 2>&1; then
-                  echo "ERROR: ${efs_kernel_dir} contains no linux-image-*.deb" >&2
-                  echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
-                  exit 1
-              fi
-            ;;
-          esac
-
-          (
-              cd local-apt-repo
-              apt-ftparchive packages . >Packages
-              apt-ftparchive release . >Release
-          )
+      - name: Build rootfs and disk images
+        id: build
+        # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
+        uses: $/.github/actions/debos-build
+        with:
+          architecture: arm64
+          suite: ${{ inputs.suite }}
+          variant: ${{ inputs.variant }}
+          overlays: ${{ inputs.overlays }}
+          kernelpackages: ${{ inputs.kernelpackages }}
+          debos_extra_args: ${{ inputs.debos_extra_args }}
 
       - name: Copy unstripped vmlinux from EFS
         run: |
@@ -176,50 +107,9 @@ jobs:
             ;;
           esac
 
-      - name: Build rootfs with debos
-        run: |
-          set -ux
-          kernel_packages="$KERNEL_PACKAGES"
-          case "$kernel_packages" in
-            # NB: this is slightly weak as we collapse
-            # kernelpackages which is potentially a list and only
-            # look at the special value efs/* instead of splitting
-            #
-            # if kernel package is from EFS, determine actual package name(s);
-            # install the generated linux-headers-* packages alongside the
-            # linux-image-* ones since these are ephemeral and not published in
-            # an APT repo (unlike official Debian kernels, installed from APT)
-            # 
-            efs/*)
-              kernel_packages="$(find local-apt-repo/kernel -type f \( -name 'linux-image-*' -o -name 'linux-headers-*' \) -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|sort|paste -sd,)"
-              ;;
-          esac
-
-          # make passes these to a shell which parses them again, so only
-          # accept the characters package and overlay names are made of
-          case "${OVERLAYS},${kernel_packages}" in
-            *[!A-Za-z0-9,.+_-]*)
-              echo "ERROR: invalid overlays '${OVERLAYS}' or kernel packages '${kernel_packages}'" >&2
-              exit 1
-              ;;
-          esac
-
-          make rootfs-arm64.tar FAKEMACHINE_OPTS= EXTRA_DEBOS_OPTS="-t overlays:${OVERLAYS} -t aptlocalrepo:${PWD}/local-apt-repo -t kernelpackages:${kernel_packages} -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
-
-      - name: Build UFS and SD card images with debos
-        run: |
-          set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          # builds both disk images and the unsuffixed compatibility symlinks
-          # the flashing pipeline expects
-          make arm64 FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
-
       - name: Build flashable files with debos
+        env:
+          DEBOS_VARIANT_ARGS: ${{ steps.build.outputs.variant_args }}
         run: |
           set -ux
           make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
