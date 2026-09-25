@@ -35,7 +35,8 @@ on:
           true for builds whose failures say something about qcom-deb-images,
           false for builds whose failures say something about the code under
           test rather than about qcom-deb-images; results then stay in the job
-          summary, which is written either way.
+          summary, which is written either way. A failed test fails the run in
+          both cases.
         required: false
         type: boolean
         default: true
@@ -81,16 +82,12 @@ jobs:
           event_name: ${{ inputs.event_name }}
           check_name: Test Results
           # when not reporting externally, failures must not show up as a red
-          # check on the commit (which may well be on main), as a pull request
-          # comment, or as a red run; the job summary keeps the full table
-          # either way.
+          # check on the commit (which may well be on main) or as a pull
+          # request comment; the job summary keeps the full table either way.
           check_run: ${{ inputs.report_test_results_externally }}
           comment_mode: ${{ inputs.report_test_results_externally && 'always' || 'off' }}
-          # A failed test has to fail this job too. The jobs that submit to
-          # LAVA are continue-on-error, so that one dead board does not stop
-          # the others, which leaves this the only place a red result can reach
-          # the run. Without it the check went red while the run stayed green.
-          action_fail: ${{ inputs.report_test_results_externally }}
+          # A failed test that is not a known failure has to fail this job
+          action_fail: true
           # no results at all, or files that parse to nothing, is a failure of
           # this workflow rather than a pass
-          action_fail_on_inconclusive: ${{ inputs.report_test_results_externally }}
+          action_fail_on_inconclusive: true
