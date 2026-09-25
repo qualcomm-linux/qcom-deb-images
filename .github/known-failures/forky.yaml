@@ -43,3 +43,9 @@ qrb2210-arduino-imola:
 qrb2210-rb1:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+
+shikra-iqs-evk:
+  # shikra is only tested on linux-next, see .github/lava-boards.yml
+  - test: fastrpc_test
+    comment: "no FastRPC session can be created on the CDSP (AEE_EUNABLETOLOAD), https://github.com/qualcomm-linux/qcom-deb-images/issues/671"
+    kernels: [linux-next]
