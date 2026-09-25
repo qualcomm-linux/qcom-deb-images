@@ -17,7 +17,7 @@ lemans-evk:
 
 monaco-evk:
   - test: BT_ON_OFF
-    comment: "fails on arduino and linux-next, passes on qcom-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645; fails on linux-next, which does not describe the WCN6855 Bluetooth on this board, https://github.com/qualcomm-linux/qcom-deb-images/issues/670"
     kernels: [arduino, linux-next]
   - test: WiFi_Firmware_Driver
     comment: "fails on linux-next, passes on qcom-next and arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
