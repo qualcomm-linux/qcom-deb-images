@@ -205,6 +205,7 @@ actions:
 {{- $backportpackages := list
       "src:alsa-lib:any"
       "src:alsa-ucm-conf:any"
+      "src:debugcc:any"
       "src:efivar:any"
       "src:fastrpc:any"
       "src:firmware-free:any"
@@ -282,7 +283,7 @@ actions:
 {{- /* prefer installing these packages from Qualcomm Linux over backports */}}
 {{- $qlipackages := list
       "src:alsa-ucm-conf:any"
-      "src:fastrpc" }}
+      "src:fastrpc:any" }}
 
   - action: run
     description: Add Qualcomm Linux APT preferences for {{ $suite }}
