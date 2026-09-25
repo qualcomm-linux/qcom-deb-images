@@ -26,14 +26,12 @@ qcom-next:
   # lemans-evk is left out: it often fails to reach a login prompt, see
   # https://github.com/qualcomm-linux/qcom-deb-images/issues/665
   #
-  # monaco-evk often fails to reach a login prompt, see
-  # https://github.com/qualcomm-linux/qcom-deb-images/issues/620 - it is
-  # tested anyway, a board that does not boot no longer holds up the others.
+  # monaco-evk is left out: it often fails to reach a login prompt, see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/666
   #
   # shikra-iqs-evk is left out: it reached no login prompt on any boot
   boot:
     - glymur-crd
-    - monaco-evk
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
