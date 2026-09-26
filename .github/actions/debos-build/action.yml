@@ -1,0 +1,195 @@
+# Build the root filesystem and the UFS and SD card disk images of one
+# architecture with the debos recipes, leaving them in the workspace for the
+# steps that follow. Expects the repository to be checked out in the
+# workspace and runs in the Debian container of the calling job.
+name: Build debos images
+description: "Build the root filesystem and disk images of one architecture with debos"
+inputs:
+  architecture:
+    description: "Debian architecture to build for (e.g. arm64)"
+    required: true
+  suite:
+    description: "Distribution suite (e.g. trixie, forky)"
+    default: trixie
+  variant:
+    description: >
+      Name of the image variant to build (e.g. weston-multimedia); empty or
+      "default" builds the default image
+    default: ''
+  overlays:
+    description: >
+      Comma-separated list of rootfs overlays to apply from
+      debos-recipes/overlays/; "none" applies no overlay
+    default: 'none'
+  kernelpackages:
+    description: >
+      Comma-separated list of kernel packages to install from APT repositories
+      or name of a EFS kernel package directory (e.g. efs/mainline); empty
+      installs the recipe's default kernel
+    default: ''
+  debos_extra_args:
+    description: "Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)"
+    default: ''
+outputs:
+  variant_args:
+    description: "debos arguments selecting the image variant"
+    value: ${{ steps.variant.outputs.args }}
+runs:
+  using: "composite"
+  steps:
+    # runs first so that an unknown variant fails the job in seconds rather
+    # than after a full image build
+    - name: Select debos arguments for the image variant
+      id: variant
+      shell: bash
+      env:
+        VARIANT: ${{ inputs.variant }}
+      run: |
+        set -u
+        # debos arguments building each image variant, keyed on its name; to
+        # add a variant, add a case here and pass its name as the "variant"
+        # input
+        case "$VARIANT" in
+          ''|default)
+            variant_args='-t xfcedesktop:true'
+            ;;
+          weston-multimedia)
+            # configures a Weston session and installs the accelerated multimedia stack
+            #
+            # the additional multimedia components require a larger image than default
+            variant_args='-t westonsession:true -t multimedia:true -t imagesize:8GiB'
+            ;;
+          *)
+            echo "ERROR: unknown image variant '${VARIANT}'" >&2
+            echo "add it to this step to build it" >&2
+            exit 1
+            ;;
+        esac
+        echo "args=${variant_args}" >>"$GITHUB_OUTPUT"
+
+    # make sure we have latest packages first, to get latest fixes and to
+    # avoid an automated update while we're building
+    - name: Update OS packages
+      shell: bash
+      run: |
+        set -ux
+        apt update
+        apt -y upgrade
+        apt -y full-upgrade
+
+    # mtools is needed for the flash recipe
+    # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
+    - name: Install debos and dependencies of the recipes and local tests
+      shell: bash
+      run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+
+    - name: Setup local APT repo
+      shell: bash
+      env:
+        KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
+      run: |
+        set -ux -o pipefail
+
+        # needed for apt-ftparchive
+        apt -y install --no-install-recommends apt-utils
+        mkdir -v local-apt-repo
+
+        # optionally, copy kernel debs from EFS
+        case "$KERNEL_PACKAGES" in
+          efs/*)
+            mkdir -v local-apt-repo/kernel
+            # get kernel from EFS; the directory is a symlink published by
+            # the matching kernel workflow (linux.yml via e.g.
+            # linux-qcom-next.yml), so report a missing or empty one
+            # rather than failing later with a confusing APT error
+            efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
+            if [ ! -d "$efs_kernel_dir" ]; then
+                echo "ERROR: ${efs_kernel_dir} does not exist" >&2
+                echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                exit 1
+            fi
+            cp -av "${efs_kernel_dir}/"*.deb local-apt-repo/kernel
+            if ! ls local-apt-repo/kernel/linux-image-*.deb >/dev/null 2>&1; then
+                echo "ERROR: ${efs_kernel_dir} contains no linux-image-*.deb" >&2
+                echo "run the workflow publishing '${KERNEL_PACKAGES#efs/}' kernel debs first" >&2
+                exit 1
+            fi
+          ;;
+        esac
+
+        (
+            cd local-apt-repo
+            apt-ftparchive packages . >Packages
+            apt-ftparchive release . >Release
+        )
+
+    - name: Build rootfs with debos
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
+        OVERLAYS: ${{ inputs.overlays }}
+        BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
+        DEBOS_VARIANT_ARGS: ${{ steps.variant.outputs.args }}
+      run: |
+        set -ux
+        kernel_packages="$KERNEL_PACKAGES"
+        case "$kernel_packages" in
+          # NB: this is slightly weak as we collapse
+          # kernelpackages which is potentially a list and only
+          # look at the special value efs/* instead of splitting
+          #
+          # if kernel package is from EFS, determine actual package name(s);
+          # install the generated linux-headers-* packages alongside the
+          # linux-image-* ones since these are ephemeral and not published in
+          # an APT repo (unlike official Debian kernels, installed from APT)
+          #
+          efs/*)
+            kernel_packages="$(find local-apt-repo/kernel -type f \( -name 'linux-image-*' -o -name 'linux-headers-*' \) -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|sort|paste -sd,)"
+            ;;
+        esac
+
+        # make passes these to a shell which parses them again, so only
+        # accept the characters package and overlay names are made of
+        case "${OVERLAYS},${kernel_packages}" in
+          *[!A-Za-z0-9,.+_-]*)
+            echo "ERROR: invalid overlays '${OVERLAYS}' or kernel packages '${kernel_packages}'" >&2
+            exit 1
+            ;;
+        esac
+
+        kernel_args=""
+        if [ -n "$kernel_packages" ]; then
+            kernel_args="-t kernelpackages:${kernel_packages}"
+        fi
+
+        fakemachine_opts=""
+        case "$ARCHITECTURE" in
+          # the runners cannot execute armhf binaries and Debian registers no
+          # qemu-user binfmt for armhf on arm64, so build in a qemu
+          # fakemachine, whose emulated CPU runs them
+          armhf)
+            fakemachine_opts="-b qemu"
+            ;;
+        esac
+
+        make "rootfs-${ARCHITECTURE}.tar" FAKEMACHINE_OPTS="${fakemachine_opts}" EXTRA_DEBOS_OPTS="-t overlays:${OVERLAYS} -t aptlocalrepo:${PWD}/local-apt-repo ${kernel_args} -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"
+
+    - name: Build UFS and SD card images with debos
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
+        DEBOS_VARIANT_ARGS: ${{ steps.variant.outputs.args }}
+      run: |
+        set -ux
+        # debos tries KVM and UML as backends, and falls back to
+        # building directly on the host, but that requires loop
+        # devices; use qemu backend explicitly even if it's slower;
+        # qemu backend also requires to set scratchsize, otherwise the
+        # whole build is done from memory and the out of memory killer
+        # gets triggered
+        # for arm64, this also creates the unsuffixed compatibility symlinks
+        # the flashing pipeline expects
+        make "${ARCHITECTURE}" FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS} ${DEBOS_VARIANT_ARGS}"

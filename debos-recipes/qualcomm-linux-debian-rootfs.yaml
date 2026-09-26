@@ -1,11 +1,10 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $westonsession := or .westonsession "false" }}
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
-# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
@@ -29,7 +28,27 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
-architecture: arm64
+# only arm64 and armhf are supported architectures
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+# Call an unexisting template to err out of the recipe
+{{ template "ERR" }}
+{{- end }}
+
+# Debian ships a dedicated kernel flavour for arm64 and a multiplatform one
+# for armhf
+{{- $defaultkernelpackages := "linux-image-arm64" }}
+{{- if eq $architecture "armhf" }}
+{{- $defaultkernelpackages = "linux-image-armmp" }}
+{{- end }}
+
+# $kernelpackage (singular) is deprecated, superseded by $kernelpackages
+{{- $kernelpackages := or .kernelpackages .kernelpackage $defaultkernelpackages }}
+
+# output artifacts are named after the architecture they were built for
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
+
+architecture: {{ $architecture }}
 
 actions:
 {{- if .kernelpackage }}
@@ -384,8 +403,10 @@ actions:
       - e2fsprogs
       # tools to read/write EFI variables
       - efivar
-      # support for Qualcomm xDSPs
+{{- if eq $architecture "arm64" }}
+      # support for Qualcomm xDSPs; only built for arm64 in Debian
       - fastrpc-support
+{{- end }}
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # firmware for the Qualcomm xDSPs
@@ -405,8 +426,10 @@ actions:
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
-      # power management, notably throttling
+{{- if eq $architecture "arm64" }}
+      # power management, notably throttling; not built for armhf in Debian
       - thermald
+{{- end }}
       # TFTP server implementation for the QRTR protocol; needed for WiFi on
       # some ath10k devices such as on RB1
       - tqftpserv
@@ -417,7 +440,8 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
+# the Qualcomm Linux repository only has packages for arm64
+{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") (eq $architecture "arm64") }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
     description: Install fastrpc-tests from QLI overlay
@@ -577,8 +601,11 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      # browser
+{{- if or (ne $architecture "armhf") (eq $suite "trixie") }}
+      # browser; not built for armhf after trixie as linking it runs out of
+      # memory
       - chromium
+{{- end }}
       # bluetooth settings
       - blueman
       # audio: wireplumber for session integration, pipewire-pulse for chromium
@@ -679,8 +706,11 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      # browser
+{{- if or (ne $architecture "armhf") (eq $suite "trixie") }}
+      # browser; not built for armhf after trixie as linking it runs out of
+      # memory
       - chromium
+{{- end }}
       # bluetooth settings
       - blueman
       # audio: wireplumber for session integration, pipewire-pulse for chromium
@@ -759,6 +789,46 @@ actions:
 {{- end }}
       - kmod
       - linux-base
+
+{{- if eq $architecture "armhf" }}
+  # initramfs-tools and dracut ask dracut-install to install whole module
+  # directories (e.g. "=drivers/scsi"), which it expands with glibc's fts(3).
+  # fts reads directories with the 32-bit readdir(), which fails with
+  # EOVERFLOW on the 64-bit directory cookies ext4 hands out, so on 32-bit
+  # architectures every such directory looks empty and is skipped without an
+  # error, leaving an initramfs with no storage drivers at all:
+  #   https://bugs.debian.org/1110545 - missing modules break boot on armhf
+  #   https://bugs.debian.org/1079080 - the dracut-install failure is ignored
+  #   https://bugzilla.kernel.org/show_bug.cgi?id=205957 - the ext4 side
+  # Modules requested by name are unaffected, so name the ones the qemu boot
+  # test needs. Drivers for real hardware (MMC, UFS) are still missing, so
+  # this is a workaround for testing, not a fix.
+  - action: run
+    description: Name the modules the qemu boot test needs (see Debian #1110545)
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      cat >>/etc/initramfs-tools/modules <<'EOF'
+
+      # Storage drivers for the qemu boot test; on 32-bit architectures they
+      # have to be named because the module directories initramfs-tools adds
+      # are silently dropped (https://bugs.debian.org/1110545)
+      sd_mod
+      virtio_blk
+      virtio_scsi
+      EOF
+{{- else }}
+      mkdir -p /etc/dracut.conf.d
+      cat >/etc/dracut.conf.d/90-qemu-storage.conf <<'EOF'
+      # Storage drivers for the qemu boot test; on 32-bit architectures they
+      # have to be named because the module directories dracut adds are
+      # silently dropped (https://bugs.debian.org/1110545). Load them early
+      # rather than waiting for udev, which is slow under emulation.
+      force_drivers+=" sd_mod virtio_blk virtio_scsi "
+      EOF
+{{- end }}
+{{- end }}
 
   - action: apt
     description: Install kernel and firmware packages
@@ -920,12 +990,12 @@ actions:
       tar \
           -C "${latest_kernel}" \
           --transform='s|^\./||' \
-          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          -cvzf "$ARTIFACTDIR/{{ $dtbs }}" \
           .
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar
+    file: {{ $rootfs }}
     compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
