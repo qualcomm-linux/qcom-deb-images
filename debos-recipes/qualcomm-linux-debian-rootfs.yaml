@@ -772,6 +772,28 @@ actions:
 {{- end }}
 {{- end }}
 
+{{- range $overlay := split "," $overlays }}
+{{- if eq $overlay "dtb-loader" }}
+  # The kernel-install hook installed by the dtb-loader overlay needs these at
+  # image build time, when the systemd-boot postinst runs "kernel-install add",
+  # and on the running system, so that a kernel upgrade re-wraps the new kernel
+  # instead of quietly installing one with no device tree.
+  - action: apt
+    description: Install DTB loader generation
+    recommends: true
+    packages:
+      # provides ukify, which embeds the device trees into the kernel image
+      - systemd-ukify
+      # provides the hardware ID database and the finddtbs script
+      - stubble
+      # provides linuxaa64.efi.stub, which is what ukify wraps the kernel in.
+      # systemd-boot's dependency is satisfied by systemd-boot-efi-arm64-signed,
+      # which ships the signed boot loader but no stub, and systemd-ukify only
+      # recommends this, so ask for it explicitly.
+      - systemd-boot-efi
+{{- end }}
+{{- end }}
+
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions
   - action: apt

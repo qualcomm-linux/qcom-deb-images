@@ -2,12 +2,19 @@
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
-{{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
+{{- $snapshot := or .snapshot "" }}
 
 # kernel command line appended by the filesystem-deploy action below
 # XXX these kernel options might be specific to a kernel version or board
 {{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
+
+# Snapdragon Windows-on-ARM laptops advertise a TPM2 in the EFI
+# variables but expose no device for it ("TPM2 Support: firmware
+# only, driver unavailable" in bootctl status), so the systemd units
+# that wait for one timeout TODO check if this is detrimental on IoT
+# systems
+{{- $kernelcmdline = printf "%s systemd.tpm2_wait=0" $kernelcmdline }}
 
 # Validate $profile; keep this list in sync with the list in the
 # "Supported profiles" section of README.md
@@ -256,6 +263,39 @@ actions:
       EOF
       # enable unit
       systemctl enable debos-grow-rootfs
+
+  - action: run
+    description: Verify device trees were embedded in the kernel image
+    chroot: true
+    command: |
+      set -eux
+      # only meaningful when the dtb-loader overlay is part of this rootfs
+      if [ ! -e /etc/kernel/install.d/95-dtb-loader.install ]; then
+          echo "dtb-loader hook not installed, nothing to verify"
+          exit 0
+      fi
+      # extract to a variable to avoid silent pipeline failure
+      kernel_list=$(linux-version list)
+      latest_kernel=$(echo "$kernel_list" | linux-version sort --reverse | head -1)
+      # ask the boot loader entry which kernel image it actually boots rather
+      # than guessing where kernel-install put it
+      entry=$(echo /boot/efi/loader/entries/*"-${latest_kernel}.conf")
+      kernel_image="/boot/efi$(awk '$1 == "linux" { print $2 }' "$entry")"
+      sections=$(ukify inspect "$kernel_image")
+      # the device trees and the hardware ID table used to choose between them
+      echo "$sections" | grep -q '^\.hwids:'
+      # grep -c exits non-zero on no match, so report the count ourselves
+      dtbs=$(echo "$sections" | grep -c '^\.dtbauto:' || :)
+      [ "$dtbs" -gt 0 ]
+      echo "embedded ${dtbs} device trees in ${kernel_image}"
+      # this must stay an ordinary kernel image rather than becoming a unified
+      # kernel image, so that the initrd and the kernel command line keep coming
+      # from the boot loader entry
+      ! echo "$sections" | grep -q '^\.osrel:'
+      ! echo "$sections" | grep -q '^\.initrd:'
+      ! echo "$sections" | grep -q '^\.cmdline:'
+      grep -q '^initrd ' "$entry"
+      grep -q '^options ' "$entry"
 
 {{- if $snapshot }}
   - action: run
