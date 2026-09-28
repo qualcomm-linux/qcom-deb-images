@@ -59,6 +59,11 @@ on:
         required: false
         type: boolean
         default: true
+      build_installer:
+        description: Also build a debian-installer ISO for each suite
+        required: false
+        type: boolean
+        default: false
     secrets:
       LAVATOKEN:
         description: API token used to submit jobs to LAVA
@@ -123,7 +128,8 @@ jobs:
     if: >-
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main')
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/wip/obbardc/iso-installer')
     permissions:
       contents: read # actions/checkout
     # for cross-builds
@@ -209,6 +215,20 @@ jobs:
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
+
+  installer-linux-deb:
+    if: ${{ inputs.build_installer }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
+    uses: $/.github/workflows/installer.yml
+    needs: debos-linux-deb
+    permissions:
+      contents: read
+    with:
+      url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      suite: ${{ matrix.suite }}
 
   test-linux-deb:
     if: ${{ !inputs.skip_lava_tests }}

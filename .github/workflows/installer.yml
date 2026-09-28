@@ -1,0 +1,94 @@
+name: Build debian-installer ISO
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: >
+          Base URL the image the installer is built for was published to (the
+          artifacts_url output of debos.yml); the ISO is published next to it
+        required: true
+        type: string
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
+
+    outputs:
+      artifacts_url:
+        description: "URL to retrieve build artifacts"
+        value: ${{ jobs.build-installer.outputs.url }}
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+jobs:
+  build-installer:
+    name: Build and upload debian-installer ISO (${{ inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      url: ${{ steps.upload_artifacts_s3.outputs.url }}
+    runs-on: [self-hosted, qcom-u2404, arm64]
+    container:
+      # forky is used for its newer live-build, regardless of the suite the
+      # ISO targets
+      image: public.ecr.aws/debian/debian:forky
+      options: --privileged
+    env:
+      IMAGE_URL: ${{ inputs.url }}
+      SUITE: ${{ inputs.suite }}
+    steps:
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install live-build and dependencies
+        run: apt -y install live-build xorriso ca-certificates debian-archive-keyring
+
+      # TODO: the ISO is still built with the stock Debian d-i kernel; the
+      # image's kernel and rootfs published at IMAGE_URL aren't used yet
+      - name: Build debian-installer ISO
+        run: installer/scripts/build.sh --suite "${SUITE}"
+
+      - name: Stage installer artifacts for publishing
+        run: |
+          set -ux
+          dir="installer-artifacts"
+          mkdir -v "${dir}"
+          cp -av installer/build/*.iso \
+              "${dir}/${SUITE}-installer-cdrom.iso"
+          # generate sha256sums for all artifacts
+          (cd "${dir}" && sha256sum * | tee "${SUITE}-installer-sha256sums.txt")
+
+      # upload to a cloud storage space accessible by Axiom; this is the same
+      # destination as debos.yml, so the ISO lands next to the image
+      - name: Upload private artifacts (S3)
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        id: upload_artifacts_s3
+        with:
+          path: installer-artifacts
+          # these should be the defaults; or ought to reuse BUILD_ID
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
+
+      - name: "Print output"
+        env:
+          build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
+        run: |
+          echo "Downloads URL: ${build_url}"
+          echo "## Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
+          echo "Built for the image at ${IMAGE_URL}" >> $GITHUB_STEP_SUMMARY
