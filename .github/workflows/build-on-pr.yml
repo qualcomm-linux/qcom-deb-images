@@ -38,3 +38,16 @@ jobs:
       variant: ${{ matrix.variant }}
       # QLI targets qcom-next; install the kernel from the QLI APT repository
       kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: $/.github/workflows/installer.yml
+    needs: build
+    permissions:
+      contents: read
+    with:
+      url: ${{ needs.build.outputs.artifacts_url }}
+      suite: ${{ matrix.suite }}
