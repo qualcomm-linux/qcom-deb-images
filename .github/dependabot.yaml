@@ -13,3 +13,7 @@ updates:
     # broken action version has time to be yanked before we adopt it
     cooldown:
       default-days: 7
+    # lava-test-plans is pinned in step with LAVA_TEST_PLANS_REF, which
+    # Dependabot can't update, so bump it by hand (see #655)
+    ignore:
+      - dependency-name: "qualcomm-linux/lava-test-plans"
