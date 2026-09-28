@@ -67,10 +67,18 @@ jobs:
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main')
+    # one test run per image the build job produces; keep in step with its
+    # build matrix, or an image goes untested
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
+        include:
+          - suite: trixie
+            variant: default
+          - suite: trixie
+            variant: weston-multimedia
+          - suite: forky
+            variant: default
     uses: $/.github/workflows/test.yml
     needs: build
     permissions:
@@ -83,6 +91,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
 
