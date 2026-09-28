@@ -78,8 +78,11 @@ permissions: {}
 
 env:
   # the build variant, used to name artifacts and to tell the results of one
-  # (kernel, suite, variant) combination from another within the same run
-  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+  # (kernel, suite, variant) combination from another within the same run. The
+  # image variant is joined with an underscore rather than a dash, so that the
+  # name of the default image is not a prefix of its variants' names and the
+  # artifact patterns of one don't pick up the artifacts of the other.
+  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('_{0}', inputs.variant) || '' }}
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
@@ -213,7 +216,7 @@ jobs:
         id: read
         with:
           matrix-step-name: submit-boot-job-${{ env.VARIANT }}
-          download-file-pattern: submit-boot-job-${{ env.VARIANT }}*
+          download-file-pattern: submit-boot-job-${{ env.VARIANT }}-*
 
       - name: Collect the devices that booted
         id: collect
