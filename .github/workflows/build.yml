@@ -90,9 +90,10 @@ jobs:
       kernelpackages: ${{ matrix.kernelpackages }}
 
   test:
-    # only the default profile and the console variant are tested for now:
-    # adding the performance and debug profiles, or the other variants, to
-    # this matrix would multiply the LAVA jobs submitted by this workflow
+    # only the default profile, and the console and weston-multimedia
+    # variants, are tested for now: adding the performance and debug
+    # profiles, or the other variants, to this matrix would multiply the
+    # LAVA jobs submitted by this workflow
     #
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
@@ -101,10 +102,18 @@ jobs:
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main')
+    # one test run per image; each entry must match an image the build job
+    # produces at the default profile
     strategy:
       fail-fast: false
       matrix:
-        suite: [trixie, forky]
+        include:
+          - suite: trixie
+            variant: console
+          - suite: trixie
+            variant: weston-multimedia
+          - suite: forky
+            variant: console
     uses: $/.github/workflows/test.yml
     needs: build
     permissions:
@@ -117,6 +126,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
 
