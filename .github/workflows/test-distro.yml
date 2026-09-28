@@ -160,7 +160,7 @@ jobs:
     # one red board must not stop the others; the failure is reported through
     # the summary and the JUnit results instead
     continue-on-error: true
-    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     permissions:
       contents: read
     strategy:
@@ -314,7 +314,7 @@ jobs:
     needs: prepare-premerge-jobs
     runs-on: ubuntu-latest
     continue-on-error: true
-    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     permissions:
       contents: read
     strategy:
@@ -342,7 +342,7 @@ jobs:
           test_job_file_name_prefix: ${{ env.VARIANT }}-
 
   publish-test-summary:
-    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     needs: [boot-job-result, submit-premerge-job]
     if: always() && needs.boot-job-result.result == 'success'
     runs-on: ubuntu-latest

@@ -129,7 +129,7 @@ jobs:
           echo "known_failures_file=${KNOWN_FAILURES_FILE}" >> "$GITHUB_OUTPUT"
 
   test:
-    name: ${{ inputs.kernel }} ${{ inputs.suite }}
+    name: ${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }}
     needs: prepare-env
     uses: $/.github/workflows/test-distro.yml
     permissions:
@@ -153,7 +153,7 @@ jobs:
       pr_url: ${{ inputs.pr_url }}
 
   prepare-test-results:
-    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     needs: test
     if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
     runs-on: ubuntu-latest
