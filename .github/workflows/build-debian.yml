@@ -66,6 +66,9 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
+      # any leg's URL will do: every leg of the build matrix uploads to the
+      # same <run_id>-<run_attempt>/ directory, its files told apart by
+      # their suite[-variant] prefix
       url: ${{ needs.build-debian.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml

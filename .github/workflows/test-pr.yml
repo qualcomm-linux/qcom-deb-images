@@ -41,6 +41,9 @@ jobs:
                repo: context.repo.repo,
                run_id: context.payload.workflow_run.id,
             });
+            // every build leg uploads a build_url artifact; any one will
+            // do, as they all point at the same <run_id>-<run_attempt>/
+            // directory, its files told apart by their suite[-variant] prefix
             let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "build_url"
             })[0];
