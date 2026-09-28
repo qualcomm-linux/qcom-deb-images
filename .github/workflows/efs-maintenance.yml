@@ -1,10 +1,15 @@
-# EFS is Amazon Elastic File System; it's a NFS share that is mounted
+# EFS was Amazon Elastic File System; it's a NFS share that is mounted
 # under /efs on the IT provided self-hosted GitHub runners running on
 # AWS. It's private to Qualcomm and not accessible directly by Qualcomm
-# engineers, only by Qualcomm IT and from our GitHub runners.
+# engineers, only by Qualcomm IT and from our GitHub runners. To reduce
+# costs, it's being replaced by Amazon FSx for OpenZFS, mounted under /efsx
+# on the same runners; the old /efs mount is only kept for the transition.
+#
+# Workflows bind-mount /efsx/qli/qcom-deb-images as /efs in their
+# containers, so paths and inputs such as "efs/qcom-next" are unchanged.
 #
 # The convention for the Qualcomm Linux (QLI) EFS is:
-# /efs/qli: storage for all QLI projects
+# /efsx/qli: storage for all QLI projects
 #     /meta-qcom: storage for meta-qcom and potentially companion projects
 #         (meta-qcom-distro for instance); this is typically used to keep
 #         sstate caches to speed up builds
@@ -32,11 +37,11 @@ on:
   workflow_dispatch:
     inputs:
       create_new_location:
-        description: 'Create new EFS location (/efs/qli/qcom-deb-images)'
+        description: 'Create new EFS location (/efsx/qli/qcom-deb-images)'
         type: boolean
         default: false
       cleanup_old_location:
-        description: 'Remove old EFS data (/efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images)'
+        description: 'Remove old EFS data (/efs/qli/qcom-deb-images)'
         type: boolean
         default: false
       age_cleanup:
@@ -52,14 +57,14 @@ on:
 permissions: {}
 
 env:
-  EFS_NEW_PATH: /efs/qli/qcom-deb-images
-  EFS_OLD_PATH: /efs/qli/metaqcom/gh-runners/quic-yocto/downloads/qcom-deb-images
+  EFS_NEW_PATH: /efsx/qli/qcom-deb-images
+  EFS_OLD_PATH: /efs/qli/qcom-deb-images
   MAX_AGE_DAYS: ${{ inputs.max_age_days }}
 
 jobs:
   efs-maintenance:
     name: EFS maintenance
-    # only prunes files under /efs, never touches the repository
+    # only prunes files under /efs and /efsx, never touches the repository
     permissions: {}
     # don't run from forks of the main repository
     if: github.repository == 'qualcomm-linux/qcom-deb-images'
