@@ -1,10 +1,10 @@
+# DEPRECATED: RB1 boots the EDK2-based firmware shipped with its boot
+# binaries, so the U-Boot image built here is no longer used by the flash
+# recipe. This workflow is kept for manual runs only and is expected to be
+# removed along with scripts/build-u-boot-rb1.sh.
 name: Build U-Boot for RB1
 
 on:
-  # run weekly on Monday at 12:30pm, once the daily builds are done with the
-  # self-hosted runners for the day
-  schedule:
-    - cron: '30 12 * * 1'
   # allow manual runs
   workflow_dispatch:
 
@@ -23,13 +23,11 @@ concurrency:
 
 jobs:
   build-u-boot-rb1:
-    # don't run cron from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
     if: >-
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
-      (github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main')
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read # actions/checkout
     # for cross-builds
