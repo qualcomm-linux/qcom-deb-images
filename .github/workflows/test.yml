@@ -76,7 +76,7 @@ env:
   # CalVer tag in the qcom-linux-testkit repository (testkit-YYYY.MM.DD).
   # The lava-test-plans revision is pinned on the uses: lines of test-distro.yml,
   # which render the jobs and ship the test plans from the same revision.
-  TESTKIT_REF: "testkit-2026.08.23"
+  TESTKIT_REF: "testkit-2026.09.27"
 
 jobs:
   prepare-env:
