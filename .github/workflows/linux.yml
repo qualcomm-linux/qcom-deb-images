@@ -133,7 +133,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/qcom-deb-images:/efs
+        - /efsx/qli/qcom-deb-images:/efs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

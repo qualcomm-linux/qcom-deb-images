@@ -70,7 +70,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:trixie
       volumes:
-        - /efs/qli/qcom-deb-images:/efs
+        - /efsx/qli/qcom-deb-images:/efs
       options: --privileged
     steps:
       # runs first so that an unknown variant fails the job in seconds rather
