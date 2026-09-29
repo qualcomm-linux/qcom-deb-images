@@ -139,14 +139,24 @@ def describe_tree(linux_dir):
 
 
 def resolve_fragment(fragment, linux_dir):
-    """Find a config fragment and return a path usable from linux_dir."""
+    """
+    Find a config fragment and return a path usable from linux_dir. Look
+    at the path as given, then in this repository's kernel-configs/ and
+    then in the kernel tree's arch/arm64/configs/.
+    """
     if Path(fragment).exists():
         return str(Path(fragment).resolve())
+
+    repo_dir = Path(__file__).resolve().parent.parent / "kernel-configs"
+    if (repo_dir / fragment).exists():
+        return str(repo_dir / fragment)
+
     if (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
         return f"arch/arm64/configs/{fragment}"
+
     fatal(
-        f"Config fragment '{fragment}' not found locally or in "
-        f"the kernel tree (arch/arm64/configs/)."
+        f"Config fragment '{fragment}' not found; tried the path as given,"
+        f" {repo_dir}/ and {linux_dir}/arch/arm64/configs/"
     )
 
 
