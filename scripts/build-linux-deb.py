@@ -280,6 +280,12 @@ def main():
         help="Config fragments to merge",
     )
 
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Skip building; just configure the source",
+    )
+
     # intermixed, so that fragments can come before and after the flags
     args = parser.parse_intermixed_args()
 
@@ -384,6 +390,10 @@ def main():
             check=True,
             cwd=linux_dir
         )
+
+    if args.skip_build:
+        log_i("Kernel source configured; skipping build as requested")
+        return
 
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
