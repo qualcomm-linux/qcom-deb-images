@@ -280,14 +280,22 @@ def main():
         help="Config fragments to merge",
     )
 
-    parser.add_argument(
+    skip = parser.add_mutually_exclusive_group()
+    skip.add_argument(
         "--skip-build",
         action="store_true",
         help="Skip building; just configure the source",
     )
+    skip.add_argument(
+        "--skip-configure",
+        action="store_true",
+        help="Skip configuring; build with the existing .config",
+    )
 
     # intermixed, so that fragments can come before and after the flags
     args = parser.parse_intermixed_args()
+    if args.skip_configure and args.fragments:
+        parser.error("--skip-configure cannot be used with config fragments")
 
     if args.local_dir:
         linux_dir = Path(args.local_dir)
@@ -351,7 +359,14 @@ def main():
 
     log_i(f"Building {describe_tree(linux_dir)} from {linux_dir}")
 
-    config_targets = [resolve_fragment(f, linux_dir) for f in args.fragments]
+    nproc = subprocess.check_output(["nproc"], text=True).strip()
+    make_base_command = [
+        "make",
+        f"-j{nproc}",
+        "ARCH=arm64",
+        "CROSS_COMPILE=aarch64-linux-gnu-",
+        "DEB_HOST_ARCH=arm64",
+    ]
 
     nproc = subprocess.check_output(["nproc"], text=True).strip()
     make_base_command = [
@@ -362,34 +377,43 @@ def main():
         "DEB_HOST_ARCH=arm64",
     ]
 
-    if (linux_dir / ".config").exists():
-        log_i("Replacing .config (previous one kept as .config.old)")
-
-    log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
-    # Create base defconfig first
-    subprocess.run(make_base_command + [BASE_CONFIG], check=True,
-                   cwd=linux_dir)
-
-    # Merge config fragments using merge_config.sh for proper dependency
-    # handling
-    if config_targets:
-        merge_command = [
-            "scripts/kconfig/merge_config.sh", "-m", "-r", ".config"
+    if args.skip_configure:
+        if not (linux_dir / ".config").exists():
+            fatal(f"--skip-configure needs an existing {linux_dir}/.config")
+        log_i("Using existing .config")
+    else:
+        config_targets = [
+            resolve_fragment(f, linux_dir) for f in args.fragments
         ]
-        merge_command.extend(config_targets)
-        subprocess.run(
-            merge_command,
-            check=True,
-            cwd=linux_dir,
-            env={**os.environ, "ARCH": "arm64"},
-        )
 
-        # Finalize config with olddefconfig
-        subprocess.run(
-            make_base_command + ["olddefconfig"],
-            check=True,
-            cwd=linux_dir
-        )
+        if (linux_dir / ".config").exists():
+            log_i("Replacing .config (previous one kept as .config.old)")
+
+        log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
+        # Create base defconfig first
+        subprocess.run(make_base_command + [BASE_CONFIG], check=True,
+                       cwd=linux_dir)
+
+        # Merge config fragments using merge_config.sh for proper
+        # dependency handling
+        if config_targets:
+            merge_command = [
+                "scripts/kconfig/merge_config.sh", "-m", "-r", ".config"
+            ]
+            merge_command.extend(config_targets)
+            subprocess.run(
+                merge_command,
+                check=True,
+                cwd=linux_dir,
+                env={**os.environ, "ARCH": "arm64"},
+            )
+
+            # Finalize config with olddefconfig
+            subprocess.run(
+                make_base_command + ["olddefconfig"],
+                check=True,
+                cwd=linux_dir
+            )
 
     if args.skip_build:
         log_i("Kernel source configured; skipping build as requested")
