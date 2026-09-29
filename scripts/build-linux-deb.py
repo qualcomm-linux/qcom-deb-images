@@ -206,6 +206,7 @@ def check_dependencies():
         "crossbuild-essential-arm64",  # native on arm64, cross otherwise
         "debhelper",
         "dpkg-dev",
+        "dwarves",  # pahole, for CONFIG_DEBUG_INFO_BTF
         "flex",
         "git",
         "kmod",
