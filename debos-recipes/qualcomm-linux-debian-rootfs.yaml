@@ -569,6 +569,74 @@ actions:
       set -eux
       usermod -a -G docker debian
 
+  - action: run
+    description: Set default locale
+    chroot: true
+    command: |
+      set -eux
+      if which locale-gen >/dev/null 2>&1; then
+          echo en_US.UTF-8 UTF-8 >>/etc/locale.gen
+          locale-gen
+          update-locale LANG=en_US.UTF-8
+      fi
+
+  # Disable initramfs generation until just before the recipe finishes (see
+  # "Generate the initramfs for all installed kernels" below). Every later
+  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
+  # generating it once at the end, after DKMS, ensures DKMS modules are
+  # included in it.
+  - action: run
+    description: Disable initramfs generation until all packages are installed
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      # Fixes error when running outside qemu
+      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
+      ln -s /usr/bin/true /usr/sbin/update-initramfs
+{{- else }}
+      dpkg-divert --local --rename --add /usr/bin/dracut
+      ln -s /usr/bin/true /usr/bin/dracut
+{{- end }}
+
+  # usually these packages are pulled by Pre-Depends/Depends/Recommends of
+  # Debian's linux-image, but kernel packages generated with the upstream
+  # deb-pkg target don't have these dependencies, so install these before
+  # installing kernels; this is a separate step because of the Pre-Depends
+  - action: apt
+    description: Install kernel dependencies
+    recommends: true
+    packages:
+      - apparmor
+{{- if eq $suite "trixie" }}
+      - initramfs-tools
+{{- else }}
+      - dracut
+{{- end }}
+      - kmod
+      - linux-base
+
+  - action: apt
+    description: Install kernel and firmware packages
+    recommends: true
+    packages:
+      - firmware-atheros
+      - firmware-qcom-soc
+{{- if ne $kernelpackages "none" }}
+{{- range $kernelpackage := split "," $kernelpackages }}
+      - {{$kernelpackage}}
+{{- end }}
+{{- end }}
+
+  # this is currently needed on boards such as RB1 which are using Android
+  # bootloader to check the boot count of the boot_a/boot_b partitions
+  - action: apt
+    description: Support boards chainloading from Android bootloader
+    recommends: true
+    packages:
+      # marks the current Android boot partition as booted successfully
+      - qbootctl
+
 {{- if eq $variant "xfce" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
   # instead, curate from the Depends and Recommends of task-xfce-desktop and
@@ -738,74 +806,6 @@ actions:
     description: Configure Weston session
     source: overlays/weston-session
 {{- end }}
-
-  - action: run
-    description: Set default locale
-    chroot: true
-    command: |
-      set -eux
-      if which locale-gen >/dev/null 2>&1; then
-          echo en_US.UTF-8 UTF-8 >>/etc/locale.gen
-          locale-gen
-          update-locale LANG=en_US.UTF-8
-      fi
-
-  # Disable initramfs generation until just before the recipe finishes (see
-  # "Generate the initramfs for all installed kernels" below). Every later
-  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
-  # generating it once at the end, after DKMS, ensures DKMS modules are
-  # included in it.
-  - action: run
-    description: Disable initramfs generation until all packages are installed
-    chroot: true
-    command: |
-      set -eux
-{{- if eq $suite "trixie" }}
-      # Fixes error when running outside qemu
-      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
-      ln -s /usr/bin/true /usr/sbin/update-initramfs
-{{- else }}
-      dpkg-divert --local --rename --add /usr/bin/dracut
-      ln -s /usr/bin/true /usr/bin/dracut
-{{- end }}
-
-  # usually these packages are pulled by Pre-Depends/Depends/Recommends of
-  # Debian's linux-image, but kernel packages generated with the upstream
-  # deb-pkg target don't have these dependencies, so install these before
-  # installing kernels; this is a separate step because of the Pre-Depends
-  - action: apt
-    description: Install kernel dependencies
-    recommends: true
-    packages:
-      - apparmor
-{{- if eq $suite "trixie" }}
-      - initramfs-tools
-{{- else }}
-      - dracut
-{{- end }}
-      - kmod
-      - linux-base
-
-  - action: apt
-    description: Install kernel and firmware packages
-    recommends: true
-    packages:
-      - firmware-atheros
-      - firmware-qcom-soc
-{{- if ne $kernelpackages "none" }}
-{{- range $kernelpackage := split "," $kernelpackages }}
-      - {{$kernelpackage}}
-{{- end }}
-{{- end }}
-
-  # this is currently needed on boards such as RB1 which are using Android
-  # bootloader to check the boot count of the boot_a/boot_b partitions
-  - action: apt
-    description: Support boards chainloading from Android bootloader
-    recommends: true
-    packages:
-      # marks the current Android boot partition as booted successfully
-      - qbootctl
 
 {{- if eq $variant "weston-multimedia" }}
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
