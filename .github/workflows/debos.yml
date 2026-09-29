@@ -66,8 +66,9 @@ env:
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} -t profile:${{ inputs.profile }} ${{ inputs.debos_extra_args }}
-  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
-  PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
+  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant,
+  # "trixie-debug" for a profile, "trixie-multimedia-debug" for both
+  PREFIX: ${{ format('{0}{1}{2}', inputs.suite, (inputs.variant && inputs.variant != 'default') && format('-{0}', inputs.variant) || '', (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '') }}
 
 jobs:
   build-debos:
