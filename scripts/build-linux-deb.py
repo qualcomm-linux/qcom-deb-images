@@ -216,10 +216,8 @@ def main():
         help="Config fragments to merge",
     )
 
-    # Use parse_known_args to allow fragments before and after flags
-    args, unknown = parser.parse_known_args()
-    # Combine positional fragments with unknown args (fragments after flags)
-    args.fragments = args.fragments + unknown
+    # intermixed, so that fragments can come before and after the flags
+    args = parser.parse_intermixed_args()
 
     # default settings for next trees
     git_upstream_key = None
