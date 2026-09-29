@@ -745,6 +745,25 @@ actions:
           update-locale LANG=en_US.UTF-8
       fi
 
+  # Disable initramfs generation until just before the recipe finishes (see
+  # "Generate the initramfs for all installed kernels" below). Every later
+  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
+  # generating it once at the end, after DKMS, ensures DKMS modules are
+  # included in it.
+  - action: run
+    description: Disable initramfs generation until all packages are installed
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      # Fixes error when running outside qemu
+      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
+      ln -s /usr/bin/true /usr/sbin/update-initramfs
+{{- else }}
+      dpkg-divert --local --rename --add /usr/bin/dracut
+      ln -s /usr/bin/true /usr/bin/dracut
+{{- end }}
+
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
   # deb-pkg target don't have these dependencies, so install these before
@@ -967,6 +986,24 @@ actions:
               2>/dev/null || true
       fi
       rm -rf "$workdir"
+{{- end }}
+
+  # All packages are installed by this point, so re-enable initramfs
+  # generation (see "Disable initramfs generation until all packages are
+  # installed" above) and generate it once here, for every installed kernel.
+  - action: run
+    description: Generate the initramfs for all installed kernels
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      rm /usr/sbin/update-initramfs
+      dpkg-divert --rename --remove /usr/sbin/update-initramfs
+      update-initramfs -c -k all
+{{- else }}
+      rm /usr/bin/dracut
+      dpkg-divert --rename --remove /usr/bin/dracut
+      dracut --regenerate-all --force
 {{- end }}
 
 {{- if ne $aptlocalrepo "none" }}
