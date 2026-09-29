@@ -83,9 +83,18 @@ jobs:
           export BUILD_DIR="/efs/${BUILD_ID}"
           mkdir -vp "${BUILD_DIR}"
           cp -av artifacts/* "${BUILD_DIR}"
+          # flush artifacts to NFS
+          sync
+
+      # only publish EFS symlink to the latest build artifacts if building the
+      # main branch
+      - name: Publish EFS symlink
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -ux
           # create or update u-boot-rb1-latest symlink
           ln -fnsv "${BUILD_ID}" /efs/u-boot-rb1-latest
-          # perhaps help NFS sync
+          # flush the symlink to NFS
           sync
 
       - name: Upload private artifacts
