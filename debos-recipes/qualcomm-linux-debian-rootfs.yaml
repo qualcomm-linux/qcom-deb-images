@@ -13,16 +13,32 @@
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
 
-{{- $variantid := "console" }}
+# xfcedesktop, gnomedesktop, westonsession and multimedia (booleans) are
+# deprecated, superseded by the single $variant variable below
+# see https://github.com/qualcomm-linux/qcom-deb-images/issues/691
+{{- $legacyvariants := list }}
 {{- if eq $xfcedesktop "true" }}
-{{- $variantid = "xfce" }}
-{{- else if eq $gnomedesktop "true" }}
-{{- $variantid = "gnome" }}
-{{- else if eq $westonsession "true" }}
-{{- $variantid = "weston" }}
+{{- $legacyvariants = append $legacyvariants "xfce" }}
+{{- end }}
+{{- if eq $gnomedesktop "true" }}
+{{- $legacyvariants = append $legacyvariants "gnome" }}
+{{- end }}
+{{- if eq $westonsession "true" }}
+{{- $legacyvariants = append $legacyvariants "weston" }}
 {{- end }}
 {{- if eq $multimedia "true" }}
-{{- $variantid = printf "%s-multimedia" $variantid }}
+{{- $legacyvariants = append $legacyvariants "multimedia" }}
+{{- end }}
+{{- if and .variant $legacyvariants }}
+{{- fail "variant cannot be set together with the deprecated variables" }}
+{{- end }}
+
+# Validate $variant; keep this list in sync with the "Supported variants"
+# section of README.md
+{{- $allowed_variants := list "console" "xfce" "gnome" "weston" "weston-multimedia" }}
+{{- $variant := or .variant (join "-" $legacyvariants) "console" }}
+{{- if not (has $variant $allowed_variants) }}
+{{- fail (printf "unknown variant %q" $variant) }}
 {{- end }}
 
 # Rename sid to unstable to reduce if/else complexity
@@ -39,6 +55,17 @@ actions:
     chroot: false
     command: |
       echo "WARNING: the 'kernelpackage' debos variable is deprecated and superseded by 'kernelpackages' (a comma-separated list); please migrate as 'kernelpackage' will be removed in a future release" >&2
+      # give the operator a chance to notice the warning before the build scrolls past
+      echo "(sleeping 10s to get some attention and leave some time to read this)" >&2
+      sleep 10
+{{- end }}
+{{- if $legacyvariants }}
+  - action: run
+    description: Warn that legacy variant variables are deprecated
+    chroot: false
+    command: |
+      echo "WARNING: the 'xfcedesktop', 'gnomedesktop', 'westonsession' and 'multimedia' debos variables are deprecated and superseded by 'variant'; please migrate as they will be removed in a future release" >&2
+      echo "see https://github.com/qualcomm-linux/qcom-deb-images/issues/691" >&2
       # give the operator a chance to notice the warning before the build scrolls past
       echo "(sleeping 10s to get some attention and leave some time to read this)" >&2
       sleep 10
@@ -156,9 +183,7 @@ actions:
 {{- if $buildid }}
       echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
 {{- end }}
-{{- if $variantid }}
-      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
-{{- end }}
+      echo "VARIANT_ID={{$variant}}" >>/etc/buildinfo
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
 {{- end }}
@@ -544,7 +569,7 @@ actions:
       set -eux
       usermod -a -G docker debian
 
-{{- if eq $xfcedesktop "true" }}
+{{- if eq $variant "xfce" }}
   # this should ideally be task-xfce-desktop, but this pulls too many apps;
   # instead, curate from the Depends and Recommends of task-xfce-desktop and
   # task-desktop recursively; also, disable Recommends
@@ -601,7 +626,7 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
-{{- if eq $gnomedesktop "true" }}
+{{- if eq $variant "gnome" }}
 
 # The following list of package is a manual selection from the gnome-core
 # metapackage from trixie with some pruning. The list of packages is longer in
@@ -701,7 +726,7 @@ actions:
       - libcamera-v4l2
 {{- end }}
 
-{{- if eq $westonsession "true" }}
+{{- if has $variant (list "weston" "weston-multimedia") }}
 # Install Weston, a lightweight Wayland compositor.
 #
 # The Weston package does not have any mechanism to start automatically at boot
@@ -802,7 +827,7 @@ actions:
       # marks the current Android boot partition as booted successfully
       - qbootctl
 
-{{- if eq $multimedia "true" }}
+{{- if eq $variant "weston-multimedia" }}
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
 # closed source user-space from the Qualcomm Linux APT repository.
 
