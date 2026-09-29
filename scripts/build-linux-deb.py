@@ -97,6 +97,59 @@ def fatal(msg):
     sys.exit(1)
 
 
+def is_kernel_tree(path):
+    return all(
+        (path / f).is_file()
+        for f in ("Makefile", "Kconfig", "scripts/kconfig/merge_config.sh")
+    )
+
+
+def have_source_tree(path):
+    """
+    Return True if path holds a kernel source tree and False if it is
+    free to clone into (missing or empty); anything else is fatal.
+    """
+    if not path.exists():
+        return False
+    if not path.is_dir():
+        fatal(f"'{path}' is not a directory")
+    if is_kernel_tree(path):
+        return True
+    if any(path.iterdir()):
+        fatal(f"'{path}' is not empty and is not a Linux kernel source tree")
+    return False
+
+
+def describe_tree(linux_dir):
+    """Describe the kernel tree, e.g. "7.2.0-rc1 (v7.2-rc1-12-gabc)"."""
+    version = subprocess.check_output(
+        ["make", "-s", "kernelversion"], cwd=linux_dir, text=True
+    ).strip()
+    git = subprocess.run(
+        ["git", "describe", "--always", "--dirty"],
+        cwd=linux_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    if git.returncode == 0 and git.stdout.strip():
+        return f"{version} ({git.stdout.strip()})"
+    return version
+
+
+def resolve_fragment(fragment, linux_dir):
+    """Find a config fragment and return a path usable from linux_dir."""
+    if Path(fragment).exists():
+        return str(Path(fragment).resolve())
+    if (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
+        return f"arch/arm64/configs/{fragment}"
+    fatal(
+        f"Config fragment '{fragment}' not found locally or in "
+        f"the kernel tree (arch/arm64/configs/)."
+    )
+
+
 def check_package_installed(pkg, native_arch):
     """
     Check if a package is installed. dpkg matches an unqualified name
@@ -182,12 +235,12 @@ def main():
     parser = argparse.ArgumentParser(description="Build Linux Deb")
     parser.add_argument(
         "--repo",
-        default=DEFAULT_REPO,
+        default=None,
         help=f"Git repository to clone (default: {DEFAULT_REPO})",
     )
     parser.add_argument(
         "--ref",
-        default=DEFAULT_REF,
+        default=None,
         help=f"Git ref (branch/tag) to checkout (default: {DEFAULT_REF})",
     )
     parser.add_argument(
@@ -204,8 +257,9 @@ def main():
         "--local-dir",
         type=str,
         default=None,
-        help=("Path to an existing Linux kernel source tree;"
-              " if not set, the repo will be cloned into ./linux"),
+        help=("Linux kernel source tree to build, cloned into if missing"
+              " or empty (default: the current directory if it is a"
+              " kernel source tree, otherwise ./linux)"),
     )
 
     parser.add_argument(
@@ -219,81 +273,69 @@ def main():
     # intermixed, so that fragments can come before and after the flags
     args = parser.parse_intermixed_args()
 
-    # default settings for next trees
-    git_upstream_key = None
-    if args.linux_next:
-        git_upstream_key = "linux-next"
-    elif args.qcom_next:
-        git_upstream_key = "qcom-next"
+    if args.local_dir:
+        linux_dir = Path(args.local_dir)
+    elif is_kernel_tree(Path()):
+        linux_dir = Path()
+    else:
+        linux_dir = Path("linux")
+    have_tree = have_source_tree(linux_dir)
 
-    ref_prefix = GIT_UPSTREAM["linux"]["ref_prefix"]
-    if git_upstream_key is not None:
-        if args.repo == DEFAULT_REPO:
-            args.repo = GIT_UPSTREAM[git_upstream_key]["repo"]
-        if args.ref == DEFAULT_REF:
-            args.ref = GIT_UPSTREAM[git_upstream_key]["ref"]
-            ref_prefix = GIT_UPSTREAM[git_upstream_key]["ref_prefix"]
-
-    if ref_prefix:
-        found_tag = get_latest_dated_tag(args.repo, ref_prefix)
-        if found_tag:
-            log_i(f"Found latest tag: {found_tag}")
-            args.ref = found_tag
-        else:
-            log_i("No suitable tag found, falling back to default ref")
+    clone_opts = (args.repo or args.ref or args.linux_next
+                  or args.qcom_next)
+    if have_tree and clone_opts:
+        parser.error(
+            f"--repo, --ref, --linux-next and --qcom-next cannot be used"
+            f" with the existing kernel source tree in '{linux_dir}'"
+        )
 
     check_dependencies()
 
-    if args.local_dir:
-        linux_dir = Path(args.local_dir)
-        if not linux_dir.exists():
-            fatal(f"Provided --local-dir '{linux_dir}' does not exist")
-        log_i(f"Using existing kernel source at {linux_dir}")
+    if have_tree:
+        log_i(f"Using existing kernel source tree in {linux_dir}")
     else:
-        linux_dir = Path("linux")
-        log_i(f"Cloning Linux ({args.repo}:{args.ref}) into {linux_dir}")
+        # default settings for next trees
+        git_upstream_key = None
+        if args.linux_next:
+            git_upstream_key = "linux-next"
+        elif args.qcom_next:
+            git_upstream_key = "qcom-next"
+
+        repo = args.repo or DEFAULT_REPO
+        ref = args.ref or DEFAULT_REF
+        ref_prefix = GIT_UPSTREAM["linux"]["ref_prefix"]
+        if git_upstream_key is not None:
+            if not args.repo:
+                repo = GIT_UPSTREAM[git_upstream_key]["repo"]
+            if not args.ref:
+                ref = GIT_UPSTREAM[git_upstream_key]["ref"]
+                ref_prefix = GIT_UPSTREAM[git_upstream_key]["ref_prefix"]
+
+        if ref_prefix:
+            found_tag = get_latest_dated_tag(repo, ref_prefix)
+            if found_tag:
+                log_i(f"Found latest tag: {found_tag}")
+                ref = found_tag
+            else:
+                log_i("No suitable tag found, falling back to default ref")
+
+        log_i(f"Cloning Linux ({repo}:{ref}) into {linux_dir}")
         subprocess.run(
             [
                 "git",
                 "clone",
                 "--depth=1",
                 "--branch",
-                args.ref,
-                args.repo,
+                ref,
+                repo,
                 str(linux_dir),
             ],
             check=True,
         )
 
-    log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
-    # directory to store local config fragments so they can be picked up by
-    # kbuild
-    local_conf_dir = linux_dir / "kernel" / "configs"
-    local_conf_dir.mkdir(parents=True, exist_ok=True)
+    log_i(f"Building {describe_tree(linux_dir)} from {linux_dir}")
 
-    config_targets = []
-
-    for i, fragment in enumerate(args.fragments):
-        if Path(fragment).exists():
-            # Create a unique name for the local fragment
-            local_frag_name = f"local_{i}.config"
-            dest_path = local_conf_dir / local_frag_name
-
-            log_i(f"Copying local fragment {fragment} to {dest_path}")
-            with open(fragment, "r", encoding="utf-8") as f_in:
-                content = f_in.read()
-            with open(dest_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content)
-
-            config_targets.append(f"kernel/configs/{local_frag_name}")
-        elif (linux_dir / "arch" / "arm64" / "configs" / fragment).exists():
-            log_i(f"Using config fragment from repo: {fragment}")
-            config_targets.append(f"arch/arm64/configs/{fragment}")
-        else:
-            fatal(
-                f"Config fragment '{fragment}' not found locally or in "
-                f"repository (arch/arm64/configs/)."
-            )
+    config_targets = [resolve_fragment(f, linux_dir) for f in args.fragments]
 
     nproc = subprocess.check_output(["nproc"], text=True).strip()
     make_base_command = [
@@ -304,6 +346,10 @@ def main():
         "DEB_HOST_ARCH=arm64",
     ]
 
+    if (linux_dir / ".config").exists():
+        log_i("Replacing .config (previous one kept as .config.old)")
+
+    log_i(f"Configuring Linux (base config: {BASE_CONFIG})")
     # Create base defconfig first
     subprocess.run(make_base_command + [BASE_CONFIG], check=True,
                    cwd=linux_dir)
