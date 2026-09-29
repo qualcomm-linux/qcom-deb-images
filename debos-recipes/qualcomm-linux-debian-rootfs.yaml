@@ -217,7 +217,8 @@ actions:
       "src:mesa:any"
       "src:thermald:any"
       "src:u-boot-efi-dtb:any"
-      "src:wireplumber:any" }}
+      "src:wireplumber:any"
+      "src:pipewire:any" }}
 
   - action: run
     description: Add Debian {{ $suite }}-backports APT configuration
