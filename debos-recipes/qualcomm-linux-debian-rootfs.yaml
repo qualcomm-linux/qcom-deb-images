@@ -598,32 +598,6 @@ actions:
       - network-manager-applet
       - nm-connection-editor
       - synaptic
-      # from task-desktop
-      - desktop-base
-      - xdg-utils
-      - fonts-symbola
-      - avahi-daemon
-      - libnss-mdns
-      # browser
-      - chromium
-      # bluetooth settings
-      - blueman
-      # audio: wireplumber for session integration, pipewire-pulse for chromium
-      # and xfce4-pulseaudio-plugin, and pavucontrol as referenced from the
-      # xfce pulse panel applet
-      - pavucontrol
-      - pipewire-pulse
-      - wireplumber
-      # camera: mostly supported through pipewire, but pull the qcam app
-      # and cam CLI tool from libcamera-tools; also install libcamera
-      # gstreamer plugins for for gstreamer based apps; ideally, cam and
-      # qcam would be packaged separately as to allow pulling the CLI
-      # version outside of the desktop list. libcamera-v4l2 provides a
-      # LD_PRELOAD library for compatiblity with apps relying on v4l2
-      # (similar to pipewire and pulse situation)
-      - gstreamer1.0-libcamera
-      - libcamera-tools
-      - libcamera-v4l2
 {{- end }}
 
 {{- if eq $variant "gnome" }}
@@ -699,7 +673,13 @@ actions:
       - system-config-printer-common
       - system-config-printer-udev
       - zenity
+{{- end }}
 
+{{- if has $variant (list "xfce" "gnome") }}
+  - action: apt
+    description: Install common desktop packages
+    recommends: false
+    packages:
       # from task-desktop
       - desktop-base
       - xdg-utils
