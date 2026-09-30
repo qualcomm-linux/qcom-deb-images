@@ -289,6 +289,21 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
+      # our assessments (vex/) merged into one OpenVEX document for this build,
+      # with the product versioned like the SBOM's source so that Grype
+      # matches it. coverage warnings do not fail the build, but invalid
+      # assessments do; warnings are added to the job summary below
+      - name: Merge VEX documents
+        shell: bash
+        run: |
+          set -euxo pipefail
+          shopt -s nullglob
+          scripts/vex-check.py vex/*.openvex.json
+          scripts/vex-merge.py --product-version "${BUILD_ID}" \
+              vex/*.openvex.json >rootfs-vex.openvex.json
+          scripts/vex-check.py --sbom rootfs-sbom.syft.json \
+              rootfs-vex.openvex.json | tee rootfs-vex-warnings.txt
+
       # Use the "download-grype" sub-action to install Grype and keep it
       # updated via Dependabot.
       - name: Install Grype
@@ -337,6 +352,7 @@ jobs:
               -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
               -o sarif=rootfs-vulns.grype.sarif \
               --by-cve \
+              --vex rootfs-vex.openvex.json \
               --sort-by severity \
               -v \
               sbom:rootfs-sbom.syft.json
@@ -348,7 +364,7 @@ jobs:
           set -ux
           dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.* rootfs-vulns.*; do
+          for f in rootfs-sbom.* rootfs-vex.* rootfs-vulns.*; do
               gzip -c "$f" >"${dir}/${PREFIX}-${f}.gz"
           done
 
@@ -374,7 +390,16 @@ jobs:
           # at the top of the job summary
           scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
               --sbom rootfs-sbom.syft.json \
+              --vex rootfs-vex.openvex.json \
               >> $GITHUB_STEP_SUMMARY
+          if [ -s rootfs-vex-warnings.txt ]; then
+              {
+                  echo "## VEX warnings"
+                  echo '```'
+                  cat rootfs-vex-warnings.txt
+                  echo '```'
+              } >> $GITHUB_STEP_SUMMARY
+          fi
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
