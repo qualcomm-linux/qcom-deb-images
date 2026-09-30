@@ -272,8 +272,8 @@ def test_summary_layout_and_suppressed_fix_versions(tmp_path):
                       if line.startswith("| CVE-2026-12345 |"))
     assert "`openssl 3.5.0-1`" in suppressed
     assert "`libssl3t64 3.5.0-1`" in suppressed
-    assert "`3.5.0-1`" in suppressed
-    assert "wont-fix" in suppressed
+    assert "\U0001F7E2</span> `3.5.0-1`" in suppressed
+    assert "\U0001F7E0</span> wont-fix" in suppressed
     assert "VEX fixed; VEX not_affected" in suppressed
 
 
@@ -292,7 +292,22 @@ def test_summary_only_suppressed(tmp_path, severity):
     assert "No critical or high" in result.stdout
     assert result.stdout.index("No critical") < result.stdout.index(
         "suppressed vulnerabilities")
-    assert "wont-fix" in result.stdout
+    assert "\U0001F7E0</span> wont-fix" in result.stdout
+
+
+@pytest.mark.parametrize("state,versions,icon,label", [
+    ("not-fixed", [], "\U0001F534", "not-fixed"),
+    ("wont-fix", [], "\U0001F7E0", "wont-fix"),
+    ("fixed", ["3.5.1-1"], "\U0001F7E2", "`3.5.1-1`"),
+    ("unknown", [], "\u2754", "unknown"),
+])
+def test_summary_fix_icons(tmp_path, state, versions, icon, label):
+    data = {"matches": [grype_match(fix_state=state, versions=versions)]}
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", data))
+    assert result.returncode == 0, result.stderr
+    assert f"{icon}</span> {label}" in result.stdout
+    assert "<span title=" in result.stdout
 
 
 def test_summary_triage_escapes_markdown_table_text(tmp_path):
