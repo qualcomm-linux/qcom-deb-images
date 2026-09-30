@@ -695,6 +695,15 @@ def test_generated_actions_are_specific_to_each_package(tmp_path):
                   str(tmp_path / "vex.json")).returncode == 0
 
 
+def test_summary_rejects_unreadable_advisory_report(tmp_path):
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", {"matches": []}),
+                    "--advisories", str(tmp_path / "missing.json"))
+    assert result.returncode != 0
+    assert "cannot read advisories" in result.stderr
+    assert "Vulnerability summary" not in result.stdout
+
+
 def test_advisory_cve_identity_is_stable(tmp_path):
     record = advisory()
     record["aliases"].insert(0, "CVE-2026-11111")
