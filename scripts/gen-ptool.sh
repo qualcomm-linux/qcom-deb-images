@@ -103,3 +103,7 @@ fi
 
 # generate flashing files from qcom-partitions.xml
 python3 -m qcom_ptool.ptool -x ptool-partitions.xml
+
+# record the disk type, so that consumers of the flash directory don't have
+# to infer it from the disk image filenames
+echo "${DISK_TYPE}" >disk-type
