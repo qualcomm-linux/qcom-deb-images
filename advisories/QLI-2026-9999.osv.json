@@ -1,0 +1,39 @@
+{
+  "id": "QLI-2026-9999",
+  "published": "2026-09-30T00:00:00Z",
+  "modified": "2026-09-30T00:00:00Z",
+  "summary": "DEMO ENTRY, NOT A REAL VULNERABILITY: example advisory for userspace-resource-manager-extensions",
+  "details": "DEMO ENTRY, NOT A REAL VULNERABILITY. It exists only to demonstrate how vulnerabilities in QLI overlay packages that Debian doesn't track are recorded and reported. Remove this file once a real advisory exists.",
+  "database_specific": {
+    "severity": "High"
+  },
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "Debian",
+        "name": "userspace-resource-manager"
+      },
+      "ecosystem_specific": {
+        "binaries": [
+          "userspace-resource-manager-extensions"
+        ]
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "WEB",
+      "url": "https://github.com/qualcomm-linux/pkg-urm"
+    }
+  ]
+}
