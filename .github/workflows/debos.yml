@@ -121,8 +121,9 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
+      # python3-jsonschema is needed by scripts/vex-check.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-jsonschema python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
 
       - name: Setup local APT repo
         run: |
@@ -289,6 +290,17 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
+      # our assessments (vex/), checked against this build's SBOM before
+      # Grype applies them: coverage warnings do not fail the build, but
+      # invalid assessments do; warnings are added to the job summary below
+      - name: Check VEX documents
+        shell: bash
+        run: |
+          set -euxo pipefail
+          shopt -s nullglob
+          scripts/vex-check.py --sbom rootfs-sbom.syft.json \
+              vex/*.openvex.json | tee rootfs-vex-warnings.txt
+
       # Use the "download-grype" sub-action to install Grype and keep it
       # updated via Dependabot.
       - name: Install Grype
@@ -326,22 +338,45 @@ jobs:
       # no --fail-on: a Debian image always carries known unfixed CVEs, so
       # failing the build on severity would make every build red; the reports
       # are published as artifacts for review instead
+      #
+      # no --ignore-states or --only-fixed either: Debian wont-fix findings
+      # stay open until one of our VEX statements (vex/) says otherwise
+      #
+      # the second scan only collects the affected and under_investigation
+      # statements Grype applies, for the summary; see vex/grype-triage.yaml
+      #
+      # Grype takes each VEX document as its own --vex and matches their
+      # versionless product against the versioned one of the SBOM's source
       - name: Scan SBOM for vulnerabilities with Grype
+        shell: bash
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
           set -ux
+          shopt -s nullglob
+          vex=()
+          for f in vex/*.openvex.json; do
+              vex+=(--vex "$f")
+          done
           "$GRYPE" \
+              -c vex/grype.yaml \
               -o json=rootfs-vulns.grype.json \
               -o table=rootfs-vulns.grype.txt \
               -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
               -o sarif=rootfs-vulns.grype.sarif \
               --by-cve \
+              "${vex[@]}" \
               --sort-by severity \
               -v \
               sbom:rootfs-sbom.syft.json
           # every -o above writes to a file, so echo the table to the log too
           cat rootfs-vulns.grype.txt
+          "$GRYPE" \
+              -c vex/grype-triage.yaml \
+              -o json=rootfs-vulns-triage.grype.json \
+              --by-cve \
+              "${vex[@]}" \
+              sbom:rootfs-sbom.syft.json
 
       - name: Stage SBOMs and Vulnerability report for publishing
         run: |
@@ -374,7 +409,22 @@ jobs:
           # at the top of the job summary
           scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
               --sbom rootfs-sbom.syft.json \
+              --triage rootfs-vulns-triage.grype.json \
               >> $GITHUB_STEP_SUMMARY
+          # folded, as the warnings are only of interest when editing vex/
+          if [ -s rootfs-vex-warnings.txt ]; then
+              {
+                  echo "<details>"
+                  echo "<summary>$(wc -l <rootfs-vex-warnings.txt) VEX" \
+                       "warnings</summary>"
+                  echo
+                  echo '```'
+                  cat rootfs-vex-warnings.txt
+                  echo '```'
+                  echo
+                  echo "</details>"
+              } >> $GITHUB_STEP_SUMMARY
+          fi
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
