@@ -2,7 +2,8 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 
-# lint our OpenVEX documents (vex/*.openvex.json), see vex/README.md
+# lint our OpenVEX documents (vex/*.openvex.json) and OSV advisories
+# (advisories/*.osv.json), see docs/vex.md
 #
 # rule violations are errors and make the script exit non-zero. with --sbom,
 # the documents are also checked against the packages installed in a build;
@@ -13,10 +14,14 @@ import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import vexlib
 
 CVE_RE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$")
+ADVISORY_ID_RE = re.compile(r"^QLI-(CVE-[0-9]{4}-[0-9]{4,}|[0-9]{4}-[0-9]+)$")
+ECOSYSTEM_RE = re.compile(r"^Debian(:[A-Za-z0-9.]+)?$")
+SEVERITIES = ("Critical", "High", "Medium", "Low")
 
 
 class Report:
@@ -79,9 +84,10 @@ def check_statement(where, statement, doc_time, report,
         report.error(where, "vulnerability must be an object")
         vuln = {}
     name = vuln.get("name")
-    if not isinstance(name, str) or not CVE_RE.fullmatch(name):
+    if not isinstance(name, str) or not (
+            CVE_RE.fullmatch(name) or ADVISORY_ID_RE.fullmatch(name)):
         report.error(where, f"vulnerability name {name!r} must be a CVE "
-                            "identifier")
+                            "identifier (or a QLI advisory ID)")
     where = f"{where} ({name})"
     aliases = vuln.get("aliases", [])
     if not isinstance(aliases, list) or not all(
@@ -161,6 +167,100 @@ def check_uniqueness(documents, report):
                     seen[vuln_id].append((product, sub, path))
 
 
+# --- OSV advisories ---
+
+def object_value(value, where, report):
+    if not isinstance(value, dict):
+        report.error(where, "must be an object")
+        return {}
+    return value
+
+
+def check_advisory(path, advisory, report):
+    vuln_id = advisory.get("id")
+    if not isinstance(vuln_id, str) or not ADVISORY_ID_RE.fullmatch(vuln_id):
+        report.error(path, f"id {vuln_id!r} must be QLI-<CVE> or "
+                           "QLI-<year>-<n>")
+    elif Path(path).name != f"{vuln_id}.osv.json":
+        report.error(path, f"file name must be {vuln_id}.osv.json")
+    if "modified" not in advisory:
+        report.error(path, "missing modified")
+    for key in ("published", "modified", "withdrawn"):
+        if key in advisory and parse_time(advisory[key]) is None:
+            report.error(path, f"{key} is not an RFC 3339 date")
+    if "withdrawn" in advisory:
+        return
+    summary = advisory.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        report.error(path, "summary must be a non-empty string")
+    if "details" in advisory and not isinstance(advisory["details"], str):
+        report.error(path, "details must be a string")
+    aliases = advisory.get("aliases", [])
+    if not isinstance(aliases, list) or not all(
+            isinstance(alias, str) and alias.strip() for alias in aliases):
+        report.error(path, "aliases must be an array of non-empty strings")
+        aliases = []
+    for alias in aliases:
+        if alias.startswith("CVE-") and not CVE_RE.fullmatch(alias):
+            report.error(path, f"invalid CVE alias {alias!r}")
+    if isinstance(vuln_id, str) and vuln_id.startswith("QLI-CVE-") and \
+            vuln_id[4:] not in aliases:
+        report.error(path, f"aliases must include {vuln_id[4:]}")
+
+    metadata = object_value(advisory.get("database_specific", {}),
+                            f"{path}: database_specific", report)
+    severity = metadata.get("severity")
+    if severity not in SEVERITIES:
+        report.error(path, "database_specific.severity must be one of "
+                           f"{', '.join(SEVERITIES)}")
+
+    for field, keys in (("references", ("type", "url")),
+                        ("severity", ("type", "score"))):
+        for item in object_list(advisory.get(field, []),
+                                f"{path}: {field}", report):
+            for key in keys:
+                if not isinstance(item.get(key), str) or not item[key]:
+                    report.error(path, f"{field}.{key} must be a "
+                                       "non-empty string")
+    affected = object_list(advisory.get("affected"),
+                           f"{path}: affected", report)
+    if not affected:
+        report.error(path, "no affected packages")
+    for entry in affected:
+        check_affected(path, entry, report)
+
+
+def check_affected(path, entry, report):
+    package = object_value(entry.get("package"), f"{path}: package", report)
+    ecosystem = package.get("ecosystem")
+    if not isinstance(ecosystem, str) or not ECOSYSTEM_RE.fullmatch(ecosystem):
+        report.error(path, f"ecosystem {ecosystem!r} must be "
+                           "Debian or Debian:<release>")
+    name = package.get("name")
+    if not isinstance(name, str) or not name.strip():
+        report.error(path, "package without a name (the source package)")
+    metadata = object_value(entry.get("ecosystem_specific", {}),
+                            f"{path}: ecosystem_specific", report)
+    binaries = metadata.get("binaries")
+    if binaries is not None and not (
+            isinstance(binaries, list) and binaries and
+            all(isinstance(b, str) and b.strip() for b in binaries)):
+        report.error(path, "ecosystem_specific.binaries must be a list of "
+                           "binary package names")
+    if "binaries" in metadata and binaries is None:
+        report.error(path, "ecosystem_specific.binaries cannot be null")
+    if "versions" in entry:
+        report.error(path, "use ranges, not a versions list")
+    ranges = object_list(entry.get("ranges"), f"{path}: ranges", report)
+    if not ranges:
+        report.error(path, f"{package.get('name')}: no ranges")
+    for rng in ranges:
+        try:
+            vexlib.osv_range_events(rng)
+        except ValueError as error:
+            report.error(path, str(error))
+
+
 # --- SBOM coverage ---
 
 def check_sbom(documents, sbom, report):
@@ -193,9 +293,9 @@ def check_sbom(documents, sbom, report):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Check OpenVEX documents.")
+        description="Check OpenVEX documents and OSV advisories.")
     parser.add_argument("files", nargs="*",
-                        help="*.openvex.json files")
+                        help="*.openvex.json and *.osv.json files")
     parser.add_argument("--sbom", help="Syft JSON SBOM to check the "
                         "statements against (warnings only). The product may "
                         "then carry a version, as in the merged document.")
@@ -208,6 +308,7 @@ def main():
     now = datetime.now(timezone.utc)
     max_age = timedelta(days=args.max_age_days)
     documents = []
+    advisory_ids = {}
     for path in args.files:
         try:
             doc = vexlib.load_json(path)
@@ -219,8 +320,19 @@ def main():
             check_openvex(path, doc, report, bool(args.sbom), max_age, now)
             if len(report.errors) == errors_before:
                 documents.append((path, doc))
+        elif isinstance(doc, dict) and "id" in doc:
+            errors_before = len(report.errors)
+            check_advisory(path, doc, report)
+            if (len(report.errors) == errors_before and
+                    not doc.get("withdrawn")):
+                for vuln_id in {doc["id"], *doc.get("aliases", [])}:
+                    if vuln_id in advisory_ids:
+                        report.error(path, f"{vuln_id} is already recorded "
+                                           f"in {advisory_ids[vuln_id]}")
+                    advisory_ids[vuln_id] = path
         else:
-            report.error(path, "not an OpenVEX document")
+            report.error(path, "neither an OpenVEX document nor an OSV "
+                               "advisory")
     check_uniqueness(documents, report)
 
     if args.sbom:
