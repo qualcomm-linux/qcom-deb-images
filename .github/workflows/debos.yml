@@ -197,10 +197,10 @@ jobs:
           esac
 
           debos \
-              -t "overlays:$OVERLAYS" \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackages:"$kernel_packages" \
               -t "buildid:${BUILD_ID}" \
+              -t kernelpackages:"$kernel_packages" \
+              -t "overlays:$OVERLAYS" \
               ${DEBOS_EXTRA_ARGS} \
               ${DEBOS_VARIANT_ARGS} \
               --print-recipe \
