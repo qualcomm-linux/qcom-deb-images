@@ -38,3 +38,14 @@ jobs:
       variant: ${{ matrix.variant }}
       # QLI targets qcom-next; install the kernel from the QLI APT repository
       kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+
+  build-armhf:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: $/.github/workflows/debos-armhf.yml
+    permissions:
+      contents: read
+    with:
+      suite: ${{ matrix.suite }}
