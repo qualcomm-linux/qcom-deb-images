@@ -349,7 +349,7 @@ compare `qcom-next` against `mainline` or `linux-next`.
 
 Building a Linux kernel deb requires the following build-dependencies:
 ```bash
-apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev debhelper-compat kmod python3 rsync coreutils
+apt -y install git crossbuild-essential-arm64 make flex bison bc libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev dwarves debhelper-compat kmod python3 rsync coreutils
 ```
 
 Note that to install `libssl-dev:arm64` on a non-arm64 host, you will need to

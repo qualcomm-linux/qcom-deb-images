@@ -159,7 +159,7 @@ jobs:
             fi
             # install build-dependencies; TODO: --no-install-recommends
             apt -y install git crossbuild-essential-arm64 make flex bison bc \
-                libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
+                libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev dwarves \
                 debhelper kmod python3 rsync coreutils
             scripts/build-linux-deb.py ${BUILD_LINUX_DEB_EXTRA_ARGS} \
                 `ls kernel-configs/*.config | sort` \
