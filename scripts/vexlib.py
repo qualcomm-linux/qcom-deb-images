@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # helpers shared by vex-check.py, vex-merge.py, vex-advisories.py and
-# grype-vulnerability-summary.py; see docs/vex.md
+# grype-vulnerability-summary.py
 
 import json
 from urllib.parse import unquote

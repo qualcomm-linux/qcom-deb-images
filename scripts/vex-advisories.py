@@ -4,7 +4,7 @@
 
 # match our OSV advisories (advisories/*.osv.json) for packages the Debian
 # security tracker doesn't cover against the installed packages of a Syft SBOM,
-# see docs/vex.md. Grype can't be given extra vulnerability data, so this does
+# Grype can't be given extra vulnerability data, so this does
 # what Grype does for Debian packages: compare the source version to the
 # affected ranges, then apply our OpenVEX statements
 #

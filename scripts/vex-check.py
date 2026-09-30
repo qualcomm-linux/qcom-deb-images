@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # lint our OpenVEX documents (vex/*.openvex.json) and OSV advisories
-# (advisories/*.osv.json), see docs/vex.md
+# (advisories/*.osv.json)
 #
 # rule violations are errors and make the script exit non-zero. with --sbom,
 # the documents are also checked against the packages installed in a build;
