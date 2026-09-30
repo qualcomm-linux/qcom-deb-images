@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import json
+import copy
 import os
 import subprocess
 import sys
@@ -231,3 +232,88 @@ def test_no_assessments(tmp_path):
                     write(tmp_path, "sbom.json", SBOM),
                     write(tmp_path, "vex.json", merged))
     assert result.returncode == 0, result.stdout
+
+
+def grype_match(name="openssl", severity="High", version="3.5.0-1",
+                vuln_id="CVE-2026-12345", fix_state="not-fixed", versions=()):
+    return {
+        "vulnerability": {
+            "id": vuln_id, "severity": severity,
+            "fix": {"state": fix_state, "versions": list(versions)},
+        },
+        "artifact": deb(name, version),
+    }
+
+
+def test_summary_layout_and_suppressed_fix_versions(tmp_path):
+    fixed = grype_match(versions=["99.0-1"])
+    fixed["appliedIgnoreRules"] = [{"vex-status": "fixed"}]
+    unaffected = grype_match("libssl3t64", versions=["99.0-1"])
+    unaffected["appliedIgnoreRules"] = [{
+        "vex-status": "not_affected",
+        "vex-justification": "vulnerable_code_not_present",
+    }]
+    open_match = grype_match(vuln_id="CVE-2026-99999",
+                             fix_state="wont-fix")
+    data = {"matches": [open_match],
+            "ignoredMatches": [fixed, unaffected, copy.deepcopy(fixed)]}
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", data))
+    assert result.returncode == 0, result.stderr
+    text = result.stdout
+    header = "| Vulnerability | Severity | Packages | Fixed in | Status |"
+    assert text.count(header) == 2
+    assert text.index("critical and high severity") < text.index(
+        "suppressed vulnerabilities")
+    assert "| Suppressed | 1 |" in text
+    assert "Total unique vulnerabilities: **1**" in text
+    assert "99.0-1" not in text
+    suppressed = next(line for line in text.splitlines()
+                      if line.startswith("| CVE-2026-12345 |"))
+    assert "`openssl 3.5.0-1`" in suppressed
+    assert "`libssl3t64 3.5.0-1`" in suppressed
+    assert "`3.5.0-1`" in suppressed
+    assert "wont-fix" in suppressed
+    assert "VEX fixed; VEX not_affected" in suppressed
+
+
+@pytest.mark.parametrize("severity", ["Low", "Negligible", "Unknown"])
+def test_summary_only_suppressed(tmp_path, severity):
+    match = grype_match(severity=severity)
+    data = {"matches": [], "ignoredMatches": [{
+        "match": match,
+        "appliedIgnoreRules": [{"vex-status": "not_affected"}],
+    }]}
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", data))
+    assert result.returncode == 0, result.stderr
+    assert "| Suppressed | 1 |" in result.stdout
+    assert "| CVE-2026-12345 |" in result.stdout
+    assert "No critical or high" in result.stdout
+    assert result.stdout.index("No critical") < result.stdout.index(
+        "suppressed vulnerabilities")
+    assert "wont-fix" in result.stdout
+
+
+def test_summary_triage_escapes_markdown_table_text(tmp_path):
+    stmt = statement("affected", ["pkg:deb/debian/openssl"],
+                     action_statement="patch | investigate\n<next>")
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json",
+                          {"matches": [grype_match()]}),
+                    "--vex", write(tmp_path, "vex.json", vex_doc(stmt)))
+    assert result.returncode == 0, result.stderr
+    row = next(line for line in result.stdout.splitlines()
+               if line.startswith("| CVE-"))
+    assert row.count("|") == 6
+    assert "affected: patch &#124; investigate<br>&lt;next&gt;" in row
+    assert "Untriaged (no VEX statement): **0**" in result.stdout
+
+
+def test_summary_does_not_silently_ignore_unreadable_vex(tmp_path):
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", {"matches": []}),
+                    "--vex", str(tmp_path / "missing.json"))
+    assert result.returncode != 0
+    assert "cannot read VEX" in result.stderr
+    assert "Vulnerability summary" not in result.stdout
