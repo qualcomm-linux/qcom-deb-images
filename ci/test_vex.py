@@ -279,8 +279,8 @@ def test_summary_layout_and_suppressed_fix_versions(tmp_path):
     assert "`openssl 3.5.0-1`" in suppressed
     assert "`libssl3t64 3.5.0-1`" in suppressed
     # Grype's fix state and versions are kept for suppressed findings
-    assert "`3.5.1-1`" in suppressed
-    assert "wont-fix" in suppressed
+    assert "\U0001F7E2</span> `3.5.1-1`" in suppressed
+    assert "\U0001F7E0</span> wont-fix" in suppressed
     assert "VEX fixed; VEX not_affected" in suppressed
 
 
@@ -299,7 +299,7 @@ def test_summary_only_suppressed(tmp_path, severity):
     assert "No critical or high" in result.stdout
     assert result.stdout.index("No critical") < result.stdout.index(
         "suppressed vulnerabilities")
-    assert "not-fixed" in result.stdout
+    assert "\U0001F534</span> not-fixed" in result.stdout
 
 
 def test_summary_keeps_fix_state_of_ignore_rules(tmp_path):
@@ -316,11 +316,26 @@ def test_summary_keeps_fix_state_of_ignore_rules(tmp_path):
     # Debian wont-fix findings stay open and untriaged without a statement
     assert "Total unique vulnerabilities: **1**" in result.stdout
     assert "Untriaged (no VEX statement): **1**" in result.stdout
-    assert "wont-fix" in result.stdout
+    assert "\U0001F7E0</span> wont-fix" in result.stdout
     row = next(line for line in result.stdout.splitlines()
                if "linux-libc-dev" in line)
-    assert "`6.12.1-1`" in row
+    assert "\U0001F7E2</span> `6.12.1-1`" in row
     assert "ignore rule" in row
+
+
+@pytest.mark.parametrize("state,versions,icon,label", [
+    ("not-fixed", [], "\U0001F534", "not-fixed"),
+    ("wont-fix", [], "\U0001F7E0", "wont-fix"),
+    ("fixed", ["3.5.1-1"], "\U0001F7E2", "`3.5.1-1`"),
+    ("unknown", [], "\u2754", "unknown"),
+])
+def test_summary_fix_icons(tmp_path, state, versions, icon, label):
+    data = {"matches": [grype_match(fix_state=state, versions=versions)]}
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", data))
+    assert result.returncode == 0, result.stderr
+    assert f"{icon}</span> {label}" in result.stdout
+    assert "<span title=" in result.stdout
 
 
 def test_summary_triage_escapes_markdown_table_text(tmp_path):
