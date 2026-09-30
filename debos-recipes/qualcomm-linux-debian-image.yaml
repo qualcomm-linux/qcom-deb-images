@@ -47,10 +47,10 @@
 # Unlike meta-qcom, qcom_scm.download_mode=1 and the systemd hardware watchdog
 # are enabled only for the debug profile.
 #
-# The profile is not complete yet: images currently consume a prebuilt kernel
-# package and the debug image still installs the default kernel. The additional
-# kernel debug options remain unavailable until the qcom-next-debug kernel
-# package from is integrated.
+# The kernel package is not selected here: it's a build matrix option (see
+# build.yml), independent of the profile, so that any kernel can be paired
+# with any profile. The debug profile is meant to be built with the
+# linux-image-qcom-next-debug/linux-headers-qcom-next-debug kernel packages.
 {{- if eq $profile "debug" }}
 # Keep trace events grouped by subsystem for readability, then combine them into
 # the comma-separated trace_event= value used by meta-qcom's

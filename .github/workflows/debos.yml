@@ -40,6 +40,15 @@ on:
         description: Skip QEMU tests
         type: boolean
         default: false
+      profile:
+        description: >
+          Name of the image profile to build (e.g. performance, debug); it is
+          validated and applied by the image recipe (see "-t profile:" in
+          qualcomm-linux-debian-image.yaml) and, other than "default", is
+          appended to the name of every published artifact, so that profiles
+          of the same suite and variant don't overwrite each other.
+        type: string
+        default: 'default'
 
     outputs:
       artifacts_url:
@@ -56,9 +65,10 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} ${{ inputs.debos_extra_args }}
-  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant
-  PREFIX: ${{ (inputs.variant && inputs.variant != 'default') && format('{0}-{1}', inputs.suite, inputs.variant) || inputs.suite }}
+  DEBOS_EXTRA_ARGS: -t suite:${{ inputs.suite }} -t profile:${{ inputs.profile }} ${{ inputs.debos_extra_args }}
+  # e.g. "trixie" for the default image, "trixie-multimedia" for a variant,
+  # "trixie-debug" for a profile, "trixie-multimedia-debug" for both
+  PREFIX: ${{ format('{0}{1}{2}', inputs.suite, (inputs.variant && inputs.variant != 'default') && format('-{0}', inputs.variant) || '', (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '') }}
 
 jobs:
   build-debos:
