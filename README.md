@@ -158,6 +158,11 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   section below for more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
+- `extract_dbg_vmlinux`: extract the unstripped kernel binary (`vmlinux`)
+  from the installed kernel's `-dbg` package to the artifact directory, so
+  oops and panic backtraces can be symbolised later; defaults to `false`.
+  Not every kernel has a `-dbg` package; the step is skipped without failing
+  the build when one isn't available.
 - `qliaptrepo`: configure the Qualcomm Linux APT repository in the root
   filesystem; defaults to `true`. Set it to `false` to leave the image with no
   Qualcomm Linux APT sources.
