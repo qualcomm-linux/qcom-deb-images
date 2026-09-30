@@ -15,7 +15,8 @@
 #   disk-ufs.img2
 
 import sys
-import defusedxml.ElementTree as ET
+
+from rawprogram import program_filename
 
 if len(sys.argv) != 3:
     print(f"Usage: {sys.argv[0]} <label> <rawprogram0.xml>", file=sys.stderr)
@@ -23,14 +24,5 @@ if len(sys.argv) != 3:
 
 label, xml_file = sys.argv[1], sys.argv[2]
 
-root = ET.parse(xml_file).getroot()
-e = root.find(f".//program[@label='{label}']")
-if e is None:
-    print("none")
-    sys.exit(0)
-
-filename = e.get("filename")
-# Strip any leading ../ path components
-while filename.startswith("../"):
-    filename = filename[3:]
-print(filename)
+filename = program_filename(xml_file, label)
+print(filename if filename is not None else "none")
