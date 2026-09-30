@@ -13,6 +13,9 @@
 architecture: arm64
 
 actions:
+  # qcom-ptool is pinned to a commit tarball; see docs/update-qcom-ptool.md
+  # for how to bump the commit, refresh the sha256sum and write the commit
+  # message.
   - action: download
     description: Download qcom-ptool
     url: https://github.com/qualcomm-linux/qcom-ptool/archive/80e52fcde1cbae7d725692dea98a27cb479c5a2c.tar.gz

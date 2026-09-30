@@ -402,6 +402,13 @@ Qualcomm platform patches which `linux-image-qcom-next` does.
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
 
+### Updating the qcom-ptool reference
+
+The flash recipe pins [qcom-ptool](https://github.com/qualcomm-linux/qcom-ptool)
+to a specific commit. See
+[docs/update-qcom-ptool.md](docs/update-qcom-ptool.md) for how to bump the
+commit, refresh its checksum and write the commit message.
+
 ### Boot an image locally with QEMU (helper script)
 
 Use the `scripts/run-qemu.py` helper to boot generated disk images under QEMU. It automatically:
