@@ -104,10 +104,13 @@ To build flashable assets for all supported boards, follow these steps:
 
     # both of the above, plus the unsuffixed compatibility symlinks:
     #make arm64
+
+    # (optional) armhf (32-bit ARM) variants of the above:
+    #make armhf
     ```
 
     Build artifacts include the architecture they were built for
-    (`rootfs-arm64.tar`, `disk-ufs-arm64.img`, ...). arm64 was once the only
+    (`rootfs-arm64.tar`, `disk-ufs-armhf.img`, ...). arm64 was once the only
     architecture and its artifacts had no architecture in their name, so
     `make arm64` also creates symlinks under those names (`rootfs.tar`,
     `disk-ufs.img`, ...) for the flashing pipeline and for existing scripts.
@@ -149,6 +152,9 @@ debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/
 
 A few options are provided in the debos recipes; for the root filesystem recipe:
 
+- `architecture`: Debian architecture to build for, either `arm64` (the
+  default) or `armhf`; the output artifacts are named after the architecture
+  they were built for (e.g. `rootfs-arm64.tar`, `dtbs-armhf.tar.gz`)
 - `localdebs`: path to a directory with local deb packages to install (NB:
   debos expects relative pathnames)
 - `xfcedesktop`: install an Xfce desktop environment; default: console only
@@ -161,10 +167,11 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
-  apt; defaults to `linux-image-qcom-next,linux-headers-qcom-next`. Set it to
-  `linux-image-arm64` to install the kernel from Debian, or to `none` when you
-  are installing a locally built kernel package. See the [Kernel](#kernel)
-  section below for more information.
+  apt; defaults to `linux-image-qcom-next,linux-headers-qcom-next` on arm64
+  and to `linux-image-armmp` on armhf. Set it to `linux-image-arm64` to install
+  the kernel from Debian on arm64, or to `none` when you are installing a
+  locally built kernel package. See the [Kernel](#kernel) section below for
+  more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
 - `extract_dbg_vmlinux`: extract the unstripped kernel binary (`vmlinux`)
@@ -183,11 +190,19 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 
 For the image recipe:
 
+- `architecture`: Debian architecture of the image, either `arm64` (the
+  default) or `armhf`; must match the architecture used for the root
+  filesystem recipe. Each architecture consumes the matching rootfs tarball
+  (e.g. `rootfs-armhf.tar`) and names its image after the architecture
+  (e.g. `disk-ufs-armhf.img`); the root partition GPT type
+  UUID is set according to the architecture. The 32-bit Qualcomm platforms
+  supported by these recipes are not booted by EFI, so armhf images have no
+  ESP and no systemd-boot, just a single root partition
 - `dtb`: override the firmware provided device tree with one from the Linux
   kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
-  disk-ufs-arm64.img and use 4096-byte sectors and SD card images are named
-  disk-sdcard-arm64.img and use 512-byte sectors
+  disk-ufs-<architecture>.img and use 4096-byte sectors and SD card images
+  are named disk-sdcard-<architecture>.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `6GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not

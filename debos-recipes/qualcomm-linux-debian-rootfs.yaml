@@ -7,8 +7,11 @@
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
+{{- $defaultkernelpackages := dict
+      "arm64" "linux-image-qcom-next,linux-headers-qcom-next"
+      "armhf" "linux-image-armmp" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
+{{- $kernelpackages := or .kernelpackages .kernelpackage (get $defaultkernelpackages $architecture) }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
@@ -16,8 +19,8 @@
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
 
-{{- if ne $architecture "arm64" }}
-{{- fail (printf "only arm64 is supported for now, got architecture %q" $architecture) }}
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+{{- fail (printf "only arm64 and armhf are supported, got architecture %q" $architecture) }}
 {{- end }}
 
 {{- $variantid := "console" }}
@@ -393,8 +396,6 @@ actions:
       - e2fsprogs
       # tools to read/write EFI variables
       - efivar
-      # support for Qualcomm xDSPs
-      - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # firmware for the Qualcomm xDSPs
@@ -414,8 +415,6 @@ actions:
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
-      # power management, notably throttling
-      - thermald
       # TFTP server implementation for the QRTR protocol; needed for WiFi on
       # some ath10k devices such as on RB1
       - tqftpserv
@@ -426,7 +425,20 @@ actions:
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
 
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
+{{- if eq $architecture "arm64" }}
+  # these are not built for armhf in Debian
+  - action: apt
+    description: Install foundational packages only built for arm64
+    recommends: true
+    packages:
+      # support for Qualcomm xDSPs
+      - fastrpc-support
+      # power management, notably throttling
+      - thermald
+{{- end }}
+
+# the Qualcomm Linux repository only has packages for arm64
+{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") (eq $architecture "arm64") }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
     description: Install fastrpc-tests from QLI overlay
@@ -586,8 +598,6 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      # browser
-      - chromium
       # bluetooth settings
       - blueman
       # audio: wireplumber for session integration, pipewire-pulse for chromium
@@ -688,8 +698,6 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      # browser
-      - chromium
       # bluetooth settings
       - blueman
       # audio: wireplumber for session integration, pipewire-pulse for chromium
@@ -706,6 +714,15 @@ actions:
       - gstreamer1.0-libcamera
       - libcamera-tools
       - libcamera-v4l2
+{{- end }}
+
+{{- if and (or (eq $xfcedesktop "true") (eq $gnomedesktop "true")) (or (ne $architecture "armhf") (eq $suite "trixie")) }}
+  # chromium is not built for armhf after trixie
+  - action: apt
+    description: Install web browser
+    recommends: false
+    packages:
+      - chromium
 {{- end }}
 
 {{- if eq $westonsession "true" }}
