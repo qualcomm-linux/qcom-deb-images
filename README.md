@@ -372,6 +372,9 @@ previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
 for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
 workflow submits.
 
+`build.yml` also builds armhf images of the `console` variant. These are not
+published.
+
 ### Flash the image
 
 The `disk-sdcard-arm64.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
