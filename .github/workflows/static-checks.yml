@@ -80,3 +80,18 @@ jobs:
           export SHELLCHECK_OPTS="-e SC2086,SC3043"
 
           scan_files text/x-shellscript shellcheck
+
+  vex:
+    name: Check VEX documents
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run vex-check
+        run: |
+          shopt -s nullglob
+          scripts/vex-check.py vex/*.openvex.json
