@@ -79,7 +79,7 @@ build-dependencies and the build instructions, then come back here.
 Building the image requires the following build-dependencies:
 
 ```bash
-apt -y install debian-archive-keyring make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml
+apt -y install debian-archive-keyring make mmdebstrap mtools python3-pexpect python3-pytest python3-yaml qemu-efi-aarch64 qemu-system-arm python3-defusedxml
 ```
 
 To build flashable assets for all supported boards, follow these steps:
@@ -188,11 +188,17 @@ For the flash recipe:
   see below (NB: debos expects relative pathnames). The `qrb2210-rb1` board is
   only built when this is set, as it has no other source for its boot image.
 - `target_boards`: comma-separated list of board names to build (default:
-  `all`). Accepted values are the board names defined in the flash recipe, e.g.
+  `all`). Accepted values are the board names defined in `boards.yaml`, e.g.
   `qcs615-ride`, `qcs6490-rb3gen2-vision-kit`, `qcs8300-ride`,
-  `qcs9100-ride-r3`, `qrb2210-rb1`.
+  `qcs9100-ride-r3`, `qrb2210-rb1`. Only the requested boards' assets are
+  downloaded and built; an unrecognised board name will cause the recipe to
+  fail.
 
 Note: Boards whose required device tree (.dtb) is not present in `dtbs.tar.gz` are automatically skipped during flash asset generation.
+
+The board definitions (boot binaries, CDT, device tree and qcom-ptool
+platforms) live in `boards.yaml` at the top of the tree. Adding a board (or
+updating an existing board) is a matter of adding an entry to that file.
 
 Here are some example invocations:
 
