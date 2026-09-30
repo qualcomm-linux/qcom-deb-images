@@ -1,11 +1,13 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 
-# helpers shared by vex-check.py, vex-merge.py and
-# grype-vulnerability-summary.py
+# helpers shared by vex-check.py, vex-merge.py, vex-advisories.py and
+# grype-vulnerability-summary.py; see docs/vex.md
 
 import json
 from urllib.parse import unquote
+
+from debian.debian_support import Version
 
 # the product all our OpenVEX statements are about; it has to be
 # pkg:generic/<Syft --source-name> (see the "Generate SBOMs with Syft" step in
@@ -37,6 +39,48 @@ def write_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         f.write("\n")
+
+
+# --- Debian version comparison ---
+
+def valid_version(version):
+    if not isinstance(version, str) or not version:
+        return False
+    try:
+        Version(version)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def osv_range_events(rng):
+    if not isinstance(rng, dict) or rng.get("type") != "ECOSYSTEM":
+        raise ValueError("ranges must have type ECOSYSTEM")
+    raw = rng.get("events")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("events must be a non-empty array")
+    events, limits = [], []
+    kinds = ("introduced", "last_affected", "fixed")
+    for event in raw:
+        if not isinstance(event, dict) or len(event) != 1:
+            raise ValueError("each event must contain exactly one boundary")
+        kind, value = next(iter(event.items()))
+        if kind not in (*kinds, "limit"):
+            raise ValueError(f"unsupported range event {kind!r}")
+        if not (kind == "limit" and value == "*") and not valid_version(value):
+            raise ValueError(f"invalid Debian version {value!r}")
+        if kind == "limit":
+            limits.append(value)
+        else:
+            events.append((kind, value))
+    present = {kind for kind, _ in events}
+    if "introduced" not in present:
+        raise ValueError("range without an introduced event")
+    if {"fixed", "last_affected"} <= present:
+        raise ValueError("a range cannot mix fixed and last_affected events")
+    events.sort(key=lambda item: (item != ("introduced", "0"),
+                                  Version(item[1]), kinds.index(item[0])))
+    return events, limits
 
 
 # --- package URLs ---
@@ -141,6 +185,14 @@ def sbom_product(sbom):
         return None
     return f"pkg:generic/{name}@{version}" if version else \
         f"pkg:generic/{name}"
+
+
+def sbom_release(sbom):
+    # the identifiers OSV's "Debian:<release>" ecosystem can use for this
+    # image: the version number and the codename
+    distro = sbom.get("distro") or {}
+    return [r for r in (distro.get("versionID"),
+                        distro.get("versionCodename")) if r]
 
 
 def sbom_debs(sbom):
