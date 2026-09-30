@@ -18,9 +18,10 @@ on:
         description: >
           Comma-separated list of kernel packages to install from APT
           repositories (e.g. linux-image-arm64) or name of a EFS kernel
-          package directory (e.g. efs/mainline)
+          package directory (e.g. efs/mainline). By default we target the
+          qcom-next kernel package from the QLI APT repository.
         type: string
-        default: linux-image-arm64
+        default: 'linux-image-qcom-next,linux-headers-qcom-next'
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
@@ -161,21 +162,6 @@ jobs:
               apt-ftparchive release . >Release
           )
 
-      - name: Copy unstripped vmlinux from EFS
-        run: |
-          set -ux
-          # the kernel workflow publishes the unstripped vmlinux next to the
-          # debs; pick it up so it gets published with the image artifacts.
-          case "$KERNEL_PACKAGES" in
-            efs/*)
-              efs_kernel_dir="/efs/${KERNEL_PACKAGES#efs/}"
-              # kernel builds predating the vmlinux artifact have none
-              if [ -f "${efs_kernel_dir}/vmlinux" ]; then
-                  cp -av "${efs_kernel_dir}/vmlinux" .
-              fi
-            ;;
-          esac
-
       - name: Build rootfs with debos
         run: |
           set -ux
@@ -196,10 +182,11 @@ jobs:
           esac
 
           debos \
-              -t "overlays:$OVERLAYS" \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t kernelpackages:"$kernel_packages" \
               -t "buildid:${BUILD_ID}" \
+              -t extract_dbg_vmlinux:true \
+              -t kernelpackages:"$kernel_packages" \
+              -t "overlays:$OVERLAYS" \
               ${DEBOS_EXTRA_ARGS} \
               ${DEBOS_VARIANT_ARGS} \
               --print-recipe \
@@ -234,8 +221,8 @@ jobs:
           gzip -c disk-sdcard.img >"${dir}/${PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
-          # to facilitate debugging oops/panic backtraces; absent when the kernel
-          # comes from APT rather than from an EFS kernel build.
+          # to facilitate debugging oops/panic backtraces; absent when the
+          # installed kernel has no -dbg package.
           if [ -f vmlinux ]; then
               gzip -c vmlinux >"${dir}/${PREFIX}-vmlinux.gz"
           fi

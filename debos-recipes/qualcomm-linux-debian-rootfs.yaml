@@ -5,12 +5,13 @@
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-arm64" }}
+{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
+{{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
 
 {{- $variantid := "console" }}
 {{- if eq $xfcedesktop "true" }}
@@ -874,6 +875,107 @@ actions:
       apt-get -y install /root/*.deb
       # no need to keep these
       rm -vf /root/*.deb
+{{- end }}
+
+{{- if eq $extract_dbg_vmlinux "true" }}
+  - action: run
+    description: Extract unstripped vmlinux from the kernel -dbg package
+    chroot: true
+    command: |
+      set -eux
+
+      # Images must contain exactly one installed kernel. Fail rather than
+      # silently selecting a kernel if the image contains multiple versions.
+      kernel_pkgs=$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' \
+              'linux-image-[0-9]*' |
+          sed -n 's/^ii  //p')
+
+      if [ "$(printf '%s\n' "$kernel_pkgs" | sed '/^$/d' | wc -l)" -ne 1 ]; then
+          echo "ERROR: Expected exactly one installed kernel, found:" >&2
+          printf '%s\n' "$kernel_pkgs" >&2
+          exit 1
+      fi
+
+      kernel_pkg="$kernel_pkgs"
+      kernel_pkgver=$(dpkg-query -W -f='${Version}' "$kernel_pkg")
+      kernel_dbgpkg="${kernel_pkg}-dbg"
+      kver=${kernel_pkg#linux-image-}
+
+      workdir=/var/tmp/vmlinux-dbg
+      rm -rf "$workdir"
+      mkdir -p "$workdir"
+      cd "$workdir"
+
+      # Not every kernel has a matching debug package. Warn rather than
+      # failing the build when one isn't available.
+      # APT::Sandbox::User=root avoids a warning about the _apt user not
+      # being able to reach this directory.
+      if ! apt-get download -o APT::Sandbox::User=root \
+              "${kernel_dbgpkg}=${kernel_pkgver}"; then
+          echo "WARNING: ${kernel_dbgpkg} package not available;" \
+              "can't extract vmlinux" >&2
+          rm -rf "$workdir"
+          exit 0
+      fi
+      deb=$(find . -maxdepth 1 -type f -name "${kernel_dbgpkg}_*.deb" \
+          -print -quit)
+
+      # Extract the unstripped kernel image only. The debug package also
+      # carries debug information for every module, amounting to gigabytes of
+      # data that is not needed here. Debian puts vmlinux in
+      # /usr/lib/debug/boot/vmlinux-<ver>, while deb-pkg puts it in
+      # /usr/lib/debug/lib/modules/<ver>/vmlinux. Match either file name and
+      # require exactly one result.
+      #
+      # tar reports an error for a pattern that matches nothing, so check the
+      # extracted files rather than the exit status.
+      #
+      # --no-same-owner ignores the ownership recorded in the package rather
+      # than restoring it, as debos runs this as root.
+      dpkg-deb --fsys-tarfile "$deb" |
+          tar -x --no-same-owner --no-anchored \
+              vmlinux "vmlinux-${kver}" || true
+      extracted=$(find . -type f \
+          \( -name vmlinux -o -name "vmlinux-${kver}" \))
+      # grep counts the non-empty lines, so no match counts as none rather
+      # than one.
+      count=$(echo "$extracted" | grep -c .)
+      if [ "$count" -ne 1 ]; then
+          echo "ERROR: expected exactly one vmlinux in ${kernel_dbgpkg}," \
+              "found ${count}" >&2
+          exit 1
+      fi
+
+      # Make sure the extracted image belongs to the kernel the package is
+      # named after, and not to a different one it happens to carry.
+      case "$extracted" in
+        */"${kver}"/vmlinux|*/"vmlinux-${kver}")
+          ;;
+        *)
+          echo "ERROR: ${extracted} from ${kernel_dbgpkg} doesn't match" \
+              "kernel ${kver}" >&2
+          exit 1
+          ;;
+      esac
+
+      mv -v "$extracted" "$workdir/vmlinux"
+      rm -v "$deb"
+
+  - action: run
+    description: Move vmlinux to the artifact directory
+    chroot: false
+    command: |
+      set -eux
+      workdir="${ROOTDIR}/var/tmp/vmlinux-dbg"
+      if [ -f "${workdir}/vmlinux" ]; then
+          mv -v "${workdir}/vmlinux" "${ARTIFACTDIR}/vmlinux"
+          # debos runs as root, so leave the image to whoever owns the
+          # directory it was written to rather than to root; a build
+          # directory usually belongs to the user who started the build.
+          chown --reference="${ARTIFACTDIR}" "${ARTIFACTDIR}/vmlinux" \
+              2>/dev/null || true
+      fi
+      rm -rf "$workdir"
 {{- end }}
 
 {{- if ne $aptlocalrepo "none" }}
