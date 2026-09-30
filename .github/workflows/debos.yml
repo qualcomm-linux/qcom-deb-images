@@ -18,9 +18,10 @@ on:
         description: >
           Comma-separated list of kernel packages to install from APT
           repositories (e.g. linux-image-arm64) or name of a EFS kernel
-          package directory (e.g. efs/mainline)
+          package directory (e.g. efs/mainline). By default we target the
+          qcom-next kernel package from the QLI APT repository.
         type: string
-        default: linux-image-arm64
+        default: 'linux-image-qcom-next,linux-headers-qcom-next'
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string
