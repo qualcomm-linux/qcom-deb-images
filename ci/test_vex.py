@@ -1,4 +1,4 @@
-"""Tests for the VEX scripts"""
+"""Tests for the VEX scripts, see docs/vex.md"""
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -8,8 +8,11 @@ import copy
 import os
 import subprocess
 import sys
+import zipfile
+from urllib.parse import quote
 
 import pytest
+from debian.debian_support import Version
 
 SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
 sys.path.insert(0, SCRIPTS)
@@ -33,7 +36,8 @@ def deb(name, version, source=None, source_version=None):
         metadata["sourceVersion"] = source_version
     return {
         "name": name, "version": version, "type": "deb", "metadata": metadata,
-        "purl": f"pkg:deb/debian/{name}@{version}?arch=arm64&distro=debian-13",
+        "purl": f"pkg:deb/debian/{quote(name)}@{quote(version)}"
+                "?arch=arm64&distro=debian-13",
     }
 
 
@@ -48,6 +52,28 @@ SBOM = {
         deb("openssl", "3.5.0-1"),
     ],
 }
+
+
+def advisory(fixed="0.4.7-0qli1~bpo13+1", ecosystem="Debian:13"):
+    events = [{"introduced": "0"}]
+    if fixed:
+        events.append({"fixed": fixed})
+    return {
+        "id": "QLI-CVE-2026-12345",
+        "aliases": ["CVE-2026-12345"],
+        "published": "2026-09-30T00:00:00Z",
+        "modified": "2026-09-30T00:00:00Z",
+        "summary": "urm: out-of-bounds write",
+        "severity": [{"type": "CVSS_V3", "score":
+                      "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"}],
+        "database_specific": {"severity": "High"},
+        "affected": [{
+            "package": {"ecosystem": ecosystem,
+                        "name": "userspace-resource-manager"},
+            "ranges": [{"type": "ECOSYSTEM", "events": events}],
+        }],
+        "references": [{"type": "ADVISORY", "url": "https://example.com/a"}],
+    }
 
 
 def statement(status, subs, name="CVE-2026-12345", **extra):
@@ -74,6 +100,20 @@ def write(tmp_path, name, data):
     return str(path)
 
 
+@pytest.mark.parametrize("a,b,expected", [
+    ("1.0", "1.0~rc1", 1),
+    ("1:0.1", "2.0", 1),
+    ("3.5.0-1qcom1", "3.5.0-1", 1),
+    ("1.0-2-3", "1.0-2-3", 0),
+    ("0.4.6-0qli2~bpo13+2", "0.4.7-0qli1~bpo13+1", -1),
+    ("1.0+b1", "1.0", 1),
+])
+def test_debian_version_ordering(a, b, expected):
+    a, b = Version(a), Version(b)
+    assert (a > b) - (a < b) == expected
+    assert (b > a) - (b < a) == -expected
+
+
 def test_purl_matching():
     actual = "pkg:deb/debian/libssl3t64@3.5.0-1?arch=arm64&distro=debian-13"
     assert vexlib.purl_matches("pkg:deb/debian/libssl3t64", actual)
@@ -87,11 +127,14 @@ def test_purl_matching():
 
 
 def test_check_accepts_valid_files(tmp_path):
-    path = write(tmp_path, "a.openvex.json", vex_doc(
-        statement("not_affected", ["pkg:deb/debian/openssl"],
-                  justification="component_not_present",
-                  impact_statement="not built")))
-    result = script("vex-check.py", path)
+    files = [
+        write(tmp_path, "a.openvex.json", vex_doc(
+            statement("not_affected", ["pkg:deb/debian/openssl"],
+                      justification="component_not_present",
+                      impact_statement="not built"))),
+        write(tmp_path, "QLI-CVE-2026-12345.osv.json", advisory()),
+    ]
+    result = script("vex-check.py", *files)
     assert result.returncode == 0, result.stdout
 
 
@@ -122,6 +165,18 @@ def test_check_rejects_versioned_product_and_duplicates(tmp_path):
     result = script("vex-check.py", doc)
     assert result.returncode == 1
     assert "already covered" in result.stdout
+
+
+def test_check_rejects_bad_advisory(tmp_path):
+    bad = advisory()
+    bad["affected"][0]["ranges"][0]["events"][1]["fixed"] = "not a version!"
+    path = write(tmp_path, "QLI-CVE-2026-12345.osv.json", bad)
+    result = script("vex-check.py", path)
+    assert result.returncode == 1
+    assert "invalid Debian version" in result.stdout
+
+    wrong_name = write(tmp_path, "other.osv.json", advisory())
+    assert script("vex-check.py", wrong_name).returncode == 1
 
 
 def test_check_sbom_coverage(tmp_path):
@@ -332,3 +387,318 @@ def test_summary_does_not_silently_ignore_unreadable_vex(tmp_path):
     assert result.returncode != 0
     assert "cannot read VEX" in result.stderr
     assert "Vulnerability summary" not in result.stdout
+
+
+def run_advisories(tmp_path, advisories, vex=None, grype=None, sbom=SBOM):
+    args = ["--sbom", write(tmp_path, "sbom.json", sbom)]
+    if vex is not None:
+        args += ["--vex", write(tmp_path, "vex.json", vex)]
+    if grype is not None:
+        args += ["--grype", write(tmp_path, "grype.json", grype)]
+    files = [write(tmp_path, f"adv{i}.json", a)
+             for i, a in enumerate(advisories)]
+    result = script("vex-advisories.py", *args, *files, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    out = {n: json.loads((tmp_path / n).read_text()) for n in (
+        "rootfs-vulns.advisories.json",
+        "rootfs-vulns.advisories.cyclonedx.json")}
+    return result, out
+
+
+def test_advisory_matches_source_version(tmp_path):
+    result, out = run_advisories(tmp_path, [advisory()])
+    matches = out["rootfs-vulns.advisories.json"]["matches"]
+    # both binaries of the source package, including the one whose SBOM
+    # entry has no explicit source
+    assert sorted(m["artifact"]["name"] for m in matches) == \
+        ["liburm1", "userspace-resource-manager"]
+    vuln = matches[0]["vulnerability"]
+    assert vuln["id"] == "CVE-2026-12345"
+    assert vuln["severity"] == "High"
+    assert vuln["fix"] == {"versions": ["0.4.7-0qli1~bpo13+1"],
+                           "state": "fixed"}
+    assert matches[0]["relatedVulnerabilities"][0]["id"] == \
+        "QLI-CVE-2026-12345"
+
+    cdx = out["rootfs-vulns.advisories.cyclonedx.json"]
+    assert cdx["bomFormat"] == "CycloneDX"
+    assert len(cdx["vulnerabilities"]) == 1
+    assert len(cdx["vulnerabilities"][0]["affects"]) == 2
+    assert len(cdx["components"]) == 2
+
+    with zipfile.ZipFile(tmp_path / "rootfs-advisories.osv.zip") as z:
+        assert z.namelist() == ["QLI-CVE-2026-12345.json"]
+
+
+def test_advisory_not_matched_when_fixed_or_other_release(tmp_path):
+    fixed = advisory(fixed="0.4.6-0qli2~bpo13+1")
+    result, out = run_advisories(tmp_path, [fixed])
+    assert out["rootfs-vulns.advisories.json"]["matches"] == []
+
+    result, out = run_advisories(tmp_path, [advisory(ecosystem="Debian:14")])
+    assert out["rootfs-vulns.advisories.json"]["matches"] == []
+
+    result, out = run_advisories(
+        tmp_path, [advisory(ecosystem="Debian:trixie")])
+    assert len(out["rootfs-vulns.advisories.json"]["matches"]) == 2
+
+
+def test_advisory_warns_on_unknown_package(tmp_path):
+    sbom = {**SBOM, "artifacts": [deb("openssl", "3.5.0-1")]}
+    result, out = run_advisories(tmp_path, [advisory()], sbom=sbom)
+    assert "package not in this SBOM" in result.stdout
+
+
+def test_advisory_applies_vex(tmp_path):
+    merged = vex_doc(
+        statement("not_affected", ["pkg:deb/debian/liburm1"],
+                  justification="vulnerable_code_not_in_execute_path",
+                  impact_statement="not reached"))
+    merged["statements"][0]["products"][0]["@id"] = PRODUCT + "@b1"
+    result, out = run_advisories(tmp_path, [advisory()], vex=merged)
+    data = out["rootfs-vulns.advisories.json"]
+    assert [m["artifact"]["name"] for m in data["matches"]] == \
+        ["userspace-resource-manager"]
+    ignored = data["ignoredMatches"]
+    assert [m["artifact"]["name"] for m in ignored] == ["liburm1"]
+    assert ignored[0]["appliedIgnoreRules"][0]["vex-status"] == "not_affected"
+
+    # the open finding got an affected statement in the merged document
+    updated = json.loads((tmp_path / "vex.json").read_text())
+    added = updated["statements"][-1]
+    assert added["status"] == "affected"
+    assert added["action_statement"] == "Update to 0.4.7-0qli1~bpo13+1"
+    assert added["products"][0]["@id"] == PRODUCT + "@b1"
+    assert added["products"][0]["subcomponents"][0]["@id"] == \
+        SBOM["artifacts"][0]["purl"]
+    assert script("vex-check.py", "--sbom", str(tmp_path / "sbom.json"),
+                  str(tmp_path / "vex.json")).returncode == 0
+
+
+def test_advisory_without_fix_and_dedup_with_grype(tmp_path):
+    result, out = run_advisories(tmp_path, [advisory(fixed=None)],
+                                 vex=vex_doc())
+    updated = json.loads((tmp_path / "vex.json").read_text())
+    assert updated["statements"][0]["action_statement"] == \
+        "No fix available yet"
+
+    grype = {"matches": [{
+        "vulnerability": {"id": "CVE-2026-12345"},
+        "artifact": SBOM["artifacts"][1]}], "ignoredMatches": []}
+    result, out = run_advisories(tmp_path, [advisory()], grype=grype)
+    assert "already reported by Grype" in result.stdout
+    assert [m["artifact"]["name"] for m in
+            out["rootfs-vulns.advisories.json"]["matches"]] == \
+        ["userspace-resource-manager"]
+
+
+def test_advisory_restricted_to_binaries(tmp_path):
+    restricted = advisory()
+    restricted["affected"][0]["ecosystem_specific"] = {
+        "binaries": ["liburm1"]}
+    result, out = run_advisories(tmp_path, [restricted])
+    assert [m["artifact"]["name"] for m in
+            out["rootfs-vulns.advisories.json"]["matches"]] == ["liburm1"]
+
+    restricted["affected"][0]["ecosystem_specific"] = {"binaries": "liburm1"}
+    path = write(tmp_path, "QLI-CVE-2026-12345.osv.json", restricted)
+    assert script("vex-check.py", path).returncode == 1
+
+
+@pytest.mark.parametrize("version,events,matched", [
+    ("0~rc1", [{"introduced": "0"}, {"fixed": "0"}], True),
+    ("0", [{"introduced": "0"}, {"fixed": "0"}], False),
+    ("1.0~rc1", [{"introduced": "1.0"}], False),
+    ("1.0", [{"introduced": "1.0"}], True),
+    ("1.0", [{"introduced": "0"}, {"last_affected": "1.0"}], True),
+    ("1.0+b1", [{"introduced": "0"}, {"last_affected": "1.0"}], False),
+    ("1.0", [{"fixed": "1.0-0"}, {"introduced": "1.0"}], False),
+    ("1.0", [{"introduced": "1.0"}, {"fixed": "1.0-0"}], False),
+    ("1.9", [{"introduced": "0"}, {"limit": "2.0"}], True),
+    ("2.0", [{"introduced": "0"}, {"limit": "2.0"}], False),
+    ("3.0", [{"introduced": "0"}, {"limit": "*"}], True),
+    ("2.0", [{"introduced": "0"}, {"limit": "1.0"},
+             {"limit": "3.0"}], True),
+    ("3.0", [{"introduced": "0"}, {"limit": "1.0"},
+             {"limit": "3.0"}], False),
+])
+def test_advisory_range_boundaries(tmp_path, version, events, matched):
+    record = advisory()
+    record["affected"][0]["ranges"][0]["events"] = events
+    sbom = {**SBOM, "artifacts": [
+        deb("liburm1", "5.0+b1", "userspace-resource-manager", version)]}
+    _, out = run_advisories(tmp_path, [record], sbom=sbom)
+    assert bool(out["rootfs-vulns.advisories.json"]["matches"]) == matched
+
+
+def test_advisory_does_not_recommend_obsolete_or_affected_fixes(tmp_path):
+    record = advisory()
+    record["affected"][0]["ranges"][0]["events"] = [
+        {"introduced": "0"}, {"fixed": "0.4.0"},
+        {"introduced": "0.4.5"}, {"fixed": "0.4.7"}]
+    _, out = run_advisories(tmp_path, [record], vex=vex_doc())
+    assert out["rootfs-vulns.advisories.json"]["matches"][0][
+        "vulnerability"]["fix"]["versions"] == ["0.4.7"]
+    other = copy.deepcopy(record["affected"][0])
+    other["ranges"] = [{"type": "ECOSYSTEM", "events": [
+        {"introduced": "0.4.5"}, {"fixed": "0.4.8"}]}]
+    record["affected"].append(other)
+    _, out = run_advisories(tmp_path, [record], vex=vex_doc())
+    matches = out["rootfs-vulns.advisories.json"]["matches"]
+    assert len(matches) == 2
+    assert all(m["vulnerability"]["fix"]["versions"] == ["0.4.8"]
+               for m in matches)
+    assert script("vex-check.py", "--sbom", str(tmp_path / "sbom.json"),
+                  str(tmp_path / "vex.json")).returncode == 0
+
+
+def test_advisory_duplicate_entries_and_component_identity(tmp_path):
+    record = advisory()
+    record["affected"].append(copy.deepcopy(record["affected"][0]))
+    sbom = {**SBOM, "artifacts": [
+        deb("urm+addon", "0.4.6+qli1", "userspace-resource-manager")]}
+    _, out = run_advisories(tmp_path, [record], vex=vex_doc(), sbom=sbom)
+    matches = out["rootfs-vulns.advisories.json"]["matches"]
+    assert len(matches) == 1
+    updated = json.loads((tmp_path / "vex.json").read_text())
+    subs = updated["statements"][0]["products"][0]["subcomponents"]
+    assert subs == [{"@id": sbom["artifacts"][0]["purl"]}]
+    cdx = out["rootfs-vulns.advisories.cyclonedx.json"]
+    assert cdx["vulnerabilities"][0]["affects"] == [
+        {"ref": sbom["artifacts"][0]["purl"]}]
+    matchers = {m["matcher"] for m in matches[0]["matchDetails"]}
+    assert "openvex-matcher" in matchers
+    assert script("vex-check.py", "--sbom", str(tmp_path / "sbom.json"),
+                  str(tmp_path / "vex.json")).returncode == 0
+    _, repeated = run_advisories(tmp_path, [record], vex=updated, sbom=sbom)
+    assert repeated["rootfs-vulns.advisories.json"] == \
+        out["rootfs-vulns.advisories.json"]
+
+
+def test_advisory_dedup_uses_all_aliases_and_exact_component(tmp_path):
+    record = advisory()
+    record["aliases"].append("CVE-2026-54321")
+    other_arch = copy.deepcopy(SBOM["artifacts"][1])
+    other_arch["purl"] = other_arch["purl"].replace("arm64", "amd64")
+    sbom = {**SBOM, "artifacts": [SBOM["artifacts"][1], other_arch]}
+    grype = {"ignoredMatches": [{
+        "vulnerability": {"id": "CVE-2026-54321"},
+        "artifact": SBOM["artifacts"][1],
+    }]}
+    result, out = run_advisories(tmp_path, [record], grype=grype, sbom=sbom)
+    assert "already reported by Grype" in result.stdout
+    matches = out["rootfs-vulns.advisories.json"]["matches"]
+    assert [m["artifact"]["purl"] for m in matches] == [other_arch["purl"]]
+
+
+def test_withdrawn_and_empty_advisories(tmp_path):
+    record = {
+        "id": "QLI-2026-1234",
+        "modified": "2026-09-30T01:00:00Z",
+        "withdrawn": "2026-09-30T01:00:00Z",
+    }
+    path = write(tmp_path, "QLI-2026-1234.osv.json", record)
+    assert script("vex-check.py", path).returncode == 0
+    for records in ([], [record]):
+        _, out = run_advisories(tmp_path, records, vex=vex_doc())
+        assert out["rootfs-vulns.advisories.json"]["matches"] == []
+        assert out["rootfs-vulns.advisories.cyclonedx.json"][
+            "vulnerabilities"] == []
+        with zipfile.ZipFile(tmp_path / "rootfs-advisories.osv.zip") as bundle:
+            assert bundle.namelist() == []
+
+
+@pytest.mark.parametrize("events", [
+    [], [None], [{"introduced": 0}],
+    [{"introduced": "0", "fixed": "1.0"}],
+    [{"introduced": "0"}, {"unknown": "1.0"}],
+    [{"introduced": "0"}, {"fixed": None}],
+    [{"fixed": "1.0"}],
+    [{"introduced": "0"}, {"fixed": "2.0"}, {"last_affected": "1.0"}],
+    [{"introduced": "0"}, {"limit": "bad version!"}],
+])
+def test_check_rejects_invalid_range_events(tmp_path, events):
+    record = advisory()
+    record["affected"][0]["ranges"][0]["events"] = events
+    path = write(tmp_path, "QLI-CVE-2026-12345.osv.json", record)
+    result = script("vex-check.py", path)
+    assert result.returncode == 1
+    assert "error:" in result.stdout
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("field,value", [
+    ("id", 42), ("summary", []), ("aliases", [{}]),
+    ("aliases", ["CVE-2026-12345", "CVE-not-real"]),
+    ("database_specific", []), ("affected", [None]),
+    ("references", [{"url": 1}]), ("severity", [{"score": []}]),
+    ("withdrawn", "not a timestamp"),
+])
+def test_check_malformed_advisories(tmp_path, field, value):
+    record = advisory()
+    record[field] = value
+    path = write(tmp_path, "QLI-CVE-2026-12345.osv.json", record)
+    result = script("vex-check.py", path)
+    assert result.returncode == 1
+    assert "error:" in result.stdout
+    assert "Traceback" not in result.stderr
+
+
+def test_check_duplicate_advisory_aliases(tmp_path):
+    first, second = advisory(), advisory()
+    second["id"] = "QLI-2026-1234"
+    paths = [write(tmp_path, f"{record['id']}.osv.json", record)
+             for record in (first, second)]
+    result = script("vex-check.py", *paths)
+    assert result.returncode == 1
+    assert "already recorded" in result.stdout
+    result = script("vex-advisories.py", "--sbom",
+                    write(tmp_path, "sbom.json", SBOM), *paths, cwd=tmp_path)
+    assert result.returncode != 0
+    assert "duplicate advisory IDs/aliases" in result.stderr
+
+
+@pytest.mark.parametrize("investigating_all", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_cyclonedx_triage_is_order_independent(
+        tmp_path, investigating_all, reverse):
+    doc = vex_doc(statement("under_investigation",
+                            ["pkg:deb/debian/liburm1"]))
+    if investigating_all:
+        doc["statements"].append(statement("under_investigation", [
+            "pkg:deb/debian/userspace-resource-manager"]))
+    sbom = copy.deepcopy(SBOM)
+    if reverse:
+        sbom["artifacts"].reverse()
+    _, out = run_advisories(tmp_path, [advisory()], vex=doc, sbom=sbom)
+    state = out["rootfs-vulns.advisories.cyclonedx.json"][
+        "vulnerabilities"][0]["analysis"]["state"]
+    assert state == ("in_triage" if investigating_all else "exploitable")
+
+
+def test_generated_actions_are_specific_to_each_package(tmp_path):
+    record = advisory()
+    second = copy.deepcopy(record["affected"][0])
+    second["package"]["name"] = "openssl"
+    second["ranges"][0]["events"][-1]["fixed"] = "3.6.0-1"
+    record["affected"].append(second)
+    _, out = run_advisories(tmp_path, [record], vex=vex_doc())
+    updated = json.loads((tmp_path / "vex.json").read_text())
+    assert {stmt["action_statement"] for stmt in updated["statements"]} == {
+        "Update to 0.4.7-0qli1~bpo13+1", "Update to 3.6.0-1"}
+    cdx = out["rootfs-vulns.advisories.cyclonedx.json"]
+    recommendation = cdx["vulnerabilities"][0]["recommendation"]
+    assert "openssl: Update to 3.6.0-1" in recommendation
+    assert "userspace-resource-manager: Update to 0.4.7-0qli1~bpo13+1" in \
+        recommendation
+    assert script("vex-check.py", "--sbom", str(tmp_path / "sbom.json"),
+                  str(tmp_path / "vex.json")).returncode == 0
+
+
+def test_advisory_cve_identity_is_stable(tmp_path):
+    record = advisory()
+    record["aliases"].insert(0, "CVE-2026-11111")
+    _, out = run_advisories(tmp_path, [record])
+    assert {finding["vulnerability"]["id"] for finding in
+            out["rootfs-vulns.advisories.json"]["matches"]} == {
+                "CVE-2026-12345"}
