@@ -1,0 +1,30 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/qualcomm-linux/qcom-deb-images/vex/demo",
+  "author": "Qualcomm Linux Debian images maintainers",
+  "timestamp": "2026-09-30T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2004-0230"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/qualcomm-linux-debian-rootfs",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/debian/linux-base-7.1.8%2Bdeb13-arm64"
+            },
+            {
+              "@id": "pkg:deb/debian/linux-modules-7.1.8%2Bdeb13-arm64"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "DEMO ENTRY, NOT A REAL ASSESSMENT: exists only to demonstrate how a not_affected statement suppresses a finding in the reports (the lowest priority finding of a trixie scan). Remove it (and this file) once real assessments exist."
+    }
+  ]
+}
