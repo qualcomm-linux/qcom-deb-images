@@ -61,3 +61,7 @@ The summary lists suppressed findings after the critical/high table, outside
 the open totals. VEX `not_affected` is displayed as `wont-fix`; VEX `fixed`
 shows the assessed, installed binary version rather than a possibly unrelated
 fix version from Grype's database.
+
+Vulnerabilities in packages Debian doesn't track go in
+[`advisories/`](../advisories/README.md) instead; a statement can then name
+the advisory's `QLI-` ID as the vulnerability.
