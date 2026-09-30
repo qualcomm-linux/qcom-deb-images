@@ -43,7 +43,7 @@ jobs:
       contents: read # actions/checkout
     steps:
       - name: Install Pylint and dependencies
-        run: sudo apt update && sudo apt -y install file pylint python3-defusedxml python3-yaml
+        run: sudo apt update && sudo apt -y install file pylint python3-debian python3-defusedxml python3-yaml
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,11 +82,14 @@ jobs:
           scan_files text/x-shellscript shellcheck
 
   vex:
-    name: Check VEX documents
+    name: Check VEX documents and advisories
     runs-on: ubuntu-latest
     permissions:
       contents: read # actions/checkout
     steps:
+      - name: Install python3-debian
+        run: sudo apt update && sudo apt -y install python3-debian
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -94,4 +97,4 @@ jobs:
       - name: Run vex-check
         run: |
           shopt -s nullglob
-          scripts/vex-check.py vex/*.openvex.json
+          scripts/vex-check.py vex/*.openvex.json advisories/*.osv.json
