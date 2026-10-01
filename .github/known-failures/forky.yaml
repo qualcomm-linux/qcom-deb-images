@@ -20,6 +20,17 @@ monaco-evk:
     comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645; fails on linux-next, which does not describe the WCN6855 Bluetooth on this board, https://github.com/qualcomm-linux/qcom-deb-images/issues/670"
     kernels: [arduino, linux-next]
 
+qcs615-ride:
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: hotplug
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+
 qcs6490-rb3gen2:
   # these two pass on every other kernel flavour on this board; hotplug is
   # flaky, so it is excluded in lava-test-plans
