@@ -1,7 +1,15 @@
+{{- $architecture := or .architecture "arm64" }}
 {{- $dtb := or .dtb "firmware" }}
+# the 32-bit Qualcomm platforms supported by these recipes are not booted by EFI
+{{- $esp := ne $architecture "armhf" }}
 {{- $imagesize := or .imagesize "6GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
-{{- $image := printf "disk-%s.img" $imagetype }}
+{{- $image := printf "disk-%s-%s.img" $imagetype $architecture }}
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
+{{- $rootpartnum := ternary 2 1 $esp }}
+{{- $rootparttypes := dict
+      "arm64" "b921b045-1df0-41c3-af44-4c6f280d3fae"
+      "armhf" "69dad710-2ce4-4e3c-b16c-21a1d49abed3" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
 
@@ -79,13 +87,17 @@
 {{- $kernelcmdline = printf "%s qcom_scm.download_mode=1" $kernelcmdline }}
 {{- end }}
 
-architecture: arm64
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+{{- fail (printf "only arm64 and armhf are supported, got architecture %q" $architecture) }}
+{{- end }}
+
+architecture: {{ $architecture }}
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
   - action: unpack
     description: Unpack root filesystem
-    file: rootfs.tar
+    file: {{ $rootfs }}
 
 {{- if ne $profile "default" }}
   - action: run
@@ -129,6 +141,7 @@ actions:
 
   # parttype values are from:
   # https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
+{{- if $esp }}
   - action: image-partition
     description: Create an image file
     imagename: {{ $image }}
@@ -146,8 +159,7 @@ actions:
         end: 516MiB
         fsck: true
       - name: root
-        # Root Partition (64-bit ARM/AArch64)
-        parttype: b921b045-1df0-41c3-af44-4c6f280d3fae
+        parttype: {{ get $rootparttypes $architecture }}
         fs: ext4
         # 4MiB after ESP
         start: 520MiB
@@ -176,6 +188,23 @@ actions:
           - errors=remount-ro
       - mountpoint: /
         partition: root
+{{- else }}
+  - action: image-partition
+    description: Create an image file
+    imagename: {{ $image }}
+    imagesize: {{ $imagesize }}
+    partitiontype: gpt
+    partitions:
+      - name: root
+        parttype: {{ get $rootparttypes $architecture }}
+        fs: ext4
+        start: 4MiB
+        end: 100%
+        fsck: true
+    mountpoints:
+      - mountpoint: /
+        partition: root
+{{- end }}
 
   - action: filesystem-deploy
     description: Deploy root filesystem to mounted image
@@ -192,6 +221,7 @@ actions:
       apt-get update
 {{- end }}
 
+{{- if $esp }}
   - action: apt
     description: Make system bootable with systemd-boot
     recommends: true
@@ -228,6 +258,7 @@ actions:
       latest_kernel=$(echo "$kernel_list" | linux-version sort --reverse | head -1)
       dtb_path="/usr/lib/linux-image-${latest_kernel}"
       cp -LRT "$dtb_path" "/boot/efi/dtb"
+{{- end }}
 
   - action: run
     description: Create task to grow root filesystem on first boot
@@ -242,13 +273,13 @@ actions:
           awk '$2 == "/" {gsub("UUID=", "/dev/disk/by-uuid/"); print $1}' \
               /etc/fstab
           )
-      # generate systemd unit to grow the second partition with above UUID
+      # generate systemd unit to grow the root partition with above UUID
       cat >/etc/systemd/system/debos-grow-rootfs.service <<EOF
       [Unit]
       Description=Grow root partition and filesystem (debos)
       [Service]
       Type=oneshot
-      ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` 2'
+      ExecStartPre=-sh -c 'growpart /dev/\`lsblk -n -o pkname $ROOTFS_DEV\` {{ $rootpartnum }}'
       ExecStart=resize2fs $ROOTFS_DEV
       ExecStartPost=/usr/bin/systemctl disable debos-grow-rootfs.service
       [Install]
