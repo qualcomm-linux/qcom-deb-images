@@ -51,12 +51,6 @@ EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
 Use the **same** timestamp for both steps. The flash recipe does not install
 packages and takes no `snapshot` option.
 
-You can combine `snapshot` with any other option, e.g. a desktop variant:
-
-```bash
-EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z -t gnomedesktop:true" make rootfs.tar
-```
-
 ### Building by calling debos directly
 
 ```bash
@@ -74,8 +68,6 @@ After the image boots (or by inspecting the mounted root filesystem), check:
 ```bash
 cat /etc/buildinfo
 # SNAPSHOT=20260115T000000Z
-# BUILD_ID=...        (if -t buildid: was passed)
-# VARIANT_ID=console  (console | xfce | gnome)
 ```
 
 The presence of `SNAPSHOT=` confirms the build was pinned. Note that the
