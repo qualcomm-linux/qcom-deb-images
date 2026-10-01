@@ -8,12 +8,24 @@
 # https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
 lemans-evk:
+  - test: BT_ON_OFF
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
   - test: cdsp_remoteproc
     comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [qcom-next]
+    kernels: [debian, qcom-next]
   - test: fastrpc_test
     comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [qcom-next]
+  - test: hotplug
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
 
 monaco-evk:
   - test: BT_ON_OFF
