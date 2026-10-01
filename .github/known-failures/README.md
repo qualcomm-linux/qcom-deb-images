@@ -4,6 +4,9 @@ A test that is known to fail, and whose failure is accepted for now, is listed
 here so that it neither fails the "Test Results" check nor hides a real
 regression behind a permanently red run.
 
+Which failures qualify, and what to do with a flaky test instead, is described
+under "Known issues" in [`docs/testing.md`](../../docs/testing.md#known-issues).
+
 There is one list per debian suite:
 
 ```

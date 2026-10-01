@@ -91,6 +91,22 @@ check red nor hides a real regression. See
 [`.github/known-failures/README.md`](../.github/known-failures/README.md) for
 the format and what it changes.
 
+A test belongs on that list only when it fails consistently, the reason is
+understood, and the failure is tracked by an issue in this repository, which
+the entry's `comment` links to - for example
+[#665](https://github.com/qualcomm-linux/qcom-deb-images/issues/665).
+
+A listed test that starts passing is significant: the job summary reports it as
+an `unexpected pass` and counts it as a failure. Remove its entry, ideally in
+the same pull request that fixes the test.
+
+A flaky test - one that sometimes passes and sometimes fails - is not a known
+failure: listing it only moves the red from its failures to its passes. It
+SHOULD be disabled in lava-test-plans instead, with `EXCLUDED_TESTS` in the
+board's device file (see [Which tests run](#which-tests-run)), and the
+lava-test-plans pin bumped here - for example
+[lava-test-plans#106](https://github.com/qualcomm-linux/lava-test-plans/pull/106).
+
 ## Job metadata
 
 Every generated LAVA job records where it came from, so a result can be traced
