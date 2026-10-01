@@ -7,6 +7,11 @@
 # The failures below were all observed in run 35371401209 and are collected in
 # https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
+glymur-crd:
+  - test: fastrpc_test
+    comment: "fails on linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [linux-next]
+
 lemans-evk:
   - test: BT_ON_OFF
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
@@ -56,6 +61,9 @@ qcs6490-rb3gen2:
 qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+  - test: fastrpc_test
+    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino, linux-next]
 
 qrb2210-rb1:
   - test: EFI_Variable_Validation
