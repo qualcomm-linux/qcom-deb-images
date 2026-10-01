@@ -19,22 +19,16 @@ monaco-evk:
   - test: BT_ON_OFF
     comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645; fails on linux-next, which does not describe the WCN6855 Bluetooth on this board, https://github.com/qualcomm-linux/qcom-deb-images/issues/670"
     kernels: [arduino, linux-next]
-  - test: WiFi_Firmware_Driver
-    comment: "fails on linux-next, passes on qcom-next and arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [linux-next]
 
 qcs6490-rb3gen2:
-  # EFI_Variable_Validation and WiFi_Firmware_Driver pass on every other kernel
-  # flavour on this board; hotplug passes only on qcom-next
+  # these two pass on every other kernel flavour on this board; hotplug is
+  # flaky, so it is excluded in lava-test-plans
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
   - test: WiFi_Firmware_Driver
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
-  - test: hotplug
-    comment: "passes only on qcom-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [debian, linux-next, mainline]
 
 qrb2210-arduino-imola:
   - test: EFI_Variable_Validation

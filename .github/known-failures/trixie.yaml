@@ -21,14 +21,12 @@ monaco-evk:
     kernels: [arduino, linux-next]
 
 qcs6490-rb3gen2:
-  # these three pass on every other kernel flavour on this board
+  # these two pass on every other kernel flavour on this board; hotplug is
+  # flaky, so it is excluded in lava-test-plans
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
   - test: WiFi_Firmware_Driver
-    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [debian]
-  - test: hotplug
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
 
