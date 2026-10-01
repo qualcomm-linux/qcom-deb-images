@@ -131,7 +131,7 @@ By default, debos will try to pick a fast build backend. It will prefer to use i
 
 To build large images, the debos resource defaults might not be sufficient. Consider raising the default debos memory and scratchsize settings. This should provide a good set of minimum defaults:
 ```bash
-debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/qualcomm-linux-debian-image.yaml
+debos --fakemachine-backend qemu --memory 1GiB --scratchsize 12GiB debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 #### Options for debos recipes
@@ -177,7 +177,7 @@ For the image recipe:
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
-- `imagesize`: set the output disk image size; default: `6GiB`
+- `imagesize`: set the output disk image size; default: `8GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
   `default`. See the *Supported profiles* section below.
