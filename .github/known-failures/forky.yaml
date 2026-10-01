@@ -32,6 +32,11 @@ lemans-evk:
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
 
+monaco-arduino-monza:
+  - test: Ethernet_Basic_Validation
+    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino, linux-next]
+
 monaco-evk:
   - test: BT_ON_OFF
     comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645; fails on linux-next, which does not describe the WCN6855 Bluetooth on this board, https://github.com/qualcomm-linux/qcom-deb-images/issues/670"
