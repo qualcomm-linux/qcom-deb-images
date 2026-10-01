@@ -83,7 +83,7 @@ env:
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
-  LAVA_TEST_PLANS_REF: 2a7b311f8c8454694baf083a0725f25b581ffe2d
+  LAVA_TEST_PLANS_REF: 2ce8726dca093afbce76a9cea477491545bfc477
 
 jobs:
   prepare-boot-jobs:
@@ -116,7 +116,7 @@ jobs:
 
       - name: Render boot jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@2a7b311f8c8454694baf083a0725f25b581ffe2d # master
+        uses: qualcomm-linux/lava-test-plans@2ce8726dca093afbce76a9cea477491545bfc477 # master
         with:
           machines: ${{ inputs.devices }}
           build_url: ${{ inputs.url }}
@@ -272,7 +272,7 @@ jobs:
 
       - name: Render pre-merge jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@2a7b311f8c8454694baf083a0725f25b581ffe2d # master
+        uses: qualcomm-linux/lava-test-plans@2ce8726dca093afbce76a9cea477491545bfc477 # master
         with:
           machines: ${{ needs.boot-job-result.outputs.booted_devices }}
           build_url: ${{ inputs.url }}
