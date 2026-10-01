@@ -2,7 +2,9 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    # TEMP: exercise the build and test chain on the testing branch without
+    # opening a pull request. Drop this commit before merging.
+    branches: [main, testing]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
