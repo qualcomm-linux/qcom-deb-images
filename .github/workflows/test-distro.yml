@@ -78,8 +78,11 @@ permissions: {}
 
 env:
   # the build variant, used to name artifacts and to tell the results of one
-  # (kernel, suite, variant) combination from another within the same run
-  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+  # (kernel, suite, variant) combination from another within the same run. The
+  # image variant is joined with an underscore rather than a dash, so that the
+  # name of the default image is not a prefix of its variants' names and the
+  # artifact patterns of one don't pick up the artifacts of the other.
+  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('_{0}', inputs.variant) || '' }}
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
@@ -157,7 +160,7 @@ jobs:
     # one red board must not stop the others; the failure is reported through
     # the summary and the JUnit results instead
     continue-on-error: true
-    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     permissions:
       contents: read
     strategy:
@@ -213,7 +216,7 @@ jobs:
         id: read
         with:
           matrix-step-name: submit-boot-job-${{ env.VARIANT }}
-          download-file-pattern: submit-boot-job-${{ env.VARIANT }}*
+          download-file-pattern: submit-boot-job-${{ env.VARIANT }}-*
 
       - name: Collect the devices that booted
         id: collect
@@ -311,7 +314,7 @@ jobs:
     needs: prepare-premerge-jobs
     runs-on: ubuntu-latest
     continue-on-error: true
-    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     permissions:
       contents: read
     strategy:
@@ -339,7 +342,7 @@ jobs:
           test_job_file_name_prefix: ${{ env.VARIANT }}-
 
   publish-test-summary:
-    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     needs: [boot-job-result, submit-premerge-job]
     if: always() && needs.boot-job-result.result == 'success'
     runs-on: ubuntu-latest

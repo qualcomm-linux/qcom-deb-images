@@ -129,7 +129,7 @@ jobs:
           echo "known_failures_file=${KNOWN_FAILURES_FILE}" >> "$GITHUB_OUTPUT"
 
   test:
-    name: ${{ inputs.kernel }} ${{ inputs.suite }}
+    name: ${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }}
     needs: prepare-env
     uses: $/.github/workflows/test-distro.yml
     permissions:
@@ -153,7 +153,7 @@ jobs:
       pr_url: ${{ inputs.pr_url }}
 
   prepare-test-results:
-    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }}${{ inputs.variant != 'default' && format(' {0}', inputs.variant) || '' }})
     needs: test
     if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
     runs-on: ubuntu-latest
@@ -161,8 +161,9 @@ jobs:
       contents: read # actions/checkout
       packages: read # actions/download-artifact
     env:
-      # the build variant, as the lava-test-plans action names its result files
-      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+      # the build variant, as the lava-test-plans action names its result files;
+      # keep in step with the VARIANT of test-distro.yml
+      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('_{0}', inputs.variant) || '' }}
     steps:
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
