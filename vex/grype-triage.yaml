@@ -1,0 +1,12 @@
+# Grype configuration for the triage scan, see vex/README.md
+#
+# Grype only annotates a finding with the VEX statement that applies to it when
+# that statement re-adds an ignored finding (vex-add). ignoring everything
+# leaves exactly the findings with an affected or under_investigation
+# statement, each carrying it, for grype-vulnerability-summary.py
+ignore:
+  - package:
+      name: ".*"
+vex-add:
+  - affected
+  - under_investigation

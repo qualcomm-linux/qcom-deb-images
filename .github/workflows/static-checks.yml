@@ -80,3 +80,29 @@ jobs:
           export SHELLCHECK_OPTS="-e SC2086,SC3043"
 
           scan_files text/x-shellscript shellcheck
+
+  vex:
+    name: Check VEX documents
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install jsonschema and pytest
+        run: |
+          sudo apt update
+          sudo apt -y install python3-jsonschema python3-pytest
+
+      - name: Run vex-check
+        run: |
+          shopt -s nullglob
+          scripts/vex-check.py vex/*.openvex.json
+
+      # the scripts' tests also run with the image tests in debos.yml, but
+      # only after a build; these don't need one
+
+      - name: Test the VEX scripts
+        run: py.test-3 --verbose ci/test_vex.py
