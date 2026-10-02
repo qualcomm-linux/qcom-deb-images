@@ -307,6 +307,10 @@ The following variants are supported; the list lives in
 `debos-recipes/qualcomm-linux-debian-rootfs-variant.yaml`, which fails the
 build on any other name:
 
+- `minimal`: only what is needed to boot, connect to a network and use APT:
+  the kernel and firmware, NetworkManager (`nmcli`) and wpa_supplicant for
+  Ethernet, USB Ethernet and Wi-Fi, `systemd-timesyncd`, `sudo` and the
+  `debian` user. Everything else is left for the user to install with APT.
 - `console`: the default; no graphical environment is installed.
 - `xfce`: an Xfce desktop environment.
 - `gnome`: a GNOME desktop environment. Only supported on `trixie` for
@@ -316,14 +320,20 @@ build on any other name:
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
   stack (GPU, camera and video codec drivers and user-space).
 
+Every variant other than `minimal` also installs a common set of useful
+packages on top: Bluetooth, PipeWire, fwupd, the DSP binaries and FastRPC
+support, adbd, thermald, the Debian `important` and `standard` packages and
+some command-line tools.
+
 CI also builds `console` when no variant is passed to the workflow, and
 publishes its artifacts without a variant suffix, e.g.
 `trixie-disk-ufs.img.gz`. Artifacts of any other variant are suffixed with the
 variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`.
 
-`build.yml` builds the `console`, `xfce`, `gnome` and `weston-multimedia`
-variants, but for now only `console` is LAVA-tested, to avoid multiplying the
-LAVA jobs the workflow submits.
+`build.yml` builds the `minimal`, `console`, `xfce`, `gnome` and
+`weston-multimedia` variants (`minimal` for `trixie` and `forky` only), but
+for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
+workflow submits.
 
 ### Flash the image
 
