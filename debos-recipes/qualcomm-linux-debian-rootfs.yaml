@@ -460,7 +460,9 @@ actions:
       # avoid unnecessary sudo hostname lookups
       echo "Defaults !fqdn" >/etc/sudoers.d/disable-fqdn
 
-  # Useful packages on top of the foundational ones above
+{{- if ne $variant "minimal" }}
+  # Useful packages on top of the foundational ones above; the minimal
+  # variant only has what is needed to boot and get APT working
   - action: apt
     description: Install useful packages
     recommends: true
@@ -590,6 +592,8 @@ actions:
           locale-gen
           update-locale LANG=en_US.UTF-8
       fi
+
+{{- end }}
 
   # Disable initramfs generation until just before the recipe finishes (see
   # "Generate the initramfs for all installed kernels" below). Every later
