@@ -61,12 +61,16 @@ A single test that does not apply to one board is excluded the same way, with
 `EXCLUDED_TESTS`, rather than being dropped from the shared list.
 
 Two revisions are pinned. The jobs are rendered by the action that ships in
-lava-test-plans itself, so its `uses:` lines in
-`.github/workflows/test-distro.yml` pin the renderer and the test plans
+lava-test-plans itself, so `.github/workflows/test-distro.yml` pins the
+renderer and the test plans together. The sha appears in three places - the
+`LAVA_TEST_PLANS_REF` env and both `uses:` lines - and all three must change
 together:
 
 ```yaml
-uses: qualcomm-linux/lava-test-plans@<sha>
+env:
+  LAVA_TEST_PLANS_REF: <sha>
+...
+uses: qualcomm-linux/lava-test-plans@<sha> # master
 ```
 
 The qcom-linux-testkit revision, which is what the rendered jobs clone the
@@ -77,11 +81,11 @@ env:
   TESTKIT_REF: "testkit-YYYY.MM.DD"
 ```
 
-Bump both deliberately. The testkit moves paths between releases, so an
-unpinned test plan breaks without warning - `pre-merge-basic` still names the
-Ethernet suite as a single test, which the testkit split into seven after
-`testkit-2026.08.23`, so the pin cannot move past that tag until the shared
-testcase is updated.
+Bump both deliberately, and together. The test plans name the testkit's tests
+by path, and the testkit moves and splits tests between releases, so a plan
+that names a test the testkit no longer has fails every remaining test of the
+job. Check that the lava-test-plans revision matches the testkit release
+before moving either pin.
 
 ## Known issues
 
@@ -90,6 +94,22 @@ A failure that is understood and accepted is listed in
 check red nor hides a real regression. See
 [`.github/known-failures/README.md`](../.github/known-failures/README.md) for
 the format and what it changes.
+
+A test belongs on that list only when it fails consistently, the reason is
+understood, and the failure is tracked by an issue in this repository, which
+the entry's `comment` links to - for example
+[#665](https://github.com/qualcomm-linux/qcom-deb-images/issues/665).
+
+A listed test that starts passing is significant: the job summary reports it as
+an `unexpected pass` and counts it as a failure. Remove its entry, ideally in
+the same pull request that fixes the test.
+
+A flaky test - one that sometimes passes and sometimes fails - is not a known
+failure: listing it only moves the red from its failures to its passes. It
+SHOULD be disabled in lava-test-plans instead, with `EXCLUDED_TESTS` in the
+board's device file (see [Which tests run](#which-tests-run)), and the
+lava-test-plans pin bumped here - for example
+[lava-test-plans#106](https://github.com/qualcomm-linux/lava-test-plans/pull/106).
 
 ## Job metadata
 
