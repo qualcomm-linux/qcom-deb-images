@@ -28,10 +28,10 @@ on:
         required: true
         type: string
       variant:
-        description: Image variant (e.g. weston-multimedia), 'default' for none
+        description: Image variant (e.g. weston-multimedia); 'console' has no suffix
         required: false
         type: string
-        default: default
+        default: console
       kernel:
         description: Kernel flavour in the image (e.g. qcom-next)
         required: true
@@ -79,7 +79,7 @@ permissions: {}
 env:
   # the build variant, used to name artifacts and to tell the results of one
   # (kernel, suite, variant) combination from another within the same run
-  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
@@ -133,7 +133,7 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -289,7 +289,7 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
