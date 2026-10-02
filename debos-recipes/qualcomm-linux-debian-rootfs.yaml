@@ -774,6 +774,71 @@ actions:
 {{- end }}
 {{- end }}
 
+  # Record what was installed while dpkg is right here and can be asked. This
+  # describes the build, not the running system - an APT kernel upgrade on the
+  # board would leave it stating something false - so stage it for the artifact
+  # directory rather than writing it into the image.
+  - action: run
+    description: Record the kernel and OS versions of the build
+    chroot: true
+    command: |
+      set -eux
+      workdir=/var/tmp/kernel-info
+      rm -rf "$workdir"
+      mkdir -p "$workdir"
+      info="$workdir/kernel_info"
+
+      kernel_image=$(ls -1 /boot/vmlinuz-* 2>/dev/null | head -1 || true)
+      if [ -n "${kernel_image}" ]; then
+          kernel_version=${kernel_image#/boot/vmlinuz-}
+          echo "KERNEL_VERSION=${kernel_version}" >>"$info"
+          echo "KERNEL_DEB_VERSION=$(dpkg-query -W -f '${Version}' \
+              "linux-image-${kernel_version}")" >>"$info"
+      fi
+      . /etc/os-release
+      echo "OS_VERSION=${VERSION_CODENAME:-${VERSION_ID:-${ID}}}" >>"$info"
+      # the Qualcomm kernel packages record where they were built from; see
+      # qualcomm-linux/pkg-linux-qcom. Packages built without it (Debian's own
+      # kernel, or bindeb-pkg builds) simply have no such lines.
+      changelog="/usr/share/doc/linux-image-${kernel_version}/changelog.Debian.gz"
+      if [ -n "${kernel_image}" ] && [ -f "${changelog}" ]; then
+          source_line=$(zcat "${changelog}" |
+                            sed -n 's/^ *\* Source: *//p' | head -1)
+          commit=$(zcat "${changelog}" |
+                       sed -n 's/^ *\* Commit: *//p' | head -1)
+          # "Source: <repo> <ref>", either part possibly absent
+          repo=${source_line%% *}
+          ref=""
+          case "${source_line}" in
+          *\ *) ref=${source_line#* } ;;
+          esac
+          if [ -n "${repo}" ]; then
+              echo "KERNEL_REPO=${repo}" >>"$info"
+          fi
+          if [ -n "${ref}" ]; then
+              echo "KERNEL_REF=${ref}" >>"$info"
+          fi
+          if [ -n "${commit}" ]; then
+              echo "KERNEL_COMMIT=${commit}" >>"$info"
+          fi
+      fi
+
+  - action: run
+    description: Move the kernel info to the artifact directory
+    chroot: false
+    command: |
+      set -eux
+      workdir="${ROOTDIR}/var/tmp/kernel-info"
+      if [ -f "${workdir}/kernel_info" ]; then
+          mv -v "${workdir}/kernel_info" "${ARTIFACTDIR}/kernel_info"
+          # debos runs as root, so leave the file to whoever owns the directory
+          # it was written to rather than to root; a build directory usually
+          # belongs to the user who started the build.
+          chown --reference="${ARTIFACTDIR}" "${ARTIFACTDIR}/kernel_info" \
+              2>/dev/null || true
+      fi
+      rm -rf "$workdir"
+
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions
   - action: apt

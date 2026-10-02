@@ -20,6 +20,31 @@ on:
           .github/lava-boards.yml; one of its top level keys.
         required: true
         type: string
+      # Only a caller that built the kernel itself needs these; otherwise the
+      # kernel under test is read from the image's own build metadata. See the
+      # matching inputs in test-distro.yml.
+      kernel_version:
+        description: >
+          Kernel release string of the kernel under test, i.e. what uname -r
+          reports on the booted board. Recorded in the LAVA job metadata.
+        required: false
+        type: string
+        default: ''
+      kernel_repo:
+        description: Git repository the kernel under test was built from
+        required: false
+        type: string
+        default: ''
+      kernel_ref:
+        description: Git ref the kernel under test was built from
+        required: false
+        type: string
+        default: ''
+      kernel_commit:
+        description: Git commit the kernel under test was built from
+        required: false
+        type: string
+        default: ''
       suite:
         description: Debian suite (e.g. trixie, forky)
         required: false
@@ -147,6 +172,10 @@ jobs:
       suite: ${{ inputs.suite }}
       variant: ${{ inputs.variant }}
       kernel: ${{ inputs.kernel }}
+      kernel_version: ${{ inputs.kernel_version }}
+      kernel_repo: ${{ inputs.kernel_repo }}
+      kernel_ref: ${{ inputs.kernel_ref }}
+      kernel_commit: ${{ inputs.kernel_commit }}
       testkit_ref: ${{ needs.prepare-env.outputs.testkit-ref }}
       known_failures_file: ${{ needs.prepare-env.outputs.known_failures_file }}
       pr_number: ${{ inputs.pr_number }}
