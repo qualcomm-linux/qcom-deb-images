@@ -131,7 +131,7 @@ By default, debos will try to pick a fast build backend. It will prefer to use i
 
 To build large images, the debos resource defaults might not be sufficient. Consider raising the default debos memory and scratchsize settings. This should provide a good set of minimum defaults:
 ```bash
-debos --fakemachine-backend qemu --memory 1GiB --scratchsize 6GiB debos-recipes/qualcomm-linux-debian-image.yaml
+debos --fakemachine-backend qemu --memory 1GiB --scratchsize 12GiB debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 #### Options for debos recipes
@@ -140,13 +140,14 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 
 - `localdebs`: path to a directory with local deb packages to install (NB:
   debos expects relative pathnames)
-- `xfcedesktop`: install an Xfce desktop environment; default: console only
-  environment
-- `gnomedesktop`: install a GNOME desktop environment; default: console only environment
-- `westonsession`: install a Weston session; default: console only environment
-- `multimedia`: install the Qualcomm accelerated multimedia stack; default: don't install.
-  The stack is large and does not fit in the default image size, so build the image
-  recipe with `-t imagesize:8GiB`.
+- `variant`: select the rootfs content to install; defaults to `console`. See
+  the *Supported variants* section below.
+- `xfcedesktop`, `gnomedesktop`, `westonsession`, `multimedia`: **deprecated**,
+  superseded by `variant`; still accepted for backwards compatibility (with a
+  10 second warning) and mapped onto the equivalent `variant` value. Setting
+  any of these together with `variant`, or combining them in a way that
+  doesn't correspond to a supported variant (e.g. two desktops at once, or
+  `multimedia` without `westonsession`), fails at render time.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
@@ -177,7 +178,7 @@ For the image recipe:
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
-- `imagesize`: set the output disk image size; default: `6GiB`
+- `imagesize`: set the output disk image size; default: `8GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
   `default`. See the *Supported profiles* section below.
@@ -200,7 +201,7 @@ Here are some example invocations:
 
 ```bash
 # build the root filesystem with Xfce
-debos -t xfcedesktop:true debos-recipes/qualcomm-linux-debian-rootfs.yaml
+debos -t variant:xfce debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
@@ -223,7 +224,7 @@ directory, notably to set large enough memory and scratchsize settings. To pass
 extra options to debos invocations, use `EXTRA_DEBOS_OPTS`, e.g.:
 
 ```
-make EXTRA_DEBOS_OPTS="-t xfcedesktop:true" disk-ufs.img
+make EXTRA_DEBOS_OPTS="-t variant:xfce" disk-ufs.img
 ```
 
 #### Supported overlays
@@ -289,6 +290,40 @@ The following profiles are supported:
 `build.yml` builds the `default`, `performance` and `debug` profiles, but for
 now only the `default` profile is LAVA-tested, to avoid multiplying the LAVA
 jobs the workflow submits.
+
+#### Supported variants
+
+A variant selects the rootfs content to install. It is passed to the root
+filesystem recipe with `-t variant:<variant>`, e.g.:
+
+```bash
+make EXTRA_DEBOS_OPTS="-t variant:<variant>" rootfs.tar
+```
+
+If no variant is passed, the recipe builds `console`; there is no need to pass
+`-t variant:console`.
+
+The following variants are supported; the list lives in
+`debos-recipes/qualcomm-linux-debian-rootfs-variant.yaml`, which fails the
+build on any other name:
+
+- `console`: the default; no graphical environment is installed.
+- `xfce`: an Xfce desktop environment.
+- `gnome`: a GNOME desktop environment. Only supported on `trixie` for
+  now; see [issue #416](https://github.com/qualcomm-linux/qcom-deb-images/issues/416).
+- `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
+  start Weston.
+- `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
+  stack (GPU, camera and video codec drivers and user-space).
+
+CI differs from the recipe: its `default` variant (also used when no variant
+is passed to the workflow) builds `xfce`, so that the unsuffixed artifacts
+published today keep their contents. Artifacts of any other variant are
+suffixed with the variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`.
+
+`build.yml` builds the `default` (`xfce`), `gnome` and `weston-multimedia`
+variants, but for now only `default` is LAVA-tested, to avoid multiplying the
+LAVA jobs the workflow submits.
 
 ### Flash the image
 

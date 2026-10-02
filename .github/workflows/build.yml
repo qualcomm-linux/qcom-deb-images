@@ -55,6 +55,10 @@ jobs:
             variant: weston-multimedia
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: gnome
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: forky
             variant: default
             profile: default
@@ -69,8 +73,9 @@ jobs:
       kernelpackages: ${{ matrix.kernelpackages }}
 
   test:
-    # only the default profile is tested for now: adding the performance and
-    # debug profiles to this matrix would multiply the LAVA jobs submitted by
+    # only the default profile and variant are tested for now: adding the
+    # performance and debug profiles, or the gnome and weston-multimedia
+    # variants, to this matrix would multiply the LAVA jobs submitted by
     # this workflow
     #
     # don't run from forks of the main repository or from other branches;

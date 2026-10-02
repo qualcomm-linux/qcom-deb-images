@@ -13,17 +13,28 @@
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
 
-{{- $variantid := "console" }}
+# xfcedesktop, gnomedesktop, westonsession and multimedia (booleans) are
+# deprecated, superseded by the single $variant variable below
+# see https://github.com/qualcomm-linux/qcom-deb-images/issues/691
+{{- $legacyvariants := list }}
 {{- if eq $xfcedesktop "true" }}
-{{- $variantid = "xfce" }}
-{{- else if eq $gnomedesktop "true" }}
-{{- $variantid = "gnome" }}
-{{- else if eq $westonsession "true" }}
-{{- $variantid = "weston" }}
+{{- $legacyvariants = append $legacyvariants "xfce" }}
+{{- end }}
+{{- if eq $gnomedesktop "true" }}
+{{- $legacyvariants = append $legacyvariants "gnome" }}
+{{- end }}
+{{- if eq $westonsession "true" }}
+{{- $legacyvariants = append $legacyvariants "weston" }}
 {{- end }}
 {{- if eq $multimedia "true" }}
-{{- $variantid = printf "%s-multimedia" $variantid }}
+{{- $legacyvariants = append $legacyvariants "multimedia" }}
 {{- end }}
+{{- if and .variant $legacyvariants }}
+{{- fail "variant cannot be set together with the deprecated variables" }}
+{{- end }}
+
+# $variant is validated by qualcomm-linux-debian-rootfs-variant.yaml
+{{- $variant := or .variant (join "-" $legacyvariants) "console" }}
 
 # Rename sid to unstable to reduce if/else complexity
 {{- if eq $suite "sid" }}
@@ -39,6 +50,17 @@ actions:
     chroot: false
     command: |
       echo "WARNING: the 'kernelpackage' debos variable is deprecated and superseded by 'kernelpackages' (a comma-separated list); please migrate as 'kernelpackage' will be removed in a future release" >&2
+      # give the operator a chance to notice the warning before the build scrolls past
+      echo "(sleeping 10s to get some attention and leave some time to read this)" >&2
+      sleep 10
+{{- end }}
+{{- if $legacyvariants }}
+  - action: run
+    description: Warn that legacy variant variables are deprecated
+    chroot: false
+    command: |
+      echo "WARNING: the 'xfcedesktop', 'gnomedesktop', 'westonsession' and 'multimedia' debos variables are deprecated and superseded by 'variant'; please migrate as they will be removed in a future release" >&2
+      echo "see https://github.com/qualcomm-linux/qcom-deb-images/issues/691" >&2
       # give the operator a chance to notice the warning before the build scrolls past
       echo "(sleeping 10s to get some attention and leave some time to read this)" >&2
       sleep 10
@@ -156,9 +178,7 @@ actions:
 {{- if $buildid }}
       echo "BUILD_ID={{$buildid}}" >>/etc/buildinfo
 {{- end }}
-{{- if $variantid }}
-      echo "VARIANT_ID={{$variantid}}" >>/etc/buildinfo
-{{- end }}
+      echo "VARIANT_ID={{$variant}}" >>/etc/buildinfo
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
 {{- end }}
@@ -544,196 +564,6 @@ actions:
       set -eux
       usermod -a -G docker debian
 
-{{- if eq $xfcedesktop "true" }}
-  # this should ideally be task-xfce-desktop, but this pulls too many apps;
-  # instead, curate from the Depends and Recommends of task-xfce-desktop and
-  # task-desktop recursively; also, disable Recommends
-  - action: apt
-    description: Install Xfce desktop
-    recommends: false
-    packages:
-      # preempt these dependencies as to avoid pulling all backends
-      - xserver-xorg-input-libinput
-      - xserver-xorg-video-fbdev
-      - xserver-xorg-input-all-
-      - xserver-xorg-video-all-
-      - xserver-xorg
-      - plymouth-label- # we probably don't need a boot splash
-      # nm-connection-editor below depends on polkit-1-auth-agent, and APT
-      # picks up ukui-polkit as a random Provides; select mate-polkit instead
-      - mate-polkit
-      # from task-xfce-desktop
-      - xfce4
-      - lightdm
-      - light-locker
-      - xfce4-terminal
-      - xfce4-power-manager
-      - xfce4-power-manager-plugins
-      - tango-icon-theme
-      - network-manager-applet
-      - nm-connection-editor
-      - synaptic
-      # from task-desktop
-      - desktop-base
-      - xdg-utils
-      - fonts-symbola
-      - avahi-daemon
-      - libnss-mdns
-      # browser
-      - chromium
-      # bluetooth settings
-      - blueman
-      # audio: wireplumber for session integration, pipewire-pulse for chromium
-      # and xfce4-pulseaudio-plugin, and pavucontrol as referenced from the
-      # xfce pulse panel applet
-      - pavucontrol
-      - pipewire-pulse
-      - wireplumber
-      # camera: mostly supported through pipewire, but pull the qcam app
-      # and cam CLI tool from libcamera-tools; also install libcamera
-      # gstreamer plugins for for gstreamer based apps; ideally, cam and
-      # qcam would be packaged separately as to allow pulling the CLI
-      # version outside of the desktop list. libcamera-v4l2 provides a
-      # LD_PRELOAD library for compatiblity with apps relying on v4l2
-      # (similar to pipewire and pulse situation)
-      - gstreamer1.0-libcamera
-      - libcamera-tools
-      - libcamera-v4l2
-{{- end }}
-
-{{- if eq $gnomedesktop "true" }}
-
-# The following list of package is a manual selection from the gnome-core
-# metapackage from trixie with some pruning. The list of packages is longer in
-# forky, and needs to be revisited. Err out in the meantime.
-# See: https://github.com/qualcomm-linux/qcom-deb-images/issues/416
-{{- if ne $suite "trixie" }}
-# Call an unexisting template to err out of the recipe
-{{ template "ERR" }}
-{{- end }}
-
-
-  - action: apt
-    description: Install GNOME desktop
-    recommends: false
-    packages:
-      - plymouth-label- # we probably don't need a boot splash
-      # from gnome-core (meta-gnome3 source package in trixie)
-      # removing gnome-snapshot that would bring gstreamer1.0-plugins-bad
-      # removing gnome-connections that would bring libfreerdp3 -> libavcodec61 -> libx265
-      - gdm3
-      - gnome-backgrounds
-      - gnome-bluetooth-sendto
-      - gnome-control-center
-      - gnome-keyring
-      - gnome-menus
-      - gnome-session
-      - gnome-settings-daemon
-      - gnome-shell
-      - gnome-user-docs
-      - orca
-      - gnome-sushi
-      - tecla
-      - adwaita-icon-theme
-      - glib-networking
-      - gsettings-desktop-schemas
-      - baobab
-      - evince
-      - gnome-calculator
-      - gnome-calendar
-      - gnome-characters
-      - gnome-clocks
-      - gnome-terminal
-      - gnome-contacts
-      - gnome-disk-utility
-      - gnome-font-viewer
-      - gnome-logs
-      - gnome-maps
-      - gnome-software
-      - gnome-system-monitor
-      - gnome-text-editor
-      - gnome-weather
-      - nautilus
-      - simple-scan
-      - totem
-      - yelp
-      # Additional core dependencies from gnome-core
-      - cups
-      - evolution-data-server
-      - fonts-cantarell
-      - gstreamer1.0-packagekit
-      - gstreamer1.0-plugins-base
-      - gstreamer1.0-plugins-good
-      - gvfs-backends
-      - gvfs-fuse
-      - libatk-adaptor
-      - libcanberra-pulse
-      - libglib2.0-bin
-      - libpam-gnome-keyring
-      - pipewire-audio
-      - system-config-printer-common
-      - system-config-printer-udev
-      - zenity
-
-      # from task-desktop
-      - desktop-base
-      - xdg-utils
-      - fonts-symbola
-      - avahi-daemon
-      - libnss-mdns
-      # browser
-      - chromium
-      # bluetooth settings
-      - blueman
-      # audio: wireplumber for session integration, pipewire-pulse for chromium
-      - pavucontrol
-      - pipewire-pulse
-      - wireplumber
-      # camera: mostly supported through pipewire, but pull the qcam app
-      # and cam CLI tool from libcamera-tools; also install libcamera
-      # gstreamer plugins for for gstreamer based apps; ideally, cam and
-      # qcam would be packaged separately as to allow pulling the CLI
-      # version outside of the desktop list. libcamera-v4l2 provides a
-      # LD_PRELOAD library for compatiblity with apps relying on v4l2
-      # (similar to pipewire and pulse situation)
-      - gstreamer1.0-libcamera
-      - libcamera-tools
-      - libcamera-v4l2
-{{- end }}
-
-{{- if eq $westonsession "true" }}
-# Install Weston, a lightweight Wayland compositor.
-#
-# The Weston package does not have any mechanism to start automatically at boot
-# so greetd is used to create a user session and start Weston.
-#
-# The agreety text greeter provides a console login interface similar to getty,
-# authenticates the user through PAM then launches Weston after login.
-#
-# greetd/agreety does not discover the installed compositors from
-# /usr/share/wayland-sessions/*.desktop so Weston is set as the command to run
-# after login.
-#
-# Weston logs to "$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR usually resolves
-# to "/run/user/<UID>", so the log is only kept for the lifetime of the user's
-# login session.
-#
-# greetd is configured through /etc/greetd/weston-session.toml rather than
-# /etc/greetd/config.toml - the latter is a dpkg conffile shipped by the
-# greetd package and may be overwritten on package upgrades.
-
-  - action: apt
-    description: Install Weston session packages
-    recommends: false
-    packages:
-      - weston
-      - greetd
-
-  - action: overlay
-    description: Configure Weston session
-    source: overlays/weston-session
-{{- end }}
-
   - action: run
     description: Set default locale
     chroot: true
@@ -744,6 +574,25 @@ actions:
           locale-gen
           update-locale LANG=en_US.UTF-8
       fi
+
+  # Disable initramfs generation until just before the recipe finishes (see
+  # "Generate the initramfs for all installed kernels" below). Every later
+  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
+  # generating it once at the end, after DKMS, ensures DKMS modules are
+  # included in it.
+  - action: run
+    description: Disable initramfs generation until all packages are installed
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      # Fixes error when running outside qemu
+      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
+      ln -s /usr/bin/true /usr/sbin/update-initramfs
+{{- else }}
+      dpkg-divert --local --rename --add /usr/bin/dracut
+      ln -s /usr/bin/true /usr/bin/dracut
+{{- end }}
 
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
@@ -783,79 +632,12 @@ actions:
       # marks the current Android boot partition as booted successfully
       - qbootctl
 
-{{- if eq $multimedia "true" }}
-# Install the accelerated multimedia stack: out-of-tree kernel drivers and
-# closed source user-space from the Qualcomm Linux APT repository.
-
-{{- if ne $qliaptrepo "true" }}
-# Call an unexisting template to err out of the recipe
-{{ template "ERR" }}
-{{- end }}
-
-  - action: apt
-    description: Install DKMS
-    packages:
-      - gcc
-      - dkms
-
-  # CI does not use fakemachine. Limit DKMS build parallelism when
-  # running under fakemachine, where the default 1GB memory can be exhausted
-  # by multiple compiler jobs running in parallel.
-  # $IN_FAKE_MACHINE is only set when not running in chroot.
-  - action: run
-    description: Configure DKMS for low-memory fakemachine builds
-    chroot: false
-    command: |
-      set -eux
-      if [ "${IN_FAKE_MACHINE:-}" = "yes" ]; then
-        mkdir -p "${ROOTDIR}/etc/dkms/framework.conf.d"
-        echo "parallel_jobs=1" > "${ROOTDIR}/etc/dkms/framework.conf.d/fakemachine.conf"
-      fi
-
-  - action: apt
-    description: Install accelerated multimedia stack
-    recommends: false
-    packages:
-      # Adreno GPU driver
-      - kgsl-dkms
-      - adreno-gles2
-      - adreno-egl1
-      - libgbm-msm1
-      - adreno-opencl-icd
-      - adreno-vulkan-icd
-
-      # CamX
-      - camx-dkms
-
-      # CamX device-specific firmware
-      - camx-firmware-glymur
-      - camx-firmware-hamoa
-
-      # CamX camera service
-      - qti-camera-server
-
-      # CamX device-specific runtime libraries
-      # camx-glymur and camx-hamoa are only built for trixie; see
-      # https://github.com/qualcomm-linux/pkg-camx-glymur/issues/8 and
-      # https://github.com/qualcomm-linux/pkg-camx-hamoa/issues/20
-{{- if eq $suite "trixie" }}
-      - camx-server-runtime-all
-{{- end }}
-
-      # CamX test applications
-      - camx-nhx
-      - qcom-fastcv-utils
-
-      # Iris Video Processing Unit
-      - iris-vpu-dkms
-
-  - action: run
-    description: Remove temporary DKMS configuration
-    chroot: true
-    command: |
-      set -eux
-      rm -rf /etc/dkms/framework.conf.d/fakemachine.conf
-{{- end }}
+  - action: recipe
+    description: Install variant packages
+    recipe: qualcomm-linux-debian-rootfs-variant.yaml
+    variables:
+      suite: {{ $suite }}
+      variant: {{ $variant }}
 
 {{- if ne $localdebs "none" }}
   - action: overlay
@@ -972,6 +754,24 @@ actions:
               2>/dev/null || true
       fi
       rm -rf "$workdir"
+{{- end }}
+
+  # All packages are installed by this point, so re-enable initramfs
+  # generation (see "Disable initramfs generation until all packages are
+  # installed" above) and generate it once here, for every installed kernel.
+  - action: run
+    description: Generate the initramfs for all installed kernels
+    chroot: true
+    command: |
+      set -eux
+{{- if eq $suite "trixie" }}
+      rm /usr/sbin/update-initramfs
+      dpkg-divert --rename --remove /usr/sbin/update-initramfs
+      update-initramfs -c -k all
+{{- else }}
+      rm /usr/bin/dracut
+      dpkg-divert --rename --remove /usr/bin/dracut
+      dracut --regenerate-all --force
 {{- end }}
 
 {{- if ne $aptlocalrepo "none" }}
