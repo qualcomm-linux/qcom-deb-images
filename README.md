@@ -326,13 +326,14 @@ build on any other name:
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
   stack (GPU, camera and video codec drivers and user-space).
 
-CI differs from the recipe: its `default` variant (also used when no variant
-is passed to the workflow) builds `xfce`, so that the unsuffixed artifacts
-published today keep their contents. Artifacts of any other variant are
-suffixed with the variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`.
+CI also builds `console` when no variant is passed to the workflow, and
+publishes its artifacts without a variant suffix, e.g.
+`trixie-disk-ufs.img.gz`. Artifacts of any other variant are suffixed with the
+variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`. The Xfce image,
+previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
 
-`build.yml` builds the `default` (`xfce`), `gnome` and `weston-multimedia`
-variants, but for now only `default` is LAVA-tested, to avoid multiplying the
+`build.yml` builds the `console`, `xfce`, `gnome` and `weston-multimedia`
+variants, but for now only `console` is LAVA-tested, to avoid multiplying the
 LAVA jobs the workflow submits.
 
 ### Flash the image

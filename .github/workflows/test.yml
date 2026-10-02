@@ -26,10 +26,10 @@ on:
         type: string
         default: trixie
       variant:
-        description: Image variant (e.g. weston-multimedia), 'default' for none
+        description: Image variant (e.g. weston-multimedia); 'console' has no suffix
         required: false
         type: string
-        default: default
+        default: console
       pr_number:
         description: Pull request number, recorded in the LAVA job metadata
         required: false
@@ -162,7 +162,7 @@ jobs:
       packages: read # actions/download-artifact
     env:
       # the build variant, as the lava-test-plans action names its result files
-      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
     steps:
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

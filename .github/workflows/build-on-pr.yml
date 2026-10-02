@@ -25,11 +25,11 @@ jobs:
       matrix:
         include:
           - suite: trixie
-            variant: default
+            variant: console
           - suite: trixie
             variant: weston-multimedia
           - suite: forky
-            variant: default
+            variant: console
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
