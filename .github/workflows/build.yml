@@ -59,8 +59,16 @@ jobs:
             variant: gnome
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: minimal
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: forky
             variant: default
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: forky
+            variant: minimal
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
     uses: $/.github/workflows/debos.yml
