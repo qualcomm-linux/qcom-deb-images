@@ -10,7 +10,7 @@
 
 # The supported variants, documented in the "Supported variants" section of
 # README.md
-{{- $allowed_variants := list "console" "xfce" "gnome" "weston" "weston-multimedia" }}
+{{- $allowed_variants := list "minimal" "console" "xfce" "gnome" "weston" "weston-multimedia" }}
 {{- if not (has $variant $allowed_variants) }}
 {{- fail (printf "unknown variant %q" $variant) }}
 {{- end }}
@@ -18,6 +18,15 @@
 architecture: arm64
 
 actions:
+{{- if eq $variant "minimal" }}
+  # minimal has no packages of its own, but a recipe without actions errors
+  # out, so say so instead
+  - action: run
+    description: Report that minimal has no extra packages
+    chroot: false
+    command: echo "No extra packages to install for the minimal variant"
+{{- end }}
+
 {{- if eq $variant "console" }}
   # console has no packages of its own, but a recipe without actions errors
   # out, so say so instead

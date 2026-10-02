@@ -31,10 +31,10 @@ on:
           Name of the image variant to build (e.g. gnome); it selects
           which packages are installed in the image and is appended to the
           name of every published artifact, so that variants of the same
-          suite don't overwrite each other. Empty or "default" currently
-          builds the xfce image.
+          suite don't overwrite each other, except for "console" which
+          is not appended.
         type: string
-        default: default
+        default: console
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -65,23 +65,21 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  # TODO: empty and "default" map to xfce for now, to keep today's
-  # unsuffixed artifacts unchanged; a follow-up PR switches the default to
-  # console.
   DEBOS_EXTRA_ARGS: >-
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
-    -t variant:${{ (!inputs.variant || inputs.variant == 'default') && 'xfce' || inputs.variant }}
+    -t variant:${{ inputs.variant || 'console' }}
     ${{ inputs.debos_extra_args }}
   # Filename prefix for all published artifacts:
   # "<suite>[-<variant>][-<profile>]".
   #
-  # The variant and profile are omitted from the filename when "default".
+  # The variant is omitted from the filename when "console" and the profile
+  # when "default".
   ARTIFACT_PREFIX: >-
     ${{ format(
       '{0}{1}{2}',
       inputs.suite,
-      (inputs.variant && inputs.variant != 'default') && format('-{0}', inputs.variant) || '',
+      (inputs.variant && inputs.variant != 'console') && format('-{0}', inputs.variant) || '',
       (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '')
     }}
 
@@ -89,7 +87,7 @@ jobs:
   build-debos:
     name: >-
       Build and upload debos recipes
-      (${{ (inputs.variant && inputs.variant != 'default') && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
+      (${{ (inputs.variant && inputs.variant != 'console') && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
     permissions:
       contents: read # actions/checkout
     outputs:
