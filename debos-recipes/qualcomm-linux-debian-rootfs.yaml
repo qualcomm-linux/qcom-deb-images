@@ -397,39 +397,24 @@ actions:
     description: Install foundational packages
     recommends: true
     packages:
-      # Android Debug Bridge (daemon)
-      - adbd
-      # bluetooth
-      - bluez
       # vfat tools, notably fsck.fat for the ESP
       - dosfstools
       # ext4 tools, notably e2fsck for the root filesystem
       - e2fsprogs
-      # tools to read/write EFI variables
-      - efivar
-      # support for Qualcomm xDSPs
-      - fastrpc-support
-      # fwupd tools, enable OTA EFI firmware capsule updates
-      - fwupd
-      # firmware for the Qualcomm xDSPs
-      - hexagon-dsp-binaries
       # defaults to "systemd-sysv"; perhaps not needed
       - init
-      # Bluetooth audio support in PipeWire
-      - libspa-0.2-bluetooth
-      # libcamera support in PipeWire
-      - libspa-0.2-libcamera
       # Ethernet, Wi-Fi, WWAN; built-in DHCP client
       - network-manager
       # standard networking files (/etc/hosts, /etc/services etc.)
       - netbase
-      # audio
-      - pipewire
       # Qualcomm Remote Filesystem Service; needed for WiFi on
       # some ath10k devices such as on RB1
       - rmtfs
-      # power management, notably throttling
-      - thermald
+      # the "debian" user below is added to sudoers
+      - sudo
+      # time sync; correct time is needed to verify TLS certificates (e.g.
+      # for APT over HTTPS) on boards without a battery-backed RTC
+      - systemd-timesyncd
       # TFTP server implementation for the QRTR protocol; needed for WiFi on
       # some ath10k devices such as on RB1
       - tqftpserv
@@ -439,6 +424,74 @@ actions:
       - wireless-regdb
       # WPA / WPA2 / WPA3 client support
       - wpasupplicant
+
+  - action: run
+    description: Set hostname to "debian"
+    chroot: true
+    command: |
+      set -eux
+      echo debian >/etc/hostname
+      # /etc/hosts is created by netbase
+      sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
+
+  - action: run
+    description: Add a "debian" user, add it to sudoers and various groups
+    chroot: true
+    command: |
+      set -eux
+      # pre-emptively create a sudo group if sudo isn't installed
+      getent group sudo >/dev/null 2>&1 || groupadd --system sudo
+      # some useful groups for desktop scenarios, but also to run payloads
+      # from the serial console, over SSH, or in containers - where the desktop
+      # session has not updated ACLs to the device nodes
+      useradd --create-home --shell /usr/bin/bash --user-group \
+          --groups adm,audio,render,sudo,users,video debian
+      # set password to "debian"
+      echo debian:debian | chpasswd
+      # password must be changed on first login
+      chage --lastday 0 debian
+      # add to sudoers
+      mkdir -v --mode 755 --parents /etc/sudoers.d
+      # subshell to override umask
+      (
+        umask 226
+        echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
+      )
+      # avoid unnecessary sudo hostname lookups
+      echo "Defaults !fqdn" >/etc/sudoers.d/disable-fqdn
+
+  # Useful packages on top of the foundational ones above
+  - action: apt
+    description: Install useful packages
+    recommends: true
+    packages:
+      # Android Debug Bridge (daemon)
+      - adbd
+      # bluetooth
+      - bluez
+      # tools to read/write EFI variables
+      - efivar
+      # support for Qualcomm xDSPs
+      - fastrpc-support
+      # fwupd tools, enable OTA EFI firmware capsule updates
+      - fwupd
+      # firmware for the Qualcomm xDSPs
+      - hexagon-dsp-binaries
+      # Bluetooth audio support in PipeWire
+      - libspa-0.2-bluetooth
+      # libcamera support in PipeWire
+      - libspa-0.2-libcamera
+      # audio
+      - pipewire
+      # power management, notably throttling
+      - thermald
+
+  - action: apt
+    description: Install qcom-linux-testkit dependencies
+    recommends: false
+    packages:
+      # BT_ON_OFF uses expect to interact with bluetooth CLI
+      - expect
 
 {{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
@@ -457,58 +510,21 @@ actions:
       - userspace-resource-manager
 {{- end }}
 
-  - action: run
-    description: Set hostname to "debian"
-    chroot: true
-    command: |
-      set -eux
-      echo debian >/etc/hostname
-      # /etc/hosts is created by netbase
-      sed -i "1s/^/127.0.1.1	debian\n/" /etc/hosts
-
   # The fastrpc system group used to be created when the fastrpc package was
   # installed, but is now created at boot time from a systemd sysusers.d
   # fragment. Precreate it here from that same fragment so the "debian" user
-  # can be added to it in the next action.
+  # can be added to it.
   - action: run
-    description: Precreate the fastrpc group from its sysusers.d fragment
+    description: Add default user to the fastrpc group
     chroot: true
     command: |
       set -eux
       if [ -f /usr/lib/sysusers.d/fastrpc.conf ]; then
           systemd-sysusers /usr/lib/sysusers.d/fastrpc.conf
       fi
-
-  - action: run
-    description: Add a "debian" user, add it to sudoers and various groups
-    chroot: true
-    command: |
-      set -eux
-      # pre-emptively create a sudo group if sudo isn't installed
-      getent group sudo >/dev/null 2>&1 || groupadd --system sudo
-      # some useful groups for desktop scenarios, but also to run payloads
-      # from the serial console, over SSH, or in containers - where the desktop
-      # session has not updated ACLs to the device nodes
-      groups="adm,audio,render,sudo,users,video"
-      # fastrpc group is precreated above when fastrpc-support is installed
       if getent group fastrpc >/dev/null 2>&1; then
-        groups="${groups},fastrpc"
+          usermod -a -G fastrpc debian
       fi
-      useradd --create-home --shell /usr/bin/bash --user-group \
-          --groups "$groups" debian
-      # set password to "debian"
-      echo debian:debian | chpasswd
-      # password must be changed on first login
-      chage --lastday 0 debian
-      # add to sudoers
-      mkdir -v --mode 755 --parents /etc/sudoers.d
-      # subshell to override umask
-      (
-        umask 226
-        echo "debian ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-debos
-      )
-      # avoid unnecessary sudo hostname lookups
-      echo "Defaults !fqdn" >/etc/sudoers.d/disable-fqdn
 
   # NB: Recommends pull in way too many packages, and we don't need to follow
   # Recommends reaching outside of this Priority level
@@ -549,7 +565,6 @@ actions:
       # lspci
       - pciutils
       - rfkill
-      - sudo
       # lsusb
       - usbutils
       # media-ctl
@@ -557,13 +572,6 @@ actions:
       - vim
       - vulkan-tools
       - wget
-
-  - action: apt
-    description: Install qcom-linux-testkit dependencies
-    recommends: false
-    packages:
-      # BT_ON_OFF uses expect to interact with bluetooth CLI
-      - expect
 
   - action: run
     description: Add default user to docker group
