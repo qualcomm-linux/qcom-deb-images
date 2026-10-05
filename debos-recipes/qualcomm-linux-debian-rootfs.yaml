@@ -236,6 +236,7 @@ actions:
       "src:linux:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
+      "src:rmtfs:any"
       "src:thermald:any"
       "src:u-boot-efi-dtb:any"
       "src:wireplumber:any"
