@@ -7,21 +7,42 @@
 # The failures below were all observed in run 35371401209 and are collected in
 # https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
+glymur-crd:
+  - test: fastrpc_test
+    comment: "fails on linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [linux-next]
+
 lemans-evk:
+  - test: BT_ON_OFF
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
   - test: cdsp_remoteproc
     comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [qcom-next]
+    kernels: [debian, qcom-next]
   - test: fastrpc_test
     comment: "fails on lemans-evk, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [qcom-next]
+  - test: hotplug
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+
+monaco-arduino-monza:
+  - test: Ethernet_Basic_Validation
+    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino, linux-next]
 
 monaco-evk:
   - test: BT_ON_OFF
     comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645; fails on linux-next, which does not describe the WCN6855 Bluetooth on this board, https://github.com/qualcomm-linux/qcom-deb-images/issues/670"
     kernels: [arduino, linux-next]
 
-qcs6490-rb3gen2:
-  # these three pass on every other kernel flavour on this board
+qcs615-ride:
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
@@ -32,9 +53,22 @@ qcs6490-rb3gen2:
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
 
+qcs6490-rb3gen2:
+  # these two pass on every other kernel flavour on this board; hotplug is
+  # flaky, so it is excluded in lava-test-plans
+  - test: EFI_Variable_Validation
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+  - test: WiFi_Firmware_Driver
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+    kernels: [debian]
+
 qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+  - test: fastrpc_test
+    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino, linux-next]
 
 qrb2210-rb1:
   - test: EFI_Variable_Validation
@@ -45,3 +79,8 @@ shikra-iqs-evk:
   - test: fastrpc_test
     comment: "no FastRPC session can be created on the CDSP (AEE_EUNABLETOLOAD), https://github.com/qualcomm-linux/qcom-deb-images/issues/671"
     kernels: [linux-next]
+
+# "*" applies to every device tested with this suite
+"*":
+  - test: BT_ON_OFF
+    comment: "testkit-2026.09.27 installs expect with apt-get during the test, and the board has no network, https://github.com/qualcomm-linux/qcom-deb-images/issues/694"

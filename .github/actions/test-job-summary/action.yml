@@ -165,13 +165,16 @@ runs:
           # here, so without de-duplication the stale failed job is counted again
           # and the summary reports phantom failures even after a green re-run.
           # Keep only the newest LAVA job (highest id) per device + test, keyed by
-          # (requested_device_type, description) which is stable across re-runs of
-          # the same job. The fields are read from the saved job-detail JSON.
+          # (board, description) which is stable across re-runs of the same job.
+          # The board is the `machine` job metadata, the name the board has in
+          # lava-boards.yml: the LAVA device type can differ from it (qcs8300-ride
+          # runs as monaco-ride). The fields are read from the saved job-detail
+          # JSON.
           declare -A KEEP_FILE
           declare -A KEEP_ID
           for TESTJOB in $(find "${GITHUB_WORKSPACE}" -name "${INPUTS_PREFIX}.json")
           do
-              KEY=$(jq -r '"\(.requested_device_type)@@\(.description)"' "${TESTJOB}")
+              KEY=$(jq -r '"\(.metadata.machine // .requested_device_type)@@\(.description)"' "${TESTJOB}")
               JOB_ID=$(jq -r '.id' "${TESTJOB}")
               if [ -z "${KEEP_ID[$KEY]:-}" ] || [ "${JOB_ID}" -gt "${KEEP_ID[$KEY]}" ]; then
                   KEEP_ID["$KEY"]="${JOB_ID}"
@@ -187,7 +190,7 @@ runs:
               JOB_DETAILS=$(lava_api "jobs/$JOB_ID/")
               JOB_HEALTH=$(echo "$JOB_DETAILS" | jq -r ".health")
               JOB_STATE=$(echo "$JOB_DETAILS" | jq -r ".state")
-              JOB_DEVICE_TYPE=$(echo "$JOB_DETAILS" | jq -r ".requested_device_type")
+              JOB_DEVICE_TYPE=$(echo "$JOB_DETAILS" | jq -r ".metadata.machine // .requested_device_type")
               JOB_TITLE=$(echo "$JOB_DETAILS" | jq -r ".description")
               JOB_TYPE="test"
               if echo "${JOB_TITLE}" | grep -q "boot"; then
@@ -397,7 +400,7 @@ runs:
               JOB_DETAILS=$(lava_api "jobs/$JOB_ID/")
               JOB_HEALTH=$(echo "$JOB_DETAILS" | jq -r ".health")
               JOB_STATE=$(echo "$JOB_DETAILS" | jq -r ".state")
-              JOB_DEVICE_TYPE=$(echo "$JOB_DETAILS" | jq -r ".requested_device_type")
+              JOB_DEVICE_TYPE=$(echo "$JOB_DETAILS" | jq -r ".metadata.machine // .requested_device_type")
               echo "| [$JOB_ID]($JOB_URL) | $JOB_DEVICE_TYPE | $JOB_STATE | $JOB_HEALTH |" >> "${INPUTS_SUMMARY_FILE_NAME}"
           done
           echo "</details>" >> "${INPUTS_SUMMARY_FILE_NAME}"
