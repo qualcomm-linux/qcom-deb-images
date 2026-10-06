@@ -1,11 +1,14 @@
 SHELL := /bin/bash
 
-.PHONY: all check
+.PHONY: all check test
 all: check
 
 # Check the entire database together, including conflicts across documents.
 check: vex-schema
 	shopt -s nullglob globstar; scripts/vex-check.py vex/**/*.openvex.json
+
+test: vex-schema
+	py.test-3 --verbose ci/test_vex.py
 
 # OpenVEX v0.2.0 schema (CC0-1.0); keep validation reproducible without
 # vendoring the upstream file. Update the revision and checksum together.
