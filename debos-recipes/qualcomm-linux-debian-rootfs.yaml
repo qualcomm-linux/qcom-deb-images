@@ -558,6 +558,13 @@ actions:
       - vulkan-tools
       - wget
 
+  - action: apt
+    description: Install qcom-linux-testkit dependencies
+    recommends: false
+    packages:
+      # BT_ON_OFF uses expect to interact with bluetooth CLI
+      - expect
+
   - action: run
     description: Add default user to docker group
     chroot: true
