@@ -113,15 +113,16 @@ The `scope` is optional; please add one when the change is confined to a single 
 
 The common types used in this repository are:
 
-| Type       | Description                                                        |
-| ---------- | ------------------------------------------------------------------ |
-| `feat`     | a new feature, board, recipe or package                            |
-| `fix`      | a bug fix                                                          |
-| `refactor` | a change which neither fixes a bug nor adds a feature              |
-| `docs`     | documentation only changes                                         |
-| `ci`       | changes to the GitHub workflows or the LAVA test jobs              |
-| `test`     | adding or correcting tests                                         |
-| `chore`    | maintenance which does not change behaviour, e.g. dependency bumps |
+| Type         | Description                                                        |
+| ------------ | ------------------------------------------------------------------ |
+| `feat`       | a new feature, board, recipe or package                            |
+| `fix`        | a bug fix                                                          |
+| `refactor`   | a change which neither fixes a bug nor adds a feature              |
+| `docs`       | documentation only changes                                         |
+| `ci`         | changes to the GitHub workflows or the LAVA test jobs              |
+| `test`       | adding or correcting tests                                         |
+| `chore`      | maintenance which does not change behaviour, e.g. dependency bumps |
+| `compliance` | licensing, SBOM, VEX or other compliance related changes           |
 
 This list is not complete; do use your judgement when choosing type and scope in commit messages.
 

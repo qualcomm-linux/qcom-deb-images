@@ -36,7 +36,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # the task types documented in CONTRIBUTING.md
-          types="feat fix refactor docs ci test chore"
+          types="feat fix refactor docs ci test chore compliance"
 
           # <type>[(<scope>)][!]: <description>, with the scope limited to
           # the path-like scopes used in the history
