@@ -1,0 +1,41 @@
+name: Validate security tracker
+
+on:
+  pull_request:
+    branches: [security-tracker]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate OpenVEX
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt update
+          sudo apt -y install ca-certificates curl make python3-jsonschema python3-pytest flake8 pylint
+
+      - name: Check Python tooling
+        run: |
+          flake8 scripts/ ci/
+          pylint --errors-only scripts/vex-check.py scripts/vexlib.py
+
+      - name: Download OpenVEX JSON schema
+        run: make vex-schema
+
+      - name: Validate all assessments
+        run: make check
+
+      - name: Test validation tooling
+        run: make test
