@@ -37,12 +37,26 @@ jobs:
         with:
           persist-credentials: false
 
+      # python3-yaml is needed to read the yaml config
       - name: Install sbuild and dependencies
         run: |
           set -ux
           DEBIAN_FRONTEND=noninteractive \
               apt -y install --no-install-recommends \
-                  sudo sbuild gnupg debootstrap debian-archive-keyring schroot
+                  build-essential \
+                  debhelper \
+                  debian-archive-keyring \
+                  debian-keyring \
+                  debootstrap \
+                  devscripts \
+                  git \
+                  gnupg \
+                  patch \
+                  python3 \
+                  python3-yaml \
+                  sbuild \
+                  schroot \
+                  sudo
 
       - name: Set up sbuild user
         run: |
@@ -56,9 +70,6 @@ jobs:
       - name: Create sbuild chroot for target suite
         run: |
           set -ux
-          # to read yaml config
-          DEBIAN_FRONTEND=noninteractive \
-              apt -y install --no-install-recommends python3 python3-yaml
           # read suite from yaml
           suite="$(python3 -c "import os, yaml; print(yaml.safe_load(open(os.environ['CONFIG']))['suite'])")"
           # defaults args
@@ -81,17 +92,6 @@ jobs:
       - name: Download and build deb package
         run: |
           set -ux
-          # install dependencies
-          DEBIAN_FRONTEND=noninteractive \
-              apt -y install --no-install-recommends \
-                  build-essential \
-                  debian-keyring \
-                  devscripts \
-                  debhelper \
-                  git \
-                  patch \
-                  python3 \
-                  python3-yaml
           # create output dir
           mkdir -v upload
           chmod a+rw upload
