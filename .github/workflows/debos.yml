@@ -115,6 +115,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch OpenVEX data and coverage tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: security-tracker
+          path: .security-tracker
+          sparse-checkout: |
+            /vex/
+            /scripts/vex-check.py
+            /scripts/vexlib.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
@@ -273,6 +285,17 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
+      # Static validation happens on security-tracker PRs. Only compare the
+      # pre-validated assessments with this build's packages here.
+      - name: Check VEX coverage of the image SBOM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          shopt -s nullglob globstar
+          python3 .security-tracker/scripts/vex-check.py --coverage-only \
+              --sbom rootfs-sbom.syft.json \
+              .security-tracker/vex/**/*.openvex.json | tee rootfs-vex-warnings.txt
+
       # Use the "download-grype" sub-action to install Grype and keep it
       # updated via Dependabot.
       - name: Install Grype
@@ -310,22 +333,45 @@ jobs:
       # no --fail-on: a Debian image always carries known unfixed CVEs, so
       # failing the build on severity would make every build red; the reports
       # are published as artifacts for review instead
+      #
+      # no --ignore-states or --only-fixed either: Debian wont-fix findings
+      # stay open until a validated security-tracker statement says otherwise
+      #
+      # the second scan only collects the affected and under_investigation
+      # statements Grype applies, for the summary; see .github/grype-triage.yaml
+      #
+      # Grype takes each VEX document as its own --vex and matches their
+      # versionless product against the versioned one of the SBOM's source
       - name: Scan SBOM for vulnerabilities with Grype
+        shell: bash
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
-          set -ux
+          set -euxo pipefail
+          shopt -s nullglob globstar
+          vex=()
+          for f in .security-tracker/vex/**/*.openvex.json; do
+              vex+=(--vex "$f")
+          done
           "$GRYPE" \
+              -c .github/grype.yaml \
               -o json=rootfs-vulns.grype.json \
               -o table=rootfs-vulns.grype.txt \
               -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
               -o sarif=rootfs-vulns.grype.sarif \
               --by-cve \
+              "${vex[@]}" \
               --sort-by severity \
               -v \
               sbom:rootfs-sbom.syft.json
           # every -o above writes to a file, so echo the table to the log too
           cat rootfs-vulns.grype.txt
+          "$GRYPE" \
+              -c .github/grype-triage.yaml \
+              -o json=rootfs-vulns-triage.grype.json \
+              --by-cve \
+              "${vex[@]}" \
+              sbom:rootfs-sbom.syft.json
 
       - name: Stage SBOMs and Vulnerability report for publishing
         run: |
@@ -358,7 +404,20 @@ jobs:
           # at the top of the job summary
           scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
               --sbom rootfs-sbom.syft.json \
+              --triage rootfs-vulns-triage.grype.json \
               >> $GITHUB_STEP_SUMMARY
+          if [ -s rootfs-vex-warnings.txt ]; then
+              {
+                  echo "<details>"
+                  echo "<summary>$(wc -l <rootfs-vex-warnings.txt) VEX warnings</summary>"
+                  echo
+                  echo '```'
+                  cat rootfs-vex-warnings.txt
+                  echo '```'
+                  echo
+                  echo "</details>"
+              } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload build URL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

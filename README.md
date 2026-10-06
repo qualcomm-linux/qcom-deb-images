@@ -31,6 +31,16 @@ Every image is flashed onto real boards and tested in the LAVA lab; see
 [docs/testing.md](docs/testing.md) for which boards run which tests and how to
 change that.
 
+## Vulnerability assessments
+
+OpenVEX data, its validation tooling, and authoring instructions live on the
+[security-tracker branch](https://github.com/qualcomm-linux/qcom-deb-images/tree/security-tracker).
+The debos workflow fetches `vex/` from that branch's HEAD and passes the
+documents to Grype. Pull requests targeting `security-tracker` validate the
+data before merging.
+The workflow also uses the tracker's `vex-check.py --coverage-only` to report
+missing binaries and outdated version pins against the image SBOM. These
+warnings appear in the job log and summary; they do not fail the build.
 
 ## Requirements
 

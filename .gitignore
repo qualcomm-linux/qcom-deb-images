@@ -8,3 +8,4 @@ rootfs.tar*
 fake-scratch.img*
 __pycache__/
 flash_*/
+/.security-tracker/
