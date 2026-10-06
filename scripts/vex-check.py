@@ -16,8 +16,6 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-import jsonschema
-
 import vexlib
 
 # Downloaded by `make vex-schema`; resolve relative to this script so the
@@ -179,20 +177,29 @@ def main():
                              "downloaded by make vex-schema)")
     parser.add_argument("--sbom", help="Syft JSON SBOM to check the "
                         "statements against (warnings only)")
+    parser.add_argument("--coverage-only", action="store_true",
+                        help="only check SBOM coverage of pre-validated "
+                             "documents; requires --sbom, no schema needed")
     parser.add_argument("--max-age-days", type=int, default=90,
                         help="warn about under_investigation statements "
                              "older than this (default: %(default)s)")
     args = parser.parse_args()
+    if args.coverage_only and not args.sbom:
+        parser.error("--coverage-only requires --sbom")
 
     report = Report()
     now = datetime.now(timezone.utc)
     max_age = timedelta(days=args.max_age_days)
-    try:
-        schema = vexlib.load_json(args.schema)
-    except (OSError, ValueError) as e:
-        parser.error(f"cannot read OpenVEX schema: {e}; "
-                     "run 'make vex-schema' or pass --schema PATH")
-    validator = jsonschema.Draft202012Validator(schema)
+    if not args.coverage_only:
+        # Image builds only check coverage and do not need jsonschema.
+        import jsonschema  # pylint: disable=import-outside-toplevel
+
+        try:
+            schema = vexlib.load_json(args.schema)
+        except (OSError, ValueError) as e:
+            parser.error(f"cannot read OpenVEX schema: {e}; "
+                         "run 'make vex-schema' or pass --schema PATH")
+        validator = jsonschema.Draft202012Validator(schema)
     documents = []
     for path in args.files:
         try:
@@ -200,13 +207,16 @@ def main():
         except (OSError, ValueError) as e:
             report.error(path, f"cannot read: {e}")
             continue
-        if not check_schema(path, doc, validator, report):
-            continue
-        errors_before = len(report.errors)
-        check_openvex(path, doc, report, max_age, now)
-        if len(report.errors) == errors_before:
-            documents.append((path, doc))
-    check_uniqueness(documents, report)
+        if not args.coverage_only:
+            if not check_schema(path, doc, validator, report):
+                continue
+            errors_before = len(report.errors)
+            check_openvex(path, doc, report, max_age, now)
+            if len(report.errors) != errors_before:
+                continue
+        documents.append((path, doc))
+    if not args.coverage_only:
+        check_uniqueness(documents, report)
 
     if args.sbom:
         try:

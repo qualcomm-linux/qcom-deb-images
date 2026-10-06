@@ -30,14 +30,17 @@ and tests work offline.
 The debos workflow fetches `vex/` from this branch's HEAD and passes the
 documents to Grype. Pull requests targeting `security-tracker` validate the
 data before merging, so image builds trust the branch's data. Schema fetching
-and validation stay on this branch.
+and static validation stay on this branch.
 
-SBOM coverage checks remain available here for investigations:
+The image workflow also fetches `scripts/vex-check.py` and `scripts/vexlib.py`
+and runs coverage checks against the generated SBOM:
 
 ```sh
-scripts/vex-check.py --sbom /path/to/rootfs-sbom.syft.json vex/*.openvex.json
+scripts/vex-check.py --coverage-only --sbom /path/to/rootfs-sbom.syft.json vex/*.openvex.json
 ```
 
 They report missing binaries and outdated version pins for that particular
-image. They are not part of the image-build CI; static validation cannot
-establish coverage of packages in a future build.
+image. Coverage-only mode trusts the documents and needs only Python's
+standard library, without the schema or `jsonschema`. Warnings appear in the
+image build's job log and summary without failing the build. Omit
+`--coverage-only` to run static validation along with coverage checks locally.

@@ -5,6 +5,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -144,7 +145,8 @@ def test_check_rejects_versioned_product_and_duplicates(tmp_path):
     assert "already covered" in result.stdout
 
 
-def test_check_sbom_coverage(tmp_path):
+@pytest.mark.parametrize("extra_args", [[], ["--coverage-only"]])
+def test_check_sbom_coverage(tmp_path, extra_args):
     doc = write(tmp_path, "a.openvex.json", vex_doc(
         statement("not_affected", ["pkg:deb/debian/openssl",
                                    "pkg:deb/debian/gone"],
@@ -155,11 +157,47 @@ def test_check_sbom_coverage(tmp_path):
         statement("affected", ["pkg:deb/debian/libssl3t64"],
                   name="CVE-2026-1112", action_statement="x")))
     sbom = write(tmp_path, "sbom.json", SBOM)
-    result = script("vex-check.py", "--sbom", sbom, doc)
+    result = script("vex-check.py", *extra_args, "--sbom", sbom, doc)
     assert result.returncode == 0, result.stdout
     assert "gone matches nothing" in result.stdout
     assert "openssl@1.0-1 matches nothing" in result.stdout
     assert "src:openssl not covered: libssl3t64" in result.stdout
+
+
+def test_coverage_only_without_schema_or_site_packages(tmp_path):
+    # Reproduce the image's sparse checkout: only the checker and its helper.
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name in ("vex-check.py", "vexlib.py"):
+        shutil.copy(os.path.join(SCRIPTS, name), scripts / name)
+    doc = write(tmp_path, "a.openvex.json", vex_doc(
+        statement("affected", ["pkg:deb/debian/openssl"],
+                  action_statement="patch it")))
+    sbom = write(tmp_path, "sbom.json", SBOM)
+    result = subprocess.run(
+        [sys.executable, "-S", str(scripts / "vex-check.py"),
+         "--coverage-only", "--sbom", sbom, doc],
+        capture_output=True, text=True, check=False, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "src:openssl not covered: libssl3t64" in result.stdout
+
+
+def test_coverage_only_requires_sbom():
+    result = script("vex-check.py", "--coverage-only")
+    assert result.returncode == 2
+    assert "--coverage-only requires --sbom" in result.stderr
+
+
+@pytest.mark.parametrize("version", ["", "@3.5.0-1"])
+def test_coverage_only_fully_covered(tmp_path, version):
+    doc = write(tmp_path, "a.openvex.json", vex_doc(
+        statement("affected", [f"pkg:deb/debian/openssl{version}",
+                               f"pkg:deb/debian/libssl3t64{version}"],
+                  action_statement="patch it")))
+    result = script("vex-check.py", "--coverage-only", "--sbom",
+                    write(tmp_path, "sbom.json", SBOM), doc)
+    assert result.returncode == 0, result.stderr
+    assert not result.stdout
 
 
 def test_fixed_requires_every_binary_to_be_pinned(tmp_path):
@@ -229,9 +267,10 @@ def test_check_requires_rfc3339_timestamps(tmp_path, timestamp):
     assert "RFC 3339" in result.stdout
 
 
-def test_no_assessments(tmp_path):
+@pytest.mark.parametrize("extra_args", [[], ["--coverage-only"]])
+def test_no_assessments(tmp_path, extra_args):
     assert script("vex-check.py").returncode == 0
-    result = script("vex-check.py", "--sbom",
+    result = script("vex-check.py", *extra_args, "--sbom",
                     write(tmp_path, "sbom.json", SBOM))
     assert result.returncode == 0, result.stdout
     assert not result.stdout

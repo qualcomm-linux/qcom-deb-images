@@ -78,8 +78,9 @@ stores the schema in `.cache/`, which is ignored by Git. This branch's CI,
 a schema supplied separately.
 
 Tracker CI rejects invalid assessments before image builds can consume them.
-Optional coverage warnings from `--sbom` (missing binaries or outdated pins)
-remain non-fatal and are only available when running the checker here.
+Coverage warnings from `--sbom` (missing binaries or outdated pins) remain
+non-fatal. Image CI runs this checker with `--coverage-only` using its SBOM;
+this skips static validation and needs neither the schema nor `jsonschema`.
 The summary lists suppressed findings after the critical/high table, outside
 the open totals, with Grype's fix state and the reason they were hidden.
 
