@@ -196,7 +196,11 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt update && sudo apt -y install python3-defusedxml python3-yaml
+        run: |
+          sudo apt update
+          sudo apt -y install \
+              python3-defusedxml \
+              python3-yaml
 
       - name: Apply the known failures list
         env:
