@@ -9,8 +9,8 @@
 
 glymur-crd:
   - test: fastrpc_test
-    comment: "fails on linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [linux-next]
+    comment: "fails on linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [linux-next, mainline]
 
 lemans-evk:
   - test: BT_ON_OFF
