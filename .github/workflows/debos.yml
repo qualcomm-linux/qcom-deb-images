@@ -132,7 +132,43 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos dosfstools fdisk file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+        run: apt -y install debian-archive-keyring dosfstools fdisk file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+
+      - name: Install debos build dependencies
+        run: apt install -y golang-go git libglib2.0-dev libostree-dev
+
+      - name: Install runtime dependencies
+        run: apt install -y e2fsprogs unzip
+
+      - name: Checkout debos and fakemachine
+        run: |
+          git clone --depth 1 \
+            --branch wip/obbardc/unshare \
+            https://github.com/go-debos/fakemachine.git
+
+          git clone --depth 1 \
+            --branch wip/obbardc/fakemachine-unshare \
+            https://github.com/go-debos/debos.git
+
+      - name: Build fakemachine
+        run: |
+          cd fakemachine
+          go build -o fakemachine ./cmd/fakemachine
+          install -m 0755 fakemachine /usr/local/bin/fakemachine
+
+      - name: Build debos against local fakemachine
+        run: |
+          cd debos
+
+          go mod edit \
+            -replace github.com/go-debos/fakemachine=../fakemachine
+
+          go mod tidy
+
+          go build -o debos ./cmd/debos
+          install -m 0755 debos /usr/local/bin/debos
+
+          debos -h
 
       - name: Setup local APT repo
         run: |
@@ -191,6 +227,7 @@ jobs:
           esac
 
           debos \
+              -b unshare \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
               -t extract_dbg_vmlinux:true \
@@ -206,7 +243,7 @@ jobs:
           # the image recipe doesn't need loop devices, so build directly
           # on the host rather than in a fakemachine; without KVM, the
           # qemu backend would be much slower
-          make disk-ufs.img disk-sdcard.img FAKEMACHINE_OPTS=--disable-fakemachine EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img disk-sdcard.img FAKEMACHINE_OPTS="-b unshare" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
@@ -214,7 +251,7 @@ jobs:
           # the flash recipe only runs host tools outside the chroot, so
           # skip the fakemachine VM; generating the FIT images and flash
           # directories under qemu TCG emulation takes ~10 minutes
-          make flash FAKEMACHINE_OPTS="--disable-fakemachine" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash FAKEMACHINE_OPTS="-b unshare" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
