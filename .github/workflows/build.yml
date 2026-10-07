@@ -25,6 +25,11 @@ permissions: {}
 
 jobs:
   build:
+    # job name: "<suite>, <variant>, <profile>"
+    name: >-
+      ${{ format('build ({0}, {1}{2})', matrix.suite, matrix.variant,
+          matrix.profile != 'default' && format(', {0}', matrix.profile) || '') }}
+
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
