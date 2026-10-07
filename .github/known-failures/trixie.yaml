@@ -71,6 +71,8 @@ qrb2210-arduino-imola:
     kernels: [arduino, linux-next]
 
 qrb2210-rb1:
+  - test: BT_ON_OFF
+    comment: "controller stays unconfigured (DOWN RAW, no valid BD address) and is not visible to bluetoothctl, https://github.com/qualcomm-linux/qcom-deb-images/issues/719"
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
 
