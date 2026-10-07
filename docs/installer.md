@@ -1,19 +1,11 @@
 # Installer
 
 `installer/` holds a [live-build](https://salsa.debian.org/live-team/live-build)
-configuration for a Debian installer ISO, ported from
-[qcom-deb-installer](https://github.com/qualcomm-linux/qcom-deb-installer).
+configuration for a Debian installer ISO.
 
 This is an early prototype. It builds a stock debian-installer, with the
-upstream d-i kernel and no custom kernel or DTBs, to check that live-build
-works on this repository's CI runners. It does not yet use the kernel or root
-filesystem of the image it is built alongside. These are still to be ported:
-
-- replacing the d-i kernel with the image's kernel, and extracting its arm64
-  DTBs
-- arm64 installer firmware
-- the ThinkPad T14s Gen 6 / Stubble GRUB entries and boot hook
-- QEMU smoke tests
+upstream d-i kernel and no custom kernel or DTB selection. It does not yet use
+the kernel or root filesystem of the image it is built alongside.
 
 ## Requirements
 
@@ -23,8 +15,7 @@ Build on a Debian host with:
 apt -y install live-build xorriso
 ```
 
-live-build runs natively, not in the debos container, and it has to run as
-root.
+live-build runs natively, not in the debos container, and has to run as root.
 
 ## Build the ISO
 
@@ -68,5 +59,5 @@ without one.
 ## CI
 
 `.github/workflows/installer.yml` builds the `cdrom` ISO after the image
-builds, and publishes it next to the image it was built for as
+builds and publishes it next to the image it was built for as
 `$SUITE-installer-cdrom.iso`.
