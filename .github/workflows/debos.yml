@@ -214,7 +214,10 @@ jobs:
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          # the flash recipe only runs host tools outside the chroot, so
+          # skip the fakemachine VM; generating the FIT images and flash
+          # directories under qemu TCG emulation takes ~10 minutes
+          make flash FAKEMACHINE_OPTS="--disable-fakemachine" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
