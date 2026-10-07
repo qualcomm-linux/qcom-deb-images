@@ -28,12 +28,19 @@ on:
         required: true
         type: string
       variant:
-        description: Image variant (e.g. weston-multimedia); 'console' has no suffix
+        description: Image variant (e.g. console, weston-multimedia)
         required: false
         type: string
         default: console
       kernel:
         description: Kernel flavour in the image (e.g. qcom-next)
+        required: true
+        type: string
+      name:
+        description: >
+          Name of this test run, <suite>-<variant>-<kernel>. Every artifact
+          the run creates starts with it, so that the runs sharing a workflow
+          run don't pick up each other's artifacts.
         required: true
         type: string
       project_name:
@@ -77,9 +84,10 @@ on:
 permissions: {}
 
 env:
-  # the build variant, used to name artifacts and to tell the results of one
-  # (kernel, suite, variant) combination from another within the same run
-  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
+  # the prefix of the image file names, <suite>[-<variant>]; like the
+  # ARTIFACT_PREFIX of debos.yml, it leaves the console variant out; it is
+  # passed to lava-test-plans as ARTIFACT_PREFIX to name the image to flash
+  ARTIFACT_PREFIX: ${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
@@ -122,7 +130,7 @@ jobs:
           build_url: ${{ inputs.url }}
           project: ${{ inputs.project_name }}
           testplan: debian/boot
-          prefix: boottest-${{ env.VARIANT }}
+          prefix: ${{ inputs.name }}-boottest
           os_info: debian
           testkit_ref: ${{ inputs.testkit_ref }}
           pr_number: ${{ inputs.pr_number }}
@@ -133,7 +141,8 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}
+            ARTIFACT_PREFIX=${{ env.ARTIFACT_PREFIX }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -157,7 +166,7 @@ jobs:
     # one red board must not stop the others; the failure is reported through
     # the summary and the JUnit results instead
     continue-on-error: true
-    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Boot ${{ matrix.target.name }} (${{ inputs.name }})
     permissions:
       contents: read
     strategy:
@@ -185,7 +194,7 @@ jobs:
           save_result_as_artifact: true
           save_job_details: true
           result_file_name: ${{ matrix.target.result_file }}
-          test_job_file_name_prefix: ${{ env.VARIANT }}-
+          test_job_file_name_prefix: ${{ inputs.name }}-
 
       # job level matrix outputs do not aggregate in GitHub Actions, so the
       # per-device results are written out and read back in the next job
@@ -193,9 +202,9 @@ jobs:
         if: always()
         id: out
         with:
-          matrix-step-name: submit-boot-job-${{ env.VARIANT }}
+          matrix-step-name: ${{ inputs.name }}-boot-job
           matrix-key: ${{ matrix.target.name }}
-          artifact-name: submit-boot-job-${{ env.VARIANT }}-${{ matrix.target.name }}
+          artifact-name: ${{ inputs.name }}-boot-job-${{ matrix.target.name }}
           outputs: |-
             result: ${{ steps.submit.outcome }}
 
@@ -212,8 +221,8 @@ jobs:
       - uses: qualcomm-linux/github-action-matrix-outputs-read@2b2498aa0fc6c565e02af0f3a3c5b7e1b6ae07f4
         id: read
         with:
-          matrix-step-name: submit-boot-job-${{ env.VARIANT }}
-          download-file-pattern: submit-boot-job-${{ env.VARIANT }}*
+          matrix-step-name: ${{ inputs.name }}-boot-job
+          download-file-pattern: ${{ inputs.name }}-boot-job-*
 
       - name: Collect the devices that booted
         id: collect
@@ -278,7 +287,7 @@ jobs:
           build_url: ${{ inputs.url }}
           project: ${{ inputs.project_name }}
           testplan: debian/pre-merge
-          prefix: premerge-${{ env.VARIANT }}
+          prefix: ${{ inputs.name }}-premerge
           os_info: debian
           testkit_ref: ${{ inputs.testkit_ref }}
           pr_number: ${{ inputs.pr_number }}
@@ -289,7 +298,8 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}
+            ARTIFACT_PREFIX=${{ env.ARTIFACT_PREFIX }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -311,7 +321,7 @@ jobs:
     needs: prepare-premerge-jobs
     runs-on: ubuntu-latest
     continue-on-error: true
-    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.name }})
     permissions:
       contents: read
     strategy:
@@ -336,10 +346,10 @@ jobs:
           save_result_as_artifact: true
           save_job_details: true
           result_file_name: ${{ matrix.target.result_file }}
-          test_job_file_name_prefix: ${{ env.VARIANT }}-
+          test_job_file_name_prefix: ${{ inputs.name }}-
 
   publish-test-summary:
-    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Publish summary (${{ inputs.name }})
     needs: [boot-job-result, submit-premerge-job]
     if: always() && needs.boot-job-result.result == 'success'
     runs-on: ubuntu-latest
@@ -367,9 +377,9 @@ jobs:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}
           gh_token: ${{ github.token }}
-          prefix: ${{ env.VARIANT }}-test-job*
-          summary_file_name: ${{ env.VARIANT }}-test_job_summary
-          summary_title: ${{ env.VARIANT }}
+          prefix: ${{ inputs.name }}-test-job*
+          summary_file_name: ${{ inputs.name }}-test_job_summary
+          summary_title: ${{ inputs.name }}
           known_failures_file: ${{ inputs.known_failures_file }}
           kernel: ${{ inputs.kernel }}
 
@@ -380,5 +390,5 @@ jobs:
 
       - name: Publish test job details
         env:
-          SUMMARY_FILE: ${{ env.VARIANT }}-test_job_summary
+          SUMMARY_FILE: ${{ inputs.name }}-test_job_summary
         run: cat "${SUMMARY_FILE}" >> "$GITHUB_STEP_SUMMARY"
