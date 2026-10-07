@@ -87,6 +87,18 @@ jobs:
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
   test:
+    # one test run per image "Build on PR" produces; keep in step with its
+    # build matrix, or an image goes untested
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: trixie
+            variant: console
+          - suite: trixie
+            variant: weston-multimedia
+          - suite: forky
+            variant: console
     uses: $/.github/workflows/test.yml
     permissions:
       checks: write
@@ -102,7 +114,8 @@ jobs:
       # run, not this one; it is also where the event file lives
       build_id: ${{ github.event.workflow_run.id }}
       kernel: qcom-next
-      suite: trixie
+      suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       pr_number: ${{ needs.retrieve-build-url.outputs.pr_number }}
       pr_url: ${{ needs.retrieve-build-url.outputs.pr_url }}
       # this run is on the base branch, the results belong to the pull request
