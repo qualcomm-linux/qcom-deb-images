@@ -40,11 +40,13 @@ echo "=== Configure live-build ==="
 
 lb config \
     --distribution "$SUITE" \
-    --architectures "$ARCH" \
-    --linux-packages none \
-    --debian-installer "$INSTALLER" \
-    --debian-installer-distribution "$SUITE" \
-    --debian-installer-gui true
+    --architectures "$ARCH"
+
+#    --architectures "$ARCH" \
+#    --linux-packages none \
+#    --debian-installer "$INSTALLER" \
+#    --debian-installer-distribution "$SUITE" \
+#    --debian-installer-gui true
 
 # overlays/$ARCH/ mirrors live-build's config/ and is copied on top of it
 if [ -d "$REPO_ROOT/overlays/$ARCH" ]; then
