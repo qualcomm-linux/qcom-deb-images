@@ -25,6 +25,11 @@ permissions: {}
 
 jobs:
   build:
+    # job name: "<suite>, <variant>, <profile>"
+    name: >-
+      ${{ format('build ({0}, {1}{2})', matrix.suite, matrix.variant,
+          matrix.profile != 'default' && format(', {0}', matrix.profile) || '') }}
+
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -44,14 +49,6 @@ jobs:
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: trixie
-            variant: console
-            profile: performance
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
-          - suite: trixie
-            variant: console
-            profile: debug
-            kernelpackages: 'linux-image-qcom-next-debug,linux-headers-qcom-next-debug'
-          - suite: trixie
             variant: weston-multimedia
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
@@ -59,6 +56,14 @@ jobs:
             variant: xfce
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: xfce
+            profile: performance
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: xfce
+            profile: debug
+            kernelpackages: 'linux-image-qcom-next-debug,linux-headers-qcom-next-debug'
           - suite: trixie
             variant: gnome
             profile: default
