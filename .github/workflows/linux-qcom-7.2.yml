@@ -1,7 +1,13 @@
+# Builds & Tests QLI Debian images:
+#  - qcom-7.2 kernel (from QLI APT repo)
+#  - Qualcomm overlay repos and packages
+#
+# This workflow tracks the state of the qcom-7.2 kernel on supported boards.
+
 name: qcom-7.2 linux build
 
 on:
-# run daily at 4:30am, after qcom-next (0:30am).
+  # run daily at 4:30am, after qcom-next (0:30am).
   schedule:
     - cron: '30 4 * * *'
   # allow manual runs
@@ -12,23 +18,81 @@ permissions: {}
 
 jobs:
   build:
-    # don't run cron from forks of the main repository or from other branches;
+    # job name: "<suite>, <variant>, <profile>"
+    name: >-
+      ${{ format('build ({0}, {1}{2})', matrix.suite, matrix.variant,
+          matrix.profile != 'default' && format(', {0}', matrix.profile) || '') }}
+
+    # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
     if: >-
       github.repository == 'qualcomm-linux/qcom-deb-images' &&
       (github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main')
-    uses: $/.github/workflows/linux.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the kernel is a matrix option rather than being derived from the
+          # profile, so that any kernel can be combined with any profile (e.g.
+          # the debug kernel with the default profile when bisecting)
+          - suite: trixie
+            variant: xfce
+            profile: default
+            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+          - suite: trixie
+            variant: xfce
+            profile: performance
+            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+          - suite: trixie
+            variant: xfce
+            profile: debug
+            kernelpackages: 'linux-image-qcom-7.2-debug,linux-headers-qcom-7.2-debug'
+    uses: $/.github/workflows/debos.yml
+    permissions:
+      contents: read
+    with:
+      suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
+      profile: ${{ matrix.profile }}
+      kernelpackages: ${{ matrix.kernelpackages }}
+
+  test:
+    # only the default profile is tested for now: adding the performance and
+    # debug profiles would multiply the LAVA jobs submitted by this workflow
+    #
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    uses: $/.github/workflows/test.yml
+    needs: build
     permissions:
       checks: write
       contents: read
       packages: read
       pull-requests: write
-    with:
-      kernel_name: qcom-7.2
-      build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel --ref qcom-7.2-20260915 prune.config qcom.config'
-      suites: '["trixie"]'
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+    with:
+      url: ${{ needs.build.outputs.artifacts_url }}
+      suite: trixie
+      variant: xfce
+      # the boards tested come from .github/lava-boards.yml
+      kernel: qcom-7.2
+
+  publish-test-results:
+    if: always() && needs.test.result != 'skipped'
+    needs: test
+    uses: $/.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    secrets:
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
