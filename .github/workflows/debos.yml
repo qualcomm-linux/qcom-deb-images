@@ -128,10 +128,11 @@ jobs:
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
+      # dosfstools, fdisk and mtools are needed to assemble the disk images
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+        run: apt -y install debian-archive-keyring debos dosfstools fdisk file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
 
       - name: Setup local APT repo
         run: |
@@ -202,14 +203,10 @@ jobs:
       - name: Build UFS and SD card images with debos
         run: |
           set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # the image recipe doesn't need loop devices, so build directly
+          # on the host rather than in a fakemachine; without KVM, the
+          # qemu backend would be much slower
+          make disk-ufs.img disk-sdcard.img FAKEMACHINE_OPTS=--disable-fakemachine EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
