@@ -1,11 +1,9 @@
 {{- $dtb := or .dtb "firmware" }}
 {{- $imagesize := or .imagesize "8GiB" }}
-{{- $imagetype := or .imagetype "ufs" }}
-{{- $image := printf "disk-%s.img" $imagetype }}
 {{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
 
-# kernel command line appended by the filesystem-deploy action below
+# kernel command line appended to /etc/kernel/cmdline below
 # XXX these kernel options might be specific to a kernel version or board
 {{- $kernelcmdline := "clk_ignore_unused pd_ignore_unused audit=0 deferred_probe_timeout=30" }}
 
@@ -80,7 +78,6 @@
 {{- end }}
 
 architecture: arm64
-sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
   - action: unpack
@@ -127,60 +124,37 @@ actions:
       EOF
 {{- end }}
 
-  # parttype values are from:
-  # https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
-  - action: image-partition
-    description: Create an image file
-    imagename: {{ $image }}
-    imagesize: {{ $imagesize }}
-    partitiontype: gpt
-    partitions:
-      - name: esp
-        partlabel: ESP
-        flags: [ boot, esp ]
-        # EFI System Partition
-        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-        fs: vfat
-        start: 4MiB
-        # size of 512MiB
-        end: 516MiB
-        fsck: true
-      - name: root
-        # Root Partition (64-bit ARM/AArch64)
-        parttype: b921b045-1df0-41c3-af44-4c6f280d3fae
-        fs: ext4
-        # 4MiB after ESP
-        start: 520MiB
-        end: 100%
-        fsck: true
-    mountpoints:
-      - mountpoint: /boot/efi/
-        partition: esp
-        # Copy options from what systemd does when mounting a discoverable EFI partition:
-        # https://github.com/qualcomm-linux/qcom-deb-images/pull/309
-        #
-        # Restrict fmask/dmask to prevent user access to /boot/efi/loader/random-seed
-        # used by systemd-boot:
-        # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
-        options:
-          - nosuid
-          - nodev
-          - noexec
-          - relatime
-          - nosymfollow
-          - fmask=0177
-          - dmask=0077
-          - codepage=437
-          - iocharset=iso8859-1
-          - shortname=mixed
-          - errors=remount-ro
-      - mountpoint: /
-        partition: root
-
-  - action: filesystem-deploy
-    description: Deploy root filesystem to mounted image
-    setup-fstab: true
-    append-kernel-cmdline: "{{ $kernelcmdline }}"
+  - action: run
+    description: Set up fstab and kernel command line
+    chroot: true
+    command: |
+      set -eux
+      # Same format as the debos image-partition and filesystem-deploy
+      # actions; the filesystems are created at the end of the recipe with
+      # the UUIDs from this fstab.
+      rootuuid=$(cat /proc/sys/kernel/random/uuid)
+      espid=$(od -An -N4 -tx1 /dev/urandom | tr -d ' ' | tr a-f A-F)
+      #
+      # ESP mount options are copied from what systemd does when mounting a
+      # discoverable EFI partition:
+      # https://github.com/qualcomm-linux/qcom-deb-images/pull/309
+      #
+      # Restrict fmask/dmask to prevent user access to
+      # /boot/efi/loader/random-seed used by systemd-boot:
+      # https://github.com/qualcomm-linux/qcom-deb-images/issues/279
+      esp_opts="defaults,nosuid,nodev,noexec,relatime,nosymfollow"
+      esp_opts="${esp_opts},fmask=0177,dmask=0077,codepage=437"
+      esp_opts="${esp_opts},iocharset=iso8859-1,shortname=mixed"
+      esp_opts="${esp_opts},errors=remount-ro"
+      printf 'UUID=%s\t%s\t%s\t%s\t0\t%s\n' \
+          "${rootuuid}" / ext4 defaults 1 \
+          "${espid%????}-${espid#????}" /boot/efi/ vfat \
+          "${esp_opts}" 2 \
+          >/etc/fstab
+      mkdir -pv /boot/efi /etc/kernel
+      current=$(cat /etc/kernel/cmdline 2>/dev/null || true)
+      echo "${current} root=UUID=${rootuuid} {{ $kernelcmdline }}" \
+          >/etc/kernel/cmdline
 
 {{- if $snapshot }}
   - action: run
@@ -192,14 +166,24 @@ actions:
       apt-get update
 {{- end }}
 
-  - action: apt
+  - action: run
     description: Make system bootable with systemd-boot
-    recommends: true
-    packages:
-      - systemd-boot
+    chroot: true
+    command: |
+      set -eux
+      # /boot/efi is a plain directory rather than a mounted ESP, so
+      # bootctl can't find it on its own; point bootctl and kernel-install
+      # at it and skip the checks that it is a mounted vfat filesystem
+      export SYSTEMD_ESP_PATH=/boot/efi
+      export SYSTEMD_RELAX_ESP_CHECKS=1
+      # the loader entry paths are relative to the mountpoint of the ESP,
+      # which 90-loaderentry.install would otherwise detect as /
+      export BOOT_MNT=/boot/efi
+      apt-get update
       # TODO investigate why systemd-boot Recommends: shim-signed which
       # Depends on grub packages
-      - shim-signed-
+      apt-get -y --install-recommends install systemd-boot shim-signed-
+      apt-get clean
 
   # this is to provide an updated copy of DTBs from the OS to U-Boot, notably
   # on RB1
@@ -208,14 +192,17 @@ actions:
     chroot: true
     command: |
       set -eux
+      # /boot/efi is a plain directory, see the systemd-boot step above
+      export SYSTEMD_ESP_PATH=/boot/efi
+      export SYSTEMD_RELAX_ESP_CHECKS=1
       # Fixes error when running outside qemu
       dpkg-divert --local --rename --add /etc/kernel/postinst.d/u-boot-efi-dtb
       ln -s /usr/bin/true /etc/kernel/postinst.d/u-boot-efi-dtb
       # u-boot-efi-dtb installs a kernel hook that will trigger on kernel
       # installation/upgrade, but also calls it explicitely in its postinst in
-      # case it was installed after the kernel; it requires an ESP partition to
-      # copy the DTBs though, so install it after the ESP partition is
-      # available
+      # case it was installed after the kernel; it requires an ESP to copy
+      # the DTBs though, so install it after systemd-boot has populated
+      # /boot/efi
       apt -y install u-boot-efi-dtb
       # Removing previous diversion and symlink
       rm /etc/kernel/postinst.d/u-boot-efi-dtb
@@ -268,20 +255,70 @@ actions:
       rm -f /usr/local/bin/apt-snapshot-toggle
 {{- end }}
 
+  # Build the disk images from $ROOTDIR without loop devices, like wic and
+  # meta-qcom do: create each filesystem image straight from a directory,
+  # then write a GPT with sfdisk and copy the filesystems in with dd. Since
+  # no loop devices are needed, the recipe can be built with
+  # --disable-fakemachine.
+  #
+  # The root filesystem is shared by both images; only the ESP depends on the
+  # sector size: 4096 bytes for UFS, 512 bytes for SD cards.
+  #
+  # parttype values are from:
+  # https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
   - action: run
-    description: Extract partition images
-    postprocess: true
+    description: Create UFS and SD card disk images
     command: |
       set -eux
-      sector_size="{{if eq $imagetype "ufs"}}4096{{else}}512{{end}}"
-      image="{{ $image }}"
-      # extract fdisk output to variable to avoid silent pipeline failure
-      fdisk_output=$(fdisk -b "${sector_size}" -l "${image}")
-      echo "$fdisk_output" | sed -n '1,/^Device/ d; p' |
-          while read name start end sectors rest; do
-              dd if="${image}" of="${ARTIFACTDIR}/${name}" \
-                  bs="${sector_size}" skip="${start}" count="${sectors}"
-          done
+      work="${ARTIFACTDIR}/disk-work"
+      rm -rf "${work}"
+      mkdir -p "${work}"
+      # filesystem UUIDs, as set up in /etc/fstab earlier
+      fstab=$(cat "${ROOTDIR}/etc/fstab")
+      rootuuid=$(echo "$fstab" | awk '$2 == "/" {sub("UUID=", ""); print $1}')
+      espid=$(echo "$fstab" | awk '$2 == "/boot/efi/" {sub("UUID=", ""); print $1}')
+      espid="${espid%-*}${espid#*-}"
+
+      # ESP of 512MiB, FAT32 like the debos image-partition action creates
+      for sector_size in 4096 512; do
+          esp="${work}/esp-${sector_size}.img"
+          truncate -s 512MiB "${esp}"
+          mkfs.vfat -F32 -S "${sector_size}" -n esp -i "${espid}" "${esp}"
+          find "${ROOTDIR}/boot/efi" -mindepth 1 -maxdepth 1 -exec \
+              sh -c 'mcopy -s -p -m -i "$0" "$@" ::/' "${esp}" {} +
+      done
+      # leave an empty mountpoint for the ESP in the root filesystem
+      find "${ROOTDIR}/boot/efi" -mindepth 1 -delete
+
+      # the root partition starts at 520MiB and fills the rest of the disk;
+      # leave 1MiB for the backup GPT, the root filesystem is grown on first
+      # boot anyway
+      truncate -s "{{ $imagesize }}" "${work}/size"
+      disk_size=$(stat -c %s "${work}/size")
+      root_size=$((disk_size / 1048576 - 521))
+      UNIX_IO_NOZEROOUT=1 mkfs.ext4 -F -L root -U "${rootuuid}" \
+          -b 4096 -d "${ROOTDIR}" "${work}/root.img" "${root_size}M"
+
+      for disk in ufs:4096 sdcard:512; do
+          image="${ARTIFACTDIR}/disk-${disk%%:*}.img"
+          sector_size="${disk#*:}"
+          rm -f "${image}"
+          truncate -s "${disk_size}" "${image}"
+          sfdisk --sector-size "${sector_size}" "${image}" <<EOF
+      label: gpt
+      start=4MiB, size=512MiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="ESP"
+      start=520MiB, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, name="root"
+      EOF
+          dd if="${work}/esp-${sector_size}.img" of="${image}" \
+              bs=1M seek=4 conv=notrunc,sparse
+          dd if="${work}/root.img" of="${image}" \
+              bs=1M seek=520 conv=notrunc,sparse
+          # partition images, e.g. for flashing with QDL
+          mv "${work}/esp-${sector_size}.img" "${image}1"
+          cp --reflink=auto --sparse=always "${work}/root.img" "${image}2"
+      done
+
+      rm -rf "${work}"
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause

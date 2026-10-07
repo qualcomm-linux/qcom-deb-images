@@ -183,11 +183,12 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 
 For the image recipe:
 
+The image recipe produces both disk-ufs.img, with 4096-byte sectors, and
+disk-sdcard.img, with 512-byte sectors, along with their partition images
+(`.img1` for the ESP and `.img2` for the root filesystem).
+
 - `dtb`: override the firmware provided device tree with one from the Linux
   kernel, e.g. `qcom/qcs6490-rb3gen2.dtb`; default: don't override
-- `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
-  disk-ufs.img and use 4096-byte sectors and SD card images are named
-  disk-sdcard.img and use 512-byte sectors
 - `imagesize`: set the output disk image size; default: `8GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
@@ -216,9 +217,6 @@ debos -t variant:xfce debos-recipes/qualcomm-linux-debian-rootfs.yaml
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
 debos -t dtb:qcom/qcs6490-rb3gen2.dtb debos-recipes/qualcomm-linux-debian-image.yaml
-
-# build an SD card image
-debos -t imagetype:sdcard debos-recipes/qualcomm-linux-debian-image.yaml
 
 # build flash assets for a subset of boards
 # (see flash recipe for accepted board names)
