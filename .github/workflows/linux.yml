@@ -65,6 +65,12 @@ on:
         # only forwarded to test.yml; callers passing skip_lava_tests
         # never reach that job, so this stays optional
         required: false
+      TEST_REPORTING_APP_TOKEN:
+        description: >
+          Private key of the Test Reporting GitHub App, forwarded to
+          publish-results.yml
+        # like LAVATOKEN, only needed when LAVA tests run
+        required: false
   # allow manual runs
   workflow_dispatch:
     inputs:
@@ -240,5 +246,7 @@ jobs:
       contents: read
       packages: read
       pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
     with:
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

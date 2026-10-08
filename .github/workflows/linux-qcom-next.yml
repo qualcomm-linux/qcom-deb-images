@@ -41,3 +41,4 @@ jobs:
       lava_report_test_results_externally: false
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

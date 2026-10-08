@@ -35,3 +35,4 @@ jobs:
       # the boards tested come from .github/lava-boards.yml, under linux-next
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

@@ -40,6 +40,14 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      TEST_REPORTING_APP_TOKEN:
+        description: >
+          Private key of the Test Reporting GitHub App. Its token publishes the
+          check and the pull request comment, so they come from the app rather
+          than from github-actions and the check gets a check suite of its own
+          instead of landing in whichever workflow's suite happened to run.
+        required: true
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to
@@ -73,6 +81,19 @@ jobs:
           path: event-file
           github-token: ${{ github.token }}
 
+      - name: Create Test Reporting App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: 2291458
+          private-key: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+          # Scope the token to what publish-unit-test-result-action uses on a
+          # public repository instead of inheriting every permission of the app
+          # installation. contents and issues are only needed on private repos,
+          # and the app is not granted issues at all.
+          permission-checks: write
+          permission-pull-requests: write
+
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
@@ -81,6 +102,7 @@ jobs:
           event_file: ${{ inputs.commit != '' && format('{0}/event-file/event.json', github.workspace) || '' }}
           event_name: ${{ inputs.event_name }}
           check_name: Test Results
+          github_token: ${{ steps.app_token.outputs.token }}
           # when not reporting externally, failures must not show up as a red
           # check on the commit (which may well be on main) or as a pull
           # request comment; the job summary keeps the full table either way.
