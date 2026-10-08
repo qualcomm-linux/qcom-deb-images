@@ -103,6 +103,10 @@ jobs:
           event_name: ${{ inputs.event_name }}
           check_name: Test Results
           github_token: ${{ steps.app_token.outputs.token }}
+          # one variant per kernel and suite runs the same tests, so tell the
+          # runs apart instead of folding them into one result per test
+          report_individual_runs: true
+          report_suite_logs: any
           # when not reporting externally, failures must not show up as a red
           # check on the commit (which may well be on main) or as a pull
           # request comment; the job summary keeps the full table either way.
