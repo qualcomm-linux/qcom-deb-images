@@ -107,6 +107,9 @@ jobs:
           # runs apart instead of folding them into one result per test
           report_individual_runs: true
           report_suite_logs: any
+          # the runs publishing this check test different boards, suites and
+          # images, so a delta against an earlier commit compares unlike sets
+          compare_to_earlier_commit: false
           # when not reporting externally, failures must not show up as a red
           # check on the commit (which may well be on main) or as a pull
           # request comment; the job summary keeps the full table either way.
