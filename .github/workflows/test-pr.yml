@@ -152,6 +152,8 @@ jobs:
       contents: read
       packages: read
       pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
     with:
       commit: ${{ github.event.workflow_run.head_sha }}
       event_name: ${{ github.event.workflow_run.event }}
