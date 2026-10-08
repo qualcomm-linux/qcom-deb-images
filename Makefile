@@ -6,9 +6,9 @@
 
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
-# The image recipe unpacks rootfs.tar into the scratch directory before copying
-# it into the filesystem image, so the scratch space has to be larger than the
-# biggest imagesize we build.
+# The image recipe unpacks rootfs.tar into the scratch directory and builds the
+# filesystem images from there, so the scratch space has to hold the unpacked
+# root filesystem.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
 FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
 
@@ -63,15 +63,13 @@ DISK_UFS_IMAGES := disk-ufs.img \
 	disk-ufs.img1 \
 	disk-ufs.img2
 
-$(DISK_UFS_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) $<
-
 DISK_SDCARD_IMAGES := disk-sdcard.img \
 	disk-sdcard.img1 \
 	disk-sdcard.img2
 
-$(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
-	$(DEBOS_CMD) -t imagetype:sdcard $<
+# a single run of the image recipe produces both the UFS and SD card images
+$(DISK_UFS_IMAGES) $(DISK_SDCARD_IMAGES) &: debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
+	$(DEBOS_CMD) $<
 
 .PHONY: flash
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz

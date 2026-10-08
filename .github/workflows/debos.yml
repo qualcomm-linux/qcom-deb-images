@@ -128,10 +128,47 @@ jobs:
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
+      # dosfstools, fdisk and mtools are needed to assemble the disk images
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+        run: apt -y install debian-archive-keyring dosfstools fdisk file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+
+      - name: Install debos build dependencies
+        run: apt install -y golang-go git libglib2.0-dev libostree-dev
+
+      - name: Install runtime dependencies
+        run: apt install -y e2fsprogs unzip
+
+      - name: Checkout debos and fakemachine
+        run: |
+          git clone --depth 1 \
+            --branch wip/obbardc/unshare \
+            https://github.com/go-debos/fakemachine.git
+
+          git clone --depth 1 \
+            --branch wip/obbardc/fakemachine-unshare \
+            https://github.com/go-debos/debos.git
+
+      - name: Build fakemachine
+        run: |
+          cd fakemachine
+          go build -o fakemachine ./cmd/fakemachine
+          install -m 0755 fakemachine /usr/local/bin/fakemachine
+
+      - name: Build debos against local fakemachine
+        run: |
+          cd debos
+
+          go mod edit \
+            -replace github.com/go-debos/fakemachine=../fakemachine
+
+          go mod tidy
+
+          go build -o debos ./cmd/debos
+          install -m 0755 debos /usr/local/bin/debos
+
+          debos -h
 
       - name: Setup local APT repo
         run: |
@@ -190,6 +227,7 @@ jobs:
           esac
 
           debos \
+              -b unshare \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
               -t extract_dbg_vmlinux:true \
@@ -202,19 +240,18 @@ jobs:
       - name: Build UFS and SD card images with debos
         run: |
           set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # the image recipe doesn't need loop devices, so build directly
+          # on the host rather than in a fakemachine; without KVM, the
+          # qemu backend would be much slower
+          make disk-ufs.img disk-sdcard.img FAKEMACHINE_OPTS="-b unshare" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          # the flash recipe only runs host tools outside the chroot, so
+          # skip the fakemachine VM; generating the FIT images and flash
+          # directories under qemu TCG emulation takes ~10 minutes
+          make flash FAKEMACHINE_OPTS="-b unshare" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Stage debos artifacts for publishing
         run: |
@@ -223,15 +260,15 @@ jobs:
           dir="debos-artifacts"
           mkdir -v "${dir}"
           # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
+          pigz -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
+          pigz -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
+          pigz -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${ARTIFACT_PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
           # to facilitate debugging oops/panic backtraces; absent when the
           # installed kernel has no -dbg package.
           if [ -f vmlinux ]; then
-              gzip -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
+              pigz -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
           fi
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
@@ -377,7 +414,7 @@ jobs:
           dir="sboms"
           mkdir -v sboms
           for f in rootfs-sbom.* rootfs-vulns.*; do
-              gzip -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
+              pigz -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
           done
 
       - name: Upload SBOMs as private artifacts
