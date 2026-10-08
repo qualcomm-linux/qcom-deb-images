@@ -1,7 +1,11 @@
-#!/usr/bin/env bash
-# Build a debian-installer ISO with live-build in a fresh installer/build/
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Builds a debian-installer ISO with live-build in a fresh installer/build/
 # directory; the ISO is left in installer/build/.
-set -euo pipefail
+
+set -eux
 
 ARCH="arm64"
 SUITE="trixie"
@@ -29,7 +33,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+REPO_ROOT=$(cd -- "$(dirname -- "$0")/.." && pwd)
 BUILD_DIR="$REPO_ROOT/build"
 
 # always start from scratch; fails if a previous build was left behind
