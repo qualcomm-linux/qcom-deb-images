@@ -1,10 +1,8 @@
 name: linux-next linux build
 
 on:
-  # run daily at 8:30am, two hours behind the arduino kernel build, so that our
-  # LAVA jobs don't queue up behind its own
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '00 5 * * *'
   # allow manual runs
   workflow_dispatch:
 

@@ -7,9 +7,8 @@
 name: qcom-7.2 linux build
 
 on:
-  # run daily at 4:30am, after qcom-next (0:30am).
   schedule:
-    - cron: '30 4 * * *'
+    - cron: '00 23 * * *'
   # allow manual runs
   workflow_dispatch:
 

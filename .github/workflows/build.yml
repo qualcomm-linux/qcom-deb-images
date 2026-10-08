@@ -7,16 +7,8 @@
 name: Build
 
 on:
-  # run daily at 0:30am. these are the images QLI ships, so they go first of
-  # the scheduled builds and get an empty LAVA queue; the rest of the day's
-  # builds are staggered behind them (arduino 6:30am, vanilla Debian 10:30am)
-  # so that they don't all submit LAVA jobs at once.
-  #
-  # the images this workflow produces are shared with the test teams and are
-  # expected by 8:00am IST (2:30am UTC); building from 0:30am leaves two hours
-  # of headroom, see issue #566.
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '00 21 * * *'
   # allow manual runs
   workflow_dispatch:
 
