@@ -67,8 +67,8 @@ qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
   - test: fastrpc_test
-    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [arduino, linux-next]
+    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino, linux-next, mainline]
 
 qrb2210-rb1:
   - test: BT_ON_OFF
