@@ -34,8 +34,8 @@ lemans-evk:
 
 monaco-arduino-monza:
   - test: Ethernet_Basic_Validation
-    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
-    kernels: [arduino, linux-next]
+    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino, linux-next, mainline]
 
 monaco-evk:
   - test: BT_ON_OFF
