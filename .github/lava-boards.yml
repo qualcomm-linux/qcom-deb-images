@@ -53,6 +53,11 @@ arduino:
     - monaco-arduino-monza
     - monaco-evk
     - qrb2210-arduino-imola
+  # imola's serial input gets garbled so lava-test-shell fails, see
+  # https://github.com/qualcomm-linux/qcom-deb-images/issues/710
+  premerge:
+    - monaco-arduino-monza
+    - monaco-evk
 
 linux-next:
   # qcs615-ride, qcs8300-ride and lemans-evk are not validated against
