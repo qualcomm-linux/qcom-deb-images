@@ -7,8 +7,11 @@
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
+{{- $defaultkernelpackages := dict
+      "arm64" "linux-image-qcom-next,linux-headers-qcom-next"
+      "armhf" "linux-image-armmp" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
+{{- $kernelpackages := or .kernelpackages .kernelpackage (get $defaultkernelpackages $architecture) }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
@@ -16,8 +19,8 @@
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
 
-{{- if ne $architecture "arm64" }}
-{{- fail (printf "only arm64 is supported for now, got architecture %q" $architecture) }}
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+{{- fail (printf "only arm64 and armhf are supported, got architecture %q" $architecture) }}
 {{- end }}
 
 # xfcedesktop, gnomedesktop, westonsession and multimedia (booleans) are
@@ -480,8 +483,6 @@ actions:
       - bluez
       # tools to read/write EFI variables
       - efivar
-      # support for Qualcomm xDSPs
-      - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # firmware for the Qualcomm xDSPs
@@ -492,8 +493,18 @@ actions:
       - libspa-0.2-libcamera
       # audio
       - pipewire
+
+{{- if eq $architecture "arm64" }}
+  # these are not built for armhf in Debian
+  - action: apt
+    description: Install useful packages only built for arm64
+    recommends: true
+    packages:
+      # support for Qualcomm xDSPs
+      - fastrpc-support
       # power management, notably throttling
       - thermald
+{{- end }}
 
   - action: apt
     description: Install qcom-linux-testkit dependencies
@@ -502,7 +513,8 @@ actions:
       # BT_ON_OFF uses expect to interact with bluetooth CLI
       - expect
 
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
+# the Qualcomm Linux repository only has packages for arm64
+{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") (eq $architecture "arm64") }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
     description: Install fastrpc-tests from QLI overlay
@@ -663,6 +675,7 @@ actions:
     description: Install variant packages
     recipe: qualcomm-linux-debian-rootfs-variant.yaml
     variables:
+      architecture: {{ $architecture }}
       suite: {{ $suite }}
       variant: {{ $variant }}
 
