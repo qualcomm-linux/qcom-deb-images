@@ -421,6 +421,19 @@ jobs:
         with:
           name: build_url
           path: build_url
+      # what the recipe recorded about the kernel it installed; echoed so that
+      # the kernel under test is visible in the build log
+      - name: Print kernel info
+        run: cat kernel_info
+      # the test chain reads this back to record the kernel under test in the
+      # LAVA job metadata. Named after PREFIX so that every leg of a build
+      # matrix publishes its own, and the tests of one suite and variant never
+      # pick up the metadata of another.
+      - name: Upload kernel info
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kernel-info-${{ env.PREFIX }}
+          path: kernel_info
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |
