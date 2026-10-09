@@ -15,10 +15,13 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/80e52fcde1cbae7d725692dea98a27cb479c5a2c.tar.gz
+    # Includes the maili-mtp/ufs platform via the pending qcom-ptool PR
+    # (qualcomm-linux/qcom-ptool#<PR>, commit 8be7dd6). Bump to the merge-commit
+    # SHA on qualcomm-linux/qcom-ptool main once that PR lands.
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8be7dd6982313f466e72fbe29b2b32dd56cb454e.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: 4fe113e20fa8feffdd962612f17cb03e60e6e7f460738bbcf897c7c9c631ad06
+    sha256sum: e914d1af7d347fd755b910f2b11950c2dd4c3650473104c4c479de383ab717e0
     unpack: true
 
   - action: download
@@ -407,6 +410,21 @@ actions:
         "sha256sum" "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
     )
     "dtb" "qcom/qrb2210-arduino-imola.dtb"
+)}}
+
+{{- $boards = append $boards (dict
+    "name" "maili-mtp"
+    "soc_id" "sm8950"
+    "ptool_platforms" (list "maili-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "Maili MTP boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/sm8950_bootbinaries.1.0/sm8950_bootbinaries.1.0-test-device-public/00135/maili-boot-binaries.zip"
+        "name" "maili-mtp_boot-binaries"
+        "filename" "maili-mtp_boot-binaries.zip"
+        "sha256sum" "2db1108f41ea9feddff0303be7e0b0af4fa66ce7405ee6e874749a9f4f266e82"
+    )
+    "dtb" "qcom/maili-mtp.dtb"
+    "dtb_bin_type" "combineddtb"
 )}}
 
 {{- range $board := $boards }}
