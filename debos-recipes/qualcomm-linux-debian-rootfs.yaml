@@ -51,6 +51,12 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
+# Debian switched from initramfs-tools to dracut after trixie
+{{- $initramfs := "dracut" }}
+{{- if eq $suite "trixie" }}
+{{- $initramfs = "initramfs-tools" }}
+{{- end }}
+
 architecture: {{ $architecture }}
 
 actions:
@@ -642,11 +648,7 @@ actions:
     recommends: true
     packages:
       - apparmor
-{{- if eq $suite "trixie" }}
-      - initramfs-tools
-{{- else }}
-      - dracut
-{{- end }}
+      - {{ $initramfs }}
       - kmod
       - linux-base
 
