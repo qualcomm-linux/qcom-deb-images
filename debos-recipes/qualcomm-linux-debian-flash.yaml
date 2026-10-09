@@ -58,6 +58,33 @@ actions:
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
+    Glymur CRD and Mahua CRD share the same qcom-ptool
+    platform (glymur-crd) and boot binaries; they differ in soc_id, CDT
+    and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "mahua-crd"
+    "soc_id" "mahua"
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "boot_binaries_download" (dict
+        "description" "Mahua boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
+        "name" "mahua_boot-binaries"
+        "filename" "mahua_boot-binaries.zip"
+        "sha256sum" "2477f98d66023a4cd59e7b8cca53dae1c8d2383979534e66348183f40b29d775"
+    )
+    "cdt_download" (dict
+        "description" "Mahua CRD CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8440XP/cdt/sc8440xp-crd.zip"
+        "name" "mahua-crd_cdt"
+        "filename" "mahua-crd_cdt.zip"
+        "sha256sum" "b229f339eb221f295fca66461a87e362505ecbb7e44f1d3b38a8a9fa4a244b71"
+    )
+    "cdt_filename" "CRD/cdt_mahua_crd_0.1.0.bin"
+    "dtb" "qcom/mahua-crd.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- /*
     IQ-X7181 and IQ-X5121 EVKs (hamoa / purwa SoCs) share the same qcom-ptool
     platform (iq-x7181-evk), boot binaries and CDT; they differ only in soc_id
     and DTB.
