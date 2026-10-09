@@ -1,17 +1,27 @@
+{{- $architecture := or .architecture "arm64" }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
+{{- $rootfs := printf "rootfs-%s.tar" $architecture }}
 {{- $xfcedesktop := or .xfcedesktop "false" }}
 {{- $gnomedesktop := or .gnomedesktop "false" }}
 {{- $westonsession := or .westonsession "false" }}
 {{- $multimedia := or .multimedia "false" }}
 {{- $localdebs := or .localdebs "none" }}
 {{- $aptlocalrepo := or .aptlocalrepo "none" }}
+{{- $defaultkernelpackages := dict
+      "arm64" "linux-image-qcom-next,linux-headers-qcom-next"
+      "armhf" "linux-image-armmp" }}
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
-{{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
+{{- $kernelpackages := or .kernelpackages .kernelpackage (get $defaultkernelpackages $architecture) }}
 {{- $overlays := or .overlays "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
 {{- $suite := or .suite "trixie" }}
 {{- $extract_dbg_vmlinux := or .extract_dbg_vmlinux "false" }}
+
+{{- if not (has $architecture (list "arm64" "armhf")) }}
+{{- fail (printf "only arm64 and armhf are supported, got architecture %q" $architecture) }}
+{{- end }}
 
 # xfcedesktop, gnomedesktop, westonsession and multimedia (booleans) are
 # deprecated, superseded by the single $variant variable below
@@ -41,7 +51,13 @@
 {{- $suite = "unstable" }}
 {{- end }}
 
-architecture: arm64
+# Debian switched from initramfs-tools to dracut after trixie
+{{- $initramfs := "dracut" }}
+{{- if eq $suite "trixie" }}
+{{- $initramfs = "initramfs-tools" }}
+{{- end }}
+
+architecture: {{ $architecture }}
 
 actions:
 {{- if .kernelpackage }}
@@ -473,8 +489,6 @@ actions:
       - bluez
       # tools to read/write EFI variables
       - efivar
-      # support for Qualcomm xDSPs
-      - fastrpc-support
       # fwupd tools, enable OTA EFI firmware capsule updates
       - fwupd
       # firmware for the Qualcomm xDSPs
@@ -485,8 +499,18 @@ actions:
       - libspa-0.2-libcamera
       # audio
       - pipewire
+
+{{- if eq $architecture "arm64" }}
+  # these are not built for armhf in Debian
+  - action: apt
+    description: Install useful packages only built for arm64
+    recommends: true
+    packages:
+      # support for Qualcomm xDSPs
+      - fastrpc-support
       # power management, notably throttling
       - thermald
+{{- end }}
 
   - action: apt
     description: Install qcom-linux-testkit dependencies
@@ -495,7 +519,8 @@ actions:
       # BT_ON_OFF uses expect to interact with bluetooth CLI
       - expect
 
-{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") }}
+# the Qualcomm Linux repository only has packages for arm64
+{{- if and (eq $qliaptrepo "true") (ne $suite "unstable") (eq $architecture "arm64") }}
   # fastrpc-tests is available from QLI overlays for trixie and forky
   - action: apt
     description: Install fastrpc-tests from QLI overlay
@@ -623,13 +648,40 @@ actions:
     recommends: true
     packages:
       - apparmor
-{{- if eq $suite "trixie" }}
-      - initramfs-tools
-{{- else }}
-      - dracut
-{{- end }}
+      - {{ $initramfs }}
       - kmod
       - linux-base
+
+  # on 32-bit architectures, dracut-install silently drops the module
+  # directories the initramfs generators request, so name the storage
+  # modules the qemu boot test needs (https://bugs.debian.org/1110545)
+{{- if and (eq $architecture "armhf") (eq $initramfs "initramfs-tools") }}
+  - action: run
+    description: Name the modules the qemu boot test needs for initramfs-tools
+    chroot: true
+    command: |
+      set -eux
+      cat >>/etc/initramfs-tools/modules <<'EOF'
+
+      # storage drivers for the qemu boot test
+      sd_mod
+      virtio_blk
+      virtio_scsi
+      EOF
+{{- end }}
+
+{{- if and (eq $architecture "armhf") (eq $initramfs "dracut") }}
+  - action: run
+    description: Name the modules the qemu boot test needs for dracut
+    chroot: true
+    command: |
+      set -eux
+      mkdir -p /etc/dracut.conf.d
+      cat >/etc/dracut.conf.d/90-qemu-storage.conf <<'EOF'
+      # storage drivers for the qemu boot test
+      force_drivers+=" sd_mod virtio_blk virtio_scsi "
+      EOF
+{{- end }}
 
   - action: apt
     description: Install kernel and firmware packages
@@ -656,6 +708,7 @@ actions:
     description: Install variant packages
     recipe: qualcomm-linux-debian-rootfs-variant.yaml
     variables:
+      architecture: {{ $architecture }}
       suite: {{ $suite }}
       variant: {{ $variant }}
 
@@ -839,12 +892,12 @@ actions:
       tar \
           -C "${latest_kernel}" \
           --transform='s|^\./||' \
-          -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
+          -cvzf "$ARTIFACTDIR/{{ $dtbs }}" \
           .
 
   - action: pack
     description: Create root filesystem tarball
-    file: rootfs.tar
+    file: {{ $rootfs }}
     compression: none
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.

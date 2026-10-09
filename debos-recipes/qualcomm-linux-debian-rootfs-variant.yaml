@@ -1,6 +1,10 @@
+{{- $architecture := .architecture }}
 {{- $suite := .suite }}
 {{- $variant := .variant }}
 
+{{- if empty $architecture }}
+{{- fail "architecture unset" }}
+{{- end }}
 {{- if empty $suite }}
 {{- fail "suite unset" }}
 {{- end }}
@@ -15,7 +19,7 @@
 {{- fail (printf "unknown variant %q" $variant) }}
 {{- end }}
 
-architecture: arm64
+architecture: {{ $architecture }}
 
 actions:
 {{- if eq $variant "minimal" }}
@@ -149,8 +153,6 @@ actions:
       - fonts-symbola
       - avahi-daemon
       - libnss-mdns
-      # browser
-      - chromium
       # bluetooth settings
       - blueman
       # audio: wireplumber for session integration, pipewire-pulse for chromium
@@ -167,6 +169,15 @@ actions:
       - gstreamer1.0-libcamera
       - libcamera-tools
       - libcamera-v4l2
+
+{{- if or (ne $architecture "armhf") (eq $suite "trixie") }}
+  # chromium is not built for armhf after trixie
+  - action: apt
+    description: Install web browser
+    recommends: false
+    packages:
+      - chromium
+{{- end }}
 {{- end }}
 
 {{- if has $variant (list "weston" "weston-multimedia") }}

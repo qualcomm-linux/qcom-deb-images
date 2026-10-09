@@ -1,0 +1,63 @@
+name: Build armhf debos images
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
+      variant:
+        description: >
+          Name of the image variant to build (e.g. xfce); it selects which
+          packages are installed in the image.
+        type: string
+        default: console
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+env:
+  DEBOS_EXTRA_ARGS: >-
+    -t suite:${{ inputs.suite }}
+    -t variant:${{ inputs.variant || 'console' }}
+
+jobs:
+  build-armhf:
+    name: >-
+      Build armhf debos images
+      (${{ (inputs.variant && inputs.variant != 'console') && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
+    runs-on: [self-hosted, qcom-u2404, arm64]
+    container:
+      image: public.ecr.aws/debian/debian:trixie
+      options: --privileged
+    steps:
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install debos and dependencies of the recipes and the boot test
+        run: apt -y install debian-archive-keyring debos e2fsprogs make mmdebstrap python3-pexpect python3-pytest qemu-system-arm qemu-utils
+
+      # the runners cannot run armhf binaries, the fakemachine's emulated CPU can
+      - name: Build rootfs with debos
+        run: make rootfs-armhf.tar FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Build UFS and SD card images with debos
+        run: make armhf FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Boot the armhf image in qemu
+        run: py.test-3 --verbose --capture=no -k armhf

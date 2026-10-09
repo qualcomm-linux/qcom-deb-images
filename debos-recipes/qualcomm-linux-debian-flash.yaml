@@ -1,3 +1,5 @@
+{{- $architecture := or .architecture "arm64" }}
+{{- $dtbs := printf "dtbs-%s.tar.gz" $architecture }}
 {{- $build_qcs615 := or .build_qcs615 "true" }}
 {{- $build_qcm6490 := or .build_qcm6490 "true" }}
 {{- $build_qcs8300 := or .build_qcs8300 "true" }}
@@ -10,7 +12,11 @@
 
 {{- $target_boards := or .target_boards "all" }}
 
-architecture: arm64
+{{- if ne $architecture "arm64" }}
+{{- fail (printf "only arm64 is supported, got architecture %q" $architecture) }}
+{{- end }}
+
+architecture: {{ $architecture }}
 
 actions:
   - action: download
@@ -455,8 +461,8 @@ actions:
       # build a list of supported dtbs from the dtbs tarball
       dtbs_file="build/dtbs.txt"
       : >"${dtbs_file}"
-      if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
-          tar -tzf "${ARTIFACTDIR}/dtbs.tar.gz" --wildcards '*.dtb' \
+      if [ -f "${ARTIFACTDIR}/{{ $dtbs }}" ]; then
+          tar -tzf "${ARTIFACTDIR}/{{ $dtbs }}" --wildcards '*.dtb' \
               >>"$dtbs_file"
       fi
 
@@ -492,17 +498,17 @@ actions:
       {{- end }}
 
       # Generate one dtb-multidtb-<soc>.bin (multi-DTB FIT image) per SoC from
-      # the qcom/ subtree of dtbs.tar.gz. A single combined FIT across all SoCs
+      # the qcom/ subtree of the dtbs tarball. A single combined FIT across all SoCs
       # overflows the 4 MiB FAT container, so each SoC gets its own; --soc
       # filters the FIT down to just that SoC's device trees.
-      if [ -f "${ARTIFACTDIR}/dtbs.tar.gz" ]; then
+      if [ -f "${ARTIFACTDIR}/{{ $dtbs }}" ]; then
           QCOM_DTB_METADATA="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
           mkdir -p build/dtbs
           # unpack only qcom/ DTBs
-          tar -C build/dtbs -xzf "${ARTIFACTDIR}/dtbs.tar.gz" qcom
+          tar -C build/dtbs -xzf "${ARTIFACTDIR}/{{ $dtbs }}" qcom
         {{- range $soc := $fit_soc | uniq }}
           # Only build a FIT for this SoC if at least one of its boards' DTBs is
-          # actually shipped in dtbs.tar.gz. qcom-dtb-metadata may know a new SoC
+          # actually shipped in the dtbs tarball. qcom-dtb-metadata may know a new SoC
           # (so --soc is valid and its ITS configs get selected) before the
           # kernel ships that SoC's DTBs; without this gate build-dtb-image.sh
           # --prune would drop every config and hard-fail. This mirrors the
@@ -521,7 +527,7 @@ actions:
               fi
           done
           if [ "${soc_present}" = false ]; then
-              echo "Skipping FIT for SoC {{ $soc }}: no DTBs present in dtbs.tar.gz"
+              echo "Skipping FIT for SoC {{ $soc }}: no DTBs present in {{ $dtbs }}"
           else
               dtb_bin="${ARTIFACTDIR}/dtb-multidtb-{{ $soc }}.bin"
               # build-dtb-image.sh --prune fails when every ITS config for
@@ -541,7 +547,7 @@ actions:
                   echo "Multi-DTB FIT image generated: ${dtb_bin}"
               else
                   rm -f "${dtb_bin}"
-                  echo "Skipping FIT for SoC {{ $soc }}: build-dtb-image.sh --prune left no usable configs (required DTBs/DTBOs not in dtbs.tar.gz)"
+                  echo "Skipping FIT for SoC {{ $soc }}: build-dtb-image.sh --prune left no usable configs (required DTBs/DTBOs not in {{ $dtbs }})"
               fi
           fi
         {{- end }}
@@ -719,7 +725,7 @@ actions:
               mkfs.vfat -S 4096 -C "${dtb_bin}" 4096
               # extract board device tree from the root filesystem provided
               # tarball
-              tar -C build -xvf "${ARTIFACTDIR}/dtbs.tar.gz" "$board_dtb"
+              tar -C build -xvf "${ARTIFACTDIR}/{{ $dtbs }}" "$board_dtb"
               # copy into the FAT as combined-dtb.dtb
               mcopy -vmp -i "${dtb_bin}" "build/${board_dtb}" ::/combined-dtb.dtb
           fi
