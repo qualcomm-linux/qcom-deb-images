@@ -94,7 +94,7 @@ jobs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
     runs-on: [self-hosted, qcom-u2404, arm64]
     container:
-      image: public.ecr.aws/debian/debian:trixie
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       volumes:
         - /efsx/qli/qcom-deb-images:/efs
       options: --privileged
@@ -128,17 +128,34 @@ jobs:
       - name: Copy U-Boot for RB1 from EFS
         run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
 
+      # apt-utils is needed for apt-ftparchive
       # mtools is needed for the flash recipe
-      # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+      # file, device-tree-compiler and u-boot-tools are needed by
+      # qcom-dtb-metadata
+      - name: Install build and test dependencies
+        run: |
+          set -ux
+          apt -y install \
+              apt-utils \
+              debian-archive-keyring \
+              debos \
+              device-tree-compiler \
+              file \
+              make \
+              mmdebstrap \
+              mtools \
+              python3-defusedxml \
+              python3-pexpect \
+              python3-pytest \
+              qemu-efi-aarch64 \
+              qemu-system-arm \
+              u-boot-tools \
+              xmlstarlet
 
       - name: Setup local APT repo
         run: |
           set -ux -o pipefail
 
-          # needed for apt-ftparchive
-          apt -y install --no-install-recommends apt-utils
           mkdir -v local-apt-repo
 
           # optionally, copy kernel debs from EFS
@@ -189,6 +206,9 @@ jobs:
               ;;
           esac
 
+          # build on the host; without /dev/kvm (and UML being
+          # unsupported on arm64) newer debos falls back to the qemu
+          # backend, where the rootfs build runs out of memory
           debos \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
@@ -196,6 +216,7 @@ jobs:
               -t kernelpackages:"$kernel_packages" \
               -t "overlays:$OVERLAYS" \
               ${DEBOS_EXTRA_ARGS} \
+              --disable-fakemachine \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 

@@ -164,17 +164,31 @@ jobs:
                 apt update
             fi
             # install build-dependencies; TODO: --no-install-recommends
-            apt -y install git crossbuild-essential-arm64 make flex bison bc \
-                libdw-dev libelf-dev libssl-dev libssl-dev:arm64 dpkg-dev \
-                debhelper kmod python3 rsync coreutils
+            # dcmd from devscripts is used to parse the .changes file
+            apt -y install \
+                bc \
+                bison \
+                coreutils \
+                crossbuild-essential-arm64 \
+                debhelper \
+                devscripts \
+                dpkg-dev \
+                flex \
+                git \
+                kmod \
+                libdw-dev \
+                libelf-dev \
+                libssl-dev \
+                libssl-dev:arm64 \
+                make \
+                python3 \
+                rsync
             scripts/build-linux-deb.py ${BUILD_LINUX_DEB_EXTRA_ARGS} \
                 `ls kernel-configs/*.config | sort` \
 
       - name: Stage artifacts for upload
         run: |
           set -ux
-          # dcmd from devscripts will be used to parse .changes file
-          apt -y install --no-install-recommends devscripts
           # stage artifacts in a directory
           mkdir -v artifacts
           cp -av `dcmd *.changes` artifacts
