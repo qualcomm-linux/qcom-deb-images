@@ -1,10 +1,8 @@
 name: arduino linux build
 
 on:
-  # run daily at 6:30am, once the qcom-next build (0:30am) and the "Build"
-  # workflow chained onto it have submitted their LAVA jobs
   schedule:
-    - cron: '30 6 * * *'
+    - cron: '00 1 * * *'
   # allow manual runs
   workflow_dispatch:
 
