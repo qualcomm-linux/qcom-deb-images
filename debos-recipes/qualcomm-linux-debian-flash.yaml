@@ -441,7 +441,12 @@ actions:
     chroot: false
     command: |
       set -eux
-      # work dir that will be thrown away
+
+      # When running with --disable-fakemachine the cwd of the run action is
+      # set to $ARTIFACTDIR. Use $ROOTDIR instead, which is inside the
+      # temporary scratch directory debos creates and removes at the end of
+      # the build.
+      cd "${ROOTDIR}"
       mkdir -v build
 
       # mirror template variables in shell variables to keep the action body
@@ -765,9 +770,6 @@ actions:
                       '{}' \;
               done
       done
-
-      # cleanup
-      rm -rf build
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
