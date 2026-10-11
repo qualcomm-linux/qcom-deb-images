@@ -261,6 +261,20 @@ actions:
       # Iris Video Processing Unit
       - iris-vpu-dkms
 
+      # AudioReach kernel driver
+      - audioreach-dkms
+
+      # PipeWire audio services
+      - pipewire
+      - wireplumber
+
+      # AudioReach userspace
+      - audioreach-pipewire-plugin
+
+      # AudioReach diagnostics and testing
+      - audioreach-graphmgr-utils
+      - tinyalsa
+
   - action: run
     description: Remove temporary DKMS configuration
     chroot: true
