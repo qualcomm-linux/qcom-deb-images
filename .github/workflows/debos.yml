@@ -180,9 +180,10 @@ jobs:
             # look at the special value efs/* instead of splitting
             #
             # if kernel package is from EFS, determine actual package name(s);
-            # install the generated linux-headers-* packages alongside the
+            # install any generated linux-headers-* packages alongside the
             # linux-image-* ones since these are ephemeral and not published in
-            # an APT repo (unlike official Debian kernels, installed from APT)
+            # an APT repo (unlike official Debian kernels, installed from APT);
+            # headers are only built when requested with build_kernel_headers
             # 
             efs/*)
               kernel_packages="$(find local-apt-repo/kernel -type f \( -name 'linux-image-*' -o -name 'linux-headers-*' \) -not -name '*dbg*'|xargs -n1 basename|cut -f1 -d_|sort|paste -sd,)"
