@@ -234,6 +234,7 @@ actions:
       "src:greetd:any"
       "src:hexagon-dsp-binaries:any"
       "src:linux:any"
+      "src:linux-base:any"
       "src:linux-signed-arm64:any"
       "src:mesa:any"
       "src:rmtfs:any"
