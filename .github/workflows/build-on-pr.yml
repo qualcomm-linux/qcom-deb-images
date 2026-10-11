@@ -23,18 +23,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # QLI targets qcom-next; install the kernel from the QLI APT
+        # repository. weston-multimedia also needs the kernel headers to
+        # build its out-of-tree drivers with DKMS
         include:
           - suite: trixie
             variant: console
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: weston-multimedia
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: forky
             variant: console
+            kernelpackages: 'linux-image-qcom-next'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
-      # QLI targets qcom-next; install the kernel from the QLI APT repository
-      kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+      kernelpackages: ${{ matrix.kernelpackages }}

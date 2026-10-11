@@ -47,7 +47,7 @@ jobs:
           - suite: trixie
             variant: console
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: weston-multimedia
             profile: default
@@ -55,31 +55,31 @@ jobs:
           - suite: trixie
             variant: xfce
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: xfce
             profile: performance
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: xfce
             profile: debug
-            kernelpackages: 'linux-image-qcom-next-debug,linux-headers-qcom-next-debug'
+            kernelpackages: 'linux-image-qcom-next-debug'
           - suite: trixie
             variant: gnome
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: minimal
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: forky
             variant: console
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: forky
             variant: minimal
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read

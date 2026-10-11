@@ -161,10 +161,12 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
-  apt; defaults to `linux-image-qcom-next,linux-headers-qcom-next`. Set it to
-  `linux-image-arm64` to install the kernel from Debian, or to `none` when you
-  are installing a locally built kernel package. See the [Kernel](#kernel)
-  section below for more information.
+  apt; defaults to `linux-image-qcom-next`. Set it to `linux-image-arm64` to
+  install the kernel from Debian, or to `none` when you are installing a
+  locally built kernel package. Kernel headers are not installed by default;
+  add the matching headers package when they are needed, e.g. for the
+  `weston-multimedia` variant, which builds out-of-tree drivers with DKMS. See
+  the [Kernel](#kernel) section below for more information.
 - `kernelpackage`: **deprecated**, superseded by `kernelpackages`; still
   accepted as a single package name for backwards compatibility.
 - `extract_dbg_vmlinux`: extract the unstripped kernel binary (`vmlinux`)
@@ -275,10 +277,9 @@ The following profiles are supported:
 - `performance`: appends `quiet systemd.tty.term.console=dumb` to the kernel
   command line, so that the kernel doesn't print the boot log to the (slow)
   console. It uses the default kernel configuration. Based on [meta-qcom's `ci/performance.yml` configuration](https://github.com/qualcomm-linux/meta-qcom/blob/master/ci/performance.yml).
-- `debug`: intended to be built with the `linux-image-qcom-next-debug` and
-  `linux-headers-qcom-next-debug` kernel packages (the kernel is a build
-  matrix option, independent of the profile; see `build.yml`). What the
-  profile does is:
+- `debug`: intended to be built with the `linux-image-qcom-next-debug` kernel
+  package (the kernel is a build matrix option, independent of the profile;
+  see `build.yml`). What the profile does is:
   - enable ftrace at boot by appending
     `ftrace=tracing_on trace_buf_size=5M trace_event=<events>` to the kernel
     command line, where `<events>` covers the timer, irq, workqueue, sched,
@@ -383,10 +384,9 @@ password to a safe one.
 ## Kernel
 
 The default kernel, installed by the recipes and by every CI-built image, is
-the `linux-image-qcom-next` package from the Qualcomm Linux APT repository. The
-corrosponding kernel headers are also installed. It is the default because it
-carries additional hardware support for Qualcomm devices, on top of what the
-kernel in the Debian archive provides.
+the `linux-image-qcom-next` package from the Qualcomm Linux APT repository. It
+is the default because it carries additional hardware support for Qualcomm
+devices, on top of what the kernel in the Debian archive provides.
 
 The package is built from `qcom-next`, the Qualcomm Linux integration branch of
 the [Qualcomm Linux kernel tree](https://github.com/qualcomm-linux/kernel), by

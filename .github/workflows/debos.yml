@@ -21,7 +21,7 @@ on:
           package directory (e.g. efs/mainline). By default we target the
           qcom-next kernel package from the QLI APT repository.
         type: string
-        default: 'linux-image-qcom-next,linux-headers-qcom-next'
+        default: 'linux-image-qcom-next'
       debos_extra_args:
         description: Extra arguments to pass to debos (e.g. -t dtb:qcom/some.dtb)
         type: string

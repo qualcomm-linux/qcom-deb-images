@@ -40,15 +40,15 @@ jobs:
           - suite: trixie
             variant: xfce
             profile: default
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.2'
           - suite: trixie
             variant: xfce
             profile: performance
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.2'
           - suite: trixie
             variant: xfce
             profile: debug
-            kernelpackages: 'linux-image-qcom-7.2-debug,linux-headers-qcom-7.2-debug'
+            kernelpackages: 'linux-image-qcom-7.2-debug'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
