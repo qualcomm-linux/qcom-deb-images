@@ -36,6 +36,32 @@ on:
         description: Kernel flavour in the image (e.g. qcom-next)
         required: true
         type: string
+      # These override what the image recorded about itself. A caller that
+      # built the kernel itself has to supply them: bindeb-pkg records nothing
+      # in the package, so the image cannot be asked after the fact. A caller
+      # installing a packaged kernel leaves them empty.
+      kernel_version:
+        description: >
+          Kernel release string of the kernel under test, i.e. what uname -r
+          reports on the booted board (e.g. 7.3.0-rc2-next-20260907)
+        required: false
+        type: string
+        default: ''
+      kernel_repo:
+        description: Git repository the kernel under test was built from
+        required: false
+        type: string
+        default: ''
+      kernel_ref:
+        description: Git ref the kernel under test was built from
+        required: false
+        type: string
+        default: ''
+      kernel_commit:
+        description: Git commit the kernel under test was built from
+        required: false
+        type: string
+        default: ''
       project_name:
         description: Project name in lava-test-plans
         required: false
@@ -93,8 +119,25 @@ jobs:
       jobmatrix: ${{ steps.lava-test-plans.outputs.jobmatrix }}
       artifact_id: ${{ steps.lava-test-plans.outputs.artifact_id }}
     steps:
+      # The build records what it installed and publishes it as
+      # kernel-info-<prefix>, so read back what the image under test carries.
+      - name: Download the kernel info
+        id: kernel-info
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          run-id: ${{ inputs.build_id }}
+          name: kernel-info-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+          path: kernel-info
+          github-token: ${{ github.token }}
+
       - name: Collect the build metadata
         id: meta
+        env:
+          INPUT_KERNEL_VERSION: ${{ inputs.kernel_version }}
+          INPUT_KERNEL_REPO: ${{ inputs.kernel_repo }}
+          INPUT_KERNEL_REF: ${{ inputs.kernel_ref }}
+          INPUT_KERNEL_COMMIT: ${{ inputs.kernel_commit }}
         run: |
           set -euo pipefail
           SOURCE_SHA="${GITHUB_SHA}"
@@ -108,10 +151,39 @@ jobs:
                   SOURCE_BRANCH=$(jq -r '.workflow_run.head_branch // ""' "${GITHUB_EVENT_PATH}")
               fi
           fi
+
+          # Read, never source: on the pull request path the build that
+          # produced this file ran from a fork, and this job holds the LAVA
+          # token. One line per key, first match wins, shell left out of it.
+          KERNEL_INFO="kernel-info/kernel_info"
+          kernel_info_get() {
+              [ -f "${KERNEL_INFO}" ] || return 0
+              awk -v k="$1" 'index($0, k "=") == 1 {
+                  print substr($0, length(k) + 2); exit
+              }' "${KERNEL_INFO}"
+          }
+          if [ -f "${KERNEL_INFO}" ]; then
+              cat "${KERNEL_INFO}"
+          else
+              echo "::warning::no kernel info artifact for this image;" \
+                   "the kernel under test will not be identified"
+          fi
+          # the package version is a dpkg fact, so the image always knows it
+          KERNEL_DEB_VERSION="$(kernel_info_get KERNEL_DEB_VERSION)"
+          # a caller that built the kernel itself wins, see the inputs above
+          KERNEL_VERSION="${INPUT_KERNEL_VERSION:-$(kernel_info_get KERNEL_VERSION)}"
+          KERNEL_REPO="${INPUT_KERNEL_REPO:-$(kernel_info_get KERNEL_REPO)}"
+          KERNEL_REF="${INPUT_KERNEL_REF:-$(kernel_info_get KERNEL_REF)}"
+          KERNEL_COMMIT="${INPUT_KERNEL_COMMIT:-$(kernel_info_get KERNEL_COMMIT)}"
           {
             echo "build_type=${BUILD_TYPE}"
             echo "source_sha=${SOURCE_SHA}"
             echo "source_branch=${SOURCE_BRANCH}"
+            echo "kernel_version=${KERNEL_VERSION}"
+            echo "kernel_deb_version=${KERNEL_DEB_VERSION}"
+            echo "kernel_repo=${KERNEL_REPO}"
+            echo "kernel_ref=${KERNEL_REF}"
+            echo "kernel_commit=${KERNEL_COMMIT}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Render boot jobs
@@ -145,6 +217,11 @@ jobs:
             suite = "${{ inputs.suite }}"
             variant = "${{ inputs.variant }}"
             kernel = "${{ inputs.kernel }}"
+            kernel-version = "${{ steps.meta.outputs.kernel_version }}"
+            kernel-deb-version = "${{ steps.meta.outputs.kernel_deb_version }}"
+            kernel-repo = "${{ steps.meta.outputs.kernel_repo }}"
+            kernel-ref = "${{ steps.meta.outputs.kernel_ref }}"
+            kernel-commit = "${{ steps.meta.outputs.kernel_commit }}"
             testplan = "debian/boot"
             testkit-ref = "${{ inputs.testkit_ref }}"
             lava-test-plans-ref = "${{ env.LAVA_TEST_PLANS_REF }}"
@@ -249,8 +326,25 @@ jobs:
       jobmatrix: ${{ steps.lava-test-plans.outputs.jobmatrix }}
       artifact_id: ${{ steps.lava-test-plans.outputs.artifact_id }}
     steps:
+      # The build records what it installed and publishes it as
+      # kernel-info-<prefix>, so read back what the image under test carries.
+      - name: Download the kernel info
+        id: kernel-info
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          run-id: ${{ inputs.build_id }}
+          name: kernel-info-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+          path: kernel-info
+          github-token: ${{ github.token }}
+
       - name: Collect the build metadata
         id: meta
+        env:
+          INPUT_KERNEL_VERSION: ${{ inputs.kernel_version }}
+          INPUT_KERNEL_REPO: ${{ inputs.kernel_repo }}
+          INPUT_KERNEL_REF: ${{ inputs.kernel_ref }}
+          INPUT_KERNEL_COMMIT: ${{ inputs.kernel_commit }}
         run: |
           set -euo pipefail
           SOURCE_SHA="${GITHUB_SHA}"
@@ -264,10 +358,39 @@ jobs:
                   SOURCE_BRANCH=$(jq -r '.workflow_run.head_branch // ""' "${GITHUB_EVENT_PATH}")
               fi
           fi
+
+          # Read, never source: on the pull request path the build that
+          # produced this file ran from a fork, and this job holds the LAVA
+          # token. One line per key, first match wins, shell left out of it.
+          KERNEL_INFO="kernel-info/kernel_info"
+          kernel_info_get() {
+              [ -f "${KERNEL_INFO}" ] || return 0
+              awk -v k="$1" 'index($0, k "=") == 1 {
+                  print substr($0, length(k) + 2); exit
+              }' "${KERNEL_INFO}"
+          }
+          if [ -f "${KERNEL_INFO}" ]; then
+              cat "${KERNEL_INFO}"
+          else
+              echo "::warning::no kernel info artifact for this image;" \
+                   "the kernel under test will not be identified"
+          fi
+          # the package version is a dpkg fact, so the image always knows it
+          KERNEL_DEB_VERSION="$(kernel_info_get KERNEL_DEB_VERSION)"
+          # a caller that built the kernel itself wins, see the inputs above
+          KERNEL_VERSION="${INPUT_KERNEL_VERSION:-$(kernel_info_get KERNEL_VERSION)}"
+          KERNEL_REPO="${INPUT_KERNEL_REPO:-$(kernel_info_get KERNEL_REPO)}"
+          KERNEL_REF="${INPUT_KERNEL_REF:-$(kernel_info_get KERNEL_REF)}"
+          KERNEL_COMMIT="${INPUT_KERNEL_COMMIT:-$(kernel_info_get KERNEL_COMMIT)}"
           {
             echo "build_type=${BUILD_TYPE}"
             echo "source_sha=${SOURCE_SHA}"
             echo "source_branch=${SOURCE_BRANCH}"
+            echo "kernel_version=${KERNEL_VERSION}"
+            echo "kernel_deb_version=${KERNEL_DEB_VERSION}"
+            echo "kernel_repo=${KERNEL_REPO}"
+            echo "kernel_ref=${KERNEL_REF}"
+            echo "kernel_commit=${KERNEL_COMMIT}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Render pre-merge jobs
@@ -301,6 +424,11 @@ jobs:
             suite = "${{ inputs.suite }}"
             variant = "${{ inputs.variant }}"
             kernel = "${{ inputs.kernel }}"
+            kernel-version = "${{ steps.meta.outputs.kernel_version }}"
+            kernel-deb-version = "${{ steps.meta.outputs.kernel_deb_version }}"
+            kernel-repo = "${{ steps.meta.outputs.kernel_repo }}"
+            kernel-ref = "${{ steps.meta.outputs.kernel_ref }}"
+            kernel-commit = "${{ steps.meta.outputs.kernel_commit }}"
             testplan = "debian/pre-merge"
             testkit-ref = "${{ inputs.testkit_ref }}"
             lava-test-plans-ref = "${{ env.LAVA_TEST_PLANS_REF }}"
