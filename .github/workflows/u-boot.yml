@@ -59,8 +59,20 @@ jobs:
         run: |
             set -ux
             # install build-dependencies
-            apt -y install git crossbuild-essential-arm64 make bison flex bc \
-                libssl-dev gnutls-dev xxd coreutils gzip mkbootimg fwupd
+            apt -y install \
+                bc \
+                bison \
+                coreutils \
+                crossbuild-essential-arm64 \
+                flex \
+                fwupd \
+                git \
+                gnutls-dev \
+                gzip \
+                libssl-dev \
+                make \
+                mkbootimg \
+                xxd
             scripts/build-u-boot-rb1.sh
 
       - name: Stage artifacts for upload
