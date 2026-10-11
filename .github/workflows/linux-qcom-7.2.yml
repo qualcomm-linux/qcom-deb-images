@@ -38,6 +38,10 @@ jobs:
           # profile, so that any kernel can be combined with any profile (e.g.
           # the debug kernel with the default profile when bisecting)
           - suite: trixie
+            variant: weston-multimedia
+            profile: default
+            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+          - suite: trixie
             variant: xfce
             profile: default
             kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
