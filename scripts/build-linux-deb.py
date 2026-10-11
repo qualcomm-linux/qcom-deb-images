@@ -180,6 +180,11 @@ def main():
         help=("Path to an existing Linux kernel source tree;"
               " if not set, the repo will be cloned into ./linux"),
     )
+    parser.add_argument(
+        "--no-headers",
+        action="store_true",
+        help="Do not build the linux-headers package",
+    )
 
     parser.add_argument(
         "fragments",
@@ -304,9 +309,15 @@ def main():
             cwd=linux_dir
         )
 
+    build_env = dict(subprocess.os.environ)
+    if args.no_headers:
+        # build profile from the kernel's scripts/package/mkdebian
+        log_i("Not building the linux-headers package")
+        build_env["DEB_BUILD_PROFILES"] = "pkg.linux-upstream.nokernelheaders"
+
     log_i("Building Linux deb")
     build_command = make_base_command + [DEB_PKG_SET]
-    subprocess.run(build_command, check=True, cwd=linux_dir)
+    subprocess.run(build_command, check=True, cwd=linux_dir, env=build_env)
 
 
 if __name__ == "__main__":

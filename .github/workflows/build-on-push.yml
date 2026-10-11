@@ -19,7 +19,7 @@ jobs:
     with:
       suite: ${{ matrix.suite }}
       # QLI targets qcom-next; install the kernel from the QLI APT repository
-      kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+      kernelpackages: 'linux-image-qcom-next'
   test:
     # one test run per suite, matching the images the build job produces;
     # without this only the default suite, trixie, is ever tested

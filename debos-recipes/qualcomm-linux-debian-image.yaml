@@ -50,7 +50,7 @@
 # The kernel package is not selected here: it's a build matrix option (see
 # build.yml), independent of the profile, so that any kernel can be paired
 # with any profile. The debug profile is meant to be built with the
-# linux-image-qcom-next-debug/linux-headers-qcom-next-debug kernel packages.
+# linux-image-qcom-next-debug kernel package.
 {{- if eq $profile "debug" }}
 # Keep trace events grouped by subsystem for readability, then combine them into
 # the comma-separated trace_event= value used by meta-qcom's
