@@ -87,6 +87,18 @@ jobs:
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
   test:
+    # one test run per image "Build on PR" produces; keep in step with its
+    # build matrix, or an image goes untested
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: trixie
+            variant: console
+          - suite: trixie
+            variant: weston-multimedia
+          - suite: forky
+            variant: console
     uses: $/.github/workflows/test.yml
     permissions:
       checks: write
@@ -102,7 +114,8 @@ jobs:
       # run, not this one; it is also where the event file lives
       build_id: ${{ github.event.workflow_run.id }}
       kernel: qcom-next
-      suite: trixie
+      suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}
       pr_number: ${{ needs.retrieve-build-url.outputs.pr_number }}
       pr_url: ${{ needs.retrieve-build-url.outputs.pr_url }}
       # this run is on the base branch, the results belong to the pull request
@@ -119,10 +132,12 @@ jobs:
       # thollander/actions-comment-pull-request
       pull-requests: write
     steps:
-      - name: Download summary
+      # the summary_id output of a matrix job only holds the value of one of
+      # its jobs, so download every summary by name instead
+      - name: Download summaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ needs.test.outputs.summary_id }}
+          pattern: "*-test_job_summary"
           path: summary
 
       - name: Prepare PR comment
@@ -132,7 +147,8 @@ jobs:
           set -euo pipefail
           echo "## Test results for commit ${HEAD_SHA}" > pr-comment.txt
           echo "" >> pr-comment.txt
-          find summary -type f -exec cat {} + >> pr-comment.txt
+          # sorted, so the summaries keep their order when the comment is updated
+          find summary -type f -print0 | sort -z | xargs -0 cat >> pr-comment.txt
           cat pr-comment.txt
 
       - name: Comment on PR
