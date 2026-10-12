@@ -15,13 +15,16 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    # Includes the maili-mtp/ufs platform via the pending qcom-ptool PR
-    # (qualcomm-linux/qcom-ptool#<PR>, commit 8be7dd6). Bump to the merge-commit
-    # SHA on qualcomm-linux/qcom-ptool main once that PR lands.
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/8be7dd6982313f466e72fbe29b2b32dd56cb454e.tar.gz
+    # Includes the maili-mtp board as a structured YAML definition
+    # (platforms/boards/maili-mtp.yaml) on top of the (lun, name) partition
+    # merge fix, via the pending qcom-ptool PR qualcomm-linux/qcom-ptool#181
+    # (commit 9dd7a68, served through the fork network at the SHA below). Bump
+    # to the merge-commit SHA on qualcomm-linux/qcom-ptool main once PR #181
+    # lands.
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/9dd7a68c25dd549b423f7343c74f01bb5deced8c.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: e914d1af7d347fd755b910f2b11950c2dd4c3650473104c4c479de383ab717e0
+    sha256sum: dc85694646c2e7bb22dd42040333d675f7622ee66d90e9a75c493276f44ee775
     unpack: true
 
   - action: download
