@@ -154,7 +154,7 @@ Commit messages do not need to follow the Conventional Commits specification.
 Prefixes such as `feat`, `fix`, `refactor` and `chore` are not required; please
 identify the affected area instead.
 
-# AI-Assisted Contributions
+## AI-Assisted Contributions
 
 - Contributions that were developed with the help of generative AI tools (e.g.,
   coding assistants, chat-based models, AI agents) must follow the guidelines
@@ -168,7 +168,7 @@ identify the affected area instead.
   be actively involved in reviewing, validating, and taking ownership of every
   change before it is submitted.
 
-## Licensing and Legal Requirements
+### Licensing and Legal Requirements
 
 All contributions—whether human-written or AI-assisted—must comply with the
 project's licensing requirements:
@@ -180,7 +180,7 @@ project's licensing requirements:
   verbatim. If you suspect a suggestion originates from a specific copyrighted
   source, do not include it.
 
-## DCO and Sign-off
+### DCO and Sign-off
 
 AI tools and agents **must not** add `Signed-off-by` tags. Only a human can
 certify the [Developer Certificate of Origin
@@ -198,7 +198,7 @@ The human submitter is responsible for:
 If you use an AI tool to generate or modify code, you are still the author of
 record and bear the same obligations as any other contributor.
 
-## Attribution
+### Attribution
 
 Attribution helps track the evolving role of AI in the development process.
 Contributions should follow the [Linux Kernel's coding
