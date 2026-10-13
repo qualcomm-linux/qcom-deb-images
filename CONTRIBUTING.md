@@ -97,86 +97,64 @@ A few things to keep in mind:
 - Changes to a `schedule:`, `push:` or `workflow_run:` trigger itself cannot be tested this way, as GitHub always reads those from `main`.
 - These builds use the self-hosted runners and the LAVA boards, which are shared and limited. A full run takes a while; avoid queueing more of them than you need.
 
-# Commit messages
+## Commit messages
 
 When writing commit messages, follow the [well-formed git commit message](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html) guide.
-
-This project also follows the guidelines from the [Conventional Commits](https://conventionalcommits.org) specification.
 
 The subject of each commit message (e.g. the first line) should be in the form:
 
 ```
-<type>(<scope>): <description>
+<area>: <description>
 ```
 
-The `scope` is optional; please add one when the change is confined to a single area of the tree. Use the path-like scopes already in use in the history; for instance: `debos/flash`, `debos/rootfs`, `ci`, `kernel`, `kernel-configs`, `Makefile`, `README` or `scripts/build-linux-deb`.
+The `area` should identify the part of the project affected by the change. Prefer the path-like prefixes already used in the repository, such as `debos/flash`,
+`debos/rootfs`, `ci`, `kernel`, `kernel-configs`, `Makefile`, `README` or `scripts/build-linux-deb`.
 
-The common types used in this repository are:
+For changes spanning multiple areas, use a broader prefix that describes the overall change. The prefix may be omitted when no meaningful area can be identified.
 
-| Type       | Description                                                        |
-| ---------- | ------------------------------------------------------------------ |
-| `feat`     | a new feature, board, recipe or package                            |
-| `fix`      | a bug fix                                                          |
-| `refactor` | a change which neither fixes a bug nor adds a feature              |
-| `docs`     | documentation only changes                                         |
-| `ci`       | changes to the GitHub workflows or the LAVA test jobs              |
-| `test`     | adding or correcting tests                                         |
-| `chore`    | maintenance which does not change behaviour, e.g. dependency bumps |
-
-This list is not complete; do use your judgement when choosing type and scope in commit messages.
-
-Start the commit subject in lowercase, don't add a trailing full-stop and keep the subject line at 72 characters or less.
-
-Write the commit description in the imperative mood (e.g. `add`, not `added` or `adds`).
-
-Explain *why* the change is needed in the body (wrapped at 72 characters or less per line) and finish with the usual trailers, for example:
-`Fixes: #467`, `Assisted-by:` (see [AI-Assisted Contributions](#ai-assisted-contributions)) and your `Signed-off-by:`.
-
-Some examples taken from the history of this repository:
+Some examples:
 
 ```
-feat(debos/flash): add sm8750-mtp
+ci: reschedule nightly builds to allow more time for testing
+debos/rootfs: install additional USB debugging packages
+kernel-configs: enable support for the RB3 Gen 2 USB hub
+README: document the supported image variants
+docs: expand the testing documentation
+scripts/build-linux-deb: handle release candidate versions
 ```
 
-```
-fix(debos/flash): skip multidtb SoCs with no FIT
-```
+General guidelines:
+
+- Keep the subject concise (within 72 characters).
+- Use the imperative mood (e.g. "add" rather than "added" or "adds").
+- Start the description with a lowercase letter, unless it begins with a proper noun or identifier.
+- Do not end the subject with a full stop.
+- Separate the subject from the commit body with a blank line.
+- Use the body to explain **why** the change is needed and provide any relevant context, rather than simply repeating what the diff does.
+- Reference relevant issues or bug reports in the body where appropriate.
+
+The length of each line in the commit message is checked by a linter to ensure
+it does not exceed 72 characters.
+
+### Breaking changes
+
+Breaking changes should be indicated by appending `!` to the area prefix,
+immediately before the colon, for example:
 
 ```
-refactor(debos/rootfs): build backports pin package list from a template
-
-The `Package:` line for the backports pin lists all packages on a single
-long line which can be hard to review and amend.
-
-Instead build the package list from a Go template list with one package
-per line and join the list when generating the preferences file.
-
-Signed-off-by: Jane Smith <jane.smith@example.com>
+debos/rootfs!: change the default partition layout
 ```
 
-## Breaking changes
+For changes without an area prefix, use `!: description`.
 
-If a commit changes behaviour in a way which requires contributors or users to adapt, e.g. renaming a board field or a command line option, append a `!` after the type and scope, for example:
+The commit body should explain the compatibility impact and any migration steps
+required. A `BREAKING CHANGE:` footer may also be included to make the impact explicit.
 
-```
-refactor(debos/flash)!: rename silicon_family to soc_id
-```
+Commit messages do not need to follow the Conventional Commits specification.
+Prefixes such as `feat`, `fix`, `refactor` and `chore` are not required; please
+identify the affected area instead.
 
-Describe what breaks and how to migrate in the body and add a `BREAKING CHANGE:` footer when the migration deserves to stand out:
-
-```
-feat(kernel)!: install linux-headers along -image
-
-For kernels built locally via bindeb-pkg and staged on EFS, install the
-generated linux-headers-* packages in addition to linux-image-*.
-
-BREAKING CHANGE: the local APT repo must now also contain the
-linux-headers-* packages matching the installed kernel.
-
-Signed-off-by: Jane Smith <jane.smith@example.com>
-```
-
-# AI-Assisted Contributions
+## AI-Assisted Contributions
 
 - Contributions that were developed with the help of generative AI tools (e.g.,
   coding assistants, chat-based models, AI agents) must follow the guidelines
@@ -190,7 +168,7 @@ Signed-off-by: Jane Smith <jane.smith@example.com>
   be actively involved in reviewing, validating, and taking ownership of every
   change before it is submitted.
 
-## Licensing and Legal Requirements
+### Licensing and Legal Requirements
 
 All contributions—whether human-written or AI-assisted—must comply with the
 project's licensing requirements:
@@ -202,7 +180,7 @@ project's licensing requirements:
   verbatim. If you suspect a suggestion originates from a specific copyrighted
   source, do not include it.
 
-## DCO and Sign-off
+### DCO and Sign-off
 
 AI tools and agents **must not** add `Signed-off-by` tags. Only a human can
 certify the [Developer Certificate of Origin
@@ -220,7 +198,7 @@ The human submitter is responsible for:
 If you use an AI tool to generate or modify code, you are still the author of
 record and bear the same obligations as any other contributor.
 
-## Attribution
+### Attribution
 
 Attribution helps track the evolving role of AI in the development process.
 Contributions should follow the [Linux Kernel's coding
