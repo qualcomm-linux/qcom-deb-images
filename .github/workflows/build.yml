@@ -7,16 +7,8 @@
 name: Build
 
 on:
-  # run daily at 0:30am. these are the images QLI ships, so they go first of
-  # the scheduled builds and get an empty LAVA queue; the rest of the day's
-  # builds are staggered behind them (arduino 6:30am, vanilla Debian 10:30am)
-  # so that they don't all submit LAVA jobs at once.
-  #
-  # the images this workflow produces are shared with the test teams and are
-  # expected by 8:00am IST (2:30am UTC); building from 0:30am leaves two hours
-  # of headroom, see issue #566.
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '00 21 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -131,3 +123,29 @@ jobs:
       pull-requests: write
     secrets:
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+
+  # trigger for the Qualcomm internal CI: it watches for this check run by
+  # its exact name ("Checks Run Name" in its configuration) and starts once
+  # it passes. the job does nothing itself; it only runs once every build
+  # above has succeeded, and is skipped otherwise. the name must stay unique
+  # across all workflows in this repository, or the internal CI can't tell
+  # the runs apart; don't rename, move or remove this job without updating
+  # the internal CI configuration at the same time
+  internal-ci-images-built:
+    name: Internal CI trigger (qcom-next images built)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-next images built"
+
+  # trigger for the Qualcomm internal CI, as above, once every test has
+  # passed; don't rename, move or remove this job without updating the
+  # internal CI configuration at the same time
+  internal-ci-images-tested:
+    name: Internal CI trigger (qcom-next images tested)
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-next images tested"

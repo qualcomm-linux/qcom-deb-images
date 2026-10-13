@@ -7,9 +7,8 @@
 name: qcom-7.2 linux build
 
 on:
-  # run daily at 4:30am, after qcom-next (0:30am).
   schedule:
-    - cron: '30 4 * * *'
+    - cron: '00 23 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -96,3 +95,29 @@ jobs:
       pull-requests: write
     secrets:
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+
+  # trigger for the Qualcomm internal CI: it watches for this check run by
+  # its exact name ("Checks Run Name" in its configuration) and starts once
+  # it passes. the job does nothing itself; it only runs once every build
+  # above has succeeded, and is skipped otherwise. the name must stay unique
+  # across all workflows in this repository, or the internal CI can't tell
+  # the runs apart; don't rename, move or remove this job without updating
+  # the internal CI configuration at the same time
+  internal-ci-images-built:
+    name: Internal CI trigger (qcom-7.2 images built)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-7.2 images built"
+
+  # trigger for the Qualcomm internal CI, as above, once every test has
+  # passed; don't rename, move or remove this job without updating the
+  # internal CI configuration at the same time
+  internal-ci-images-tested:
+    name: Internal CI trigger (qcom-7.2 images tested)
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-7.2 images tested"

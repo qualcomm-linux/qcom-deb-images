@@ -1,10 +1,8 @@
 name: qcom-laptops linux build
 
 on:
-  # run daily at 7:00am, once the qcom-next build (0:30am) and the "Build"
-  # workflow chained onto it have submitted their LAVA jobs
   schedule:
-    - cron: '00 7 * * *'
+    - cron: '00 3 * * *'
   # allow manual runs
   workflow_dispatch:
 

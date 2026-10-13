@@ -29,7 +29,8 @@ tuned!
 
 Every image is flashed onto real boards and tested in the LAVA lab; see
 [docs/testing.md](docs/testing.md) for which boards run which tests and how to
-change that.
+change that. See [docs/workflows.md](docs/workflows.md) for when the scheduled
+builds run and why.
 
 ## Vulnerability assessments
 
