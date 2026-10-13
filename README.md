@@ -329,7 +329,7 @@ build on any other name:
 - `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
-  stack (GPU, camera and video codec drivers and user-space).
+  stack (GPU, camera, audio, video codec and related user-space tools).
 
 Every variant other than `minimal` also installs a common set of useful
 packages on top: Bluetooth, PipeWire, fwupd, the DSP binaries and FastRPC
