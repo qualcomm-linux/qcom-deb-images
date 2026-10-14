@@ -1,10 +1,10 @@
 disk-*.img*
-dtbs.tar*
+dtbs*.tar*
 dtb-*.bin
 *.deb
 *.buildinfo
 *.changes
-rootfs.tar*
+rootfs*.tar*
 fake-scratch.img*
 __pycache__/
 flash_*/
