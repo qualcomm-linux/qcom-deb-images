@@ -1,7 +1,7 @@
 # Qualcomm Linux deb images
 
 A collection of recipes to build Qualcomm Linux images for deb based
-operating systems.
+operating systems. Test.
 
 The main goal of this project is to provide mainline-centric images for
 Qualcomm® IoT platforms as to demonstrate the state of upstream open source
