@@ -442,11 +442,13 @@ actions:
       set -eux
       # pre-emptively create a sudo group if sudo isn't installed
       getent group sudo >/dev/null 2>&1 || groupadd --system sudo
+      # pre-emptively create a kvm group if udev isn't installed
+      getent group kvm >/dev/null 2>&1 || groupadd --system kvm
       # some useful groups for desktop scenarios, but also to run payloads
       # from the serial console, over SSH, or in containers - where the desktop
       # session has not updated ACLs to the device nodes
       useradd --create-home --shell /usr/bin/bash --user-group \
-          --groups adm,audio,render,sudo,users,video debian
+          --groups adm,audio,kvm,render,sudo,users,video debian
       # set password to "debian"
       echo debian:debian | chpasswd
       # password must be changed on first login
