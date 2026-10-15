@@ -79,7 +79,7 @@ env:
   TESTKIT_REF: "testkit-2026.09.27"
 
 jobs:
-  prepare-env:
+  select-boards:
     name: Select boards
     runs-on: ubuntu-latest
     permissions:
@@ -130,7 +130,7 @@ jobs:
 
   test:
     name: ${{ inputs.kernel }} ${{ inputs.suite }}
-    needs: prepare-env
+    needs: select-boards
     uses: $/.github/workflows/test-distro.yml
     permissions:
       checks: write
@@ -142,13 +142,13 @@ jobs:
     with:
       url: ${{ inputs.url }}
       build_id: ${{ inputs.build_id || github.run_id }}
-      devices: ${{ needs.prepare-env.outputs.devices }}
-      devices_premerge: ${{ needs.prepare-env.outputs.devices_premerge }}
+      devices: ${{ needs.select-boards.outputs.devices }}
+      devices_premerge: ${{ needs.select-boards.outputs.devices_premerge }}
       suite: ${{ inputs.suite }}
       variant: ${{ inputs.variant }}
       kernel: ${{ inputs.kernel }}
-      testkit_ref: ${{ needs.prepare-env.outputs.testkit-ref }}
-      known_failures_file: ${{ needs.prepare-env.outputs.known_failures_file }}
+      testkit_ref: ${{ needs.select-boards.outputs.testkit-ref }}
+      known_failures_file: ${{ needs.select-boards.outputs.known_failures_file }}
       pr_number: ${{ inputs.pr_number }}
       pr_url: ${{ inputs.pr_url }}
 
