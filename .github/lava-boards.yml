@@ -48,6 +48,5 @@ debian:
 mainline:
   boot:
     - glymur-crd
-    - monaco-arduino-monza
     - qcs6490-rb3gen2
-    - qrb2210-arduino-imola
+    - qrb2210-rb1
