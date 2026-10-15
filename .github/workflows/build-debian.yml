@@ -67,8 +67,6 @@ jobs:
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
       kernel: debian
-      # failures here are about upstream Debian, not about qcom-deb-images;
-      # they are reported through this workflow instead of gating our work
 
   publish-test-results:
     if: always() && needs.test-debian.result != 'skipped'
@@ -81,5 +79,3 @@ jobs:
       pull-requests: write
     secrets:
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
-    with:
-      report_test_results_externally: false

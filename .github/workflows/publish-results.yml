@@ -30,16 +30,6 @@ on:
         required: false
         type: string
         default: ''
-      report_test_results_externally:
-        description: >
-          true for builds whose failures say something about qcom-deb-images,
-          false for builds whose failures say something about the code under
-          test rather than about qcom-deb-images; results then stay in the job
-          summary, which is written either way. A failed test fails the run in
-          both cases.
-        required: false
-        type: boolean
-        default: true
     secrets:
       TEST_REPORTING_APP_TOKEN:
         description: >
@@ -137,12 +127,10 @@ jobs:
           # this workflow rather than a pass
           action_fail_on_inconclusive: true
 
-      # when not reporting externally, failures must not show up as a red
-      # check on the commit (which may well be on main); the job summary keeps
-      # the full table either way. always(), so failed results get their check
-      # too: the step above fails the job when tests fail
+      # always(), so failed results get their check too: the step above fails
+      # the job when tests fail
       - name: Publish check run
-        if: ${{ always() && inputs.report_test_results_externally }}
+        if: ${{ always() }}
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
