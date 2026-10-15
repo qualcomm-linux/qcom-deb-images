@@ -36,12 +36,8 @@ arduino:
 linux-next:
   boot:
     - glymur-crd
-    - monaco-arduino-monza
-    - monaco-evk
     - qcs6490-rb3gen2
-    - qrb2210-arduino-imola
     - qrb2210-rb1
-    - shikra-iqs-evk
 
 debian:
   boot:
