@@ -15,7 +15,10 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    uses: qualcomm/qcom-reusable-workflows/.github/workflows/reusable-qcom-preflight-checks-orchestrator.yml@1b3e75efaf857a0f0a0a6d65d6110c8bc1eff455 # v2.0.13
+    # deliberately tracks the moving v2 tag rather than a commit SHA like
+    # every other action: we own qcom-reusable-workflows and want its
+    # fixes picked up straight away without waiting for Dependabot
+    uses: qualcomm/qcom-reusable-workflows/.github/workflows/reusable-qcom-preflight-checks-orchestrator.yml@v2
     with:
       enable-semgrep-scan: true
       enable-dependency-review: true
