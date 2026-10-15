@@ -41,9 +41,10 @@ linux-next:
 
 debian:
   boot:
-    - lemans-evk
+    - glymur-crd
     - qcs615-ride
     - qcs6490-rb3gen2
+    - qrb2210-rb1
 
 mainline:
   boot:
