@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # thollander/actions-comment-pull-request
+      # marocchino/sticky-pull-request-comment
       pull-requests: write
     steps:
       - name: Download summary
@@ -136,12 +136,16 @@ jobs:
           cat pr-comment.txt
 
       - name: Comment on PR
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
-          file-path: pr-comment.txt
-          pr-number: ${{ needs.retrieve-build-url.outputs.pr_number }}
-          # update the same comment instead of appending one per re-run
-          comment-tag: test-results
+          path: pr-comment.txt
+          number_force: ${{ needs.retrieve-build-url.outputs.pr_number }}
+          # post a fresh comment on every run (GitHub only notifies on
+          # comment creation) and minimize the previous one as outdated
+          # instead of deleting it, keeping the history collapsed
+          header: test-results
+          hide_and_recreate: true
+          hide_classify: OUTDATED
 
   publish-test-results:
     if: always() && needs.test.result != 'skipped'
