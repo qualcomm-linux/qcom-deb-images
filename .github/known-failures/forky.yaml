@@ -31,8 +31,8 @@ lemans-evk:
 
 monaco-arduino-monza:
   - test: Ethernet_Basic_Validation
-    comment: "fails on arduino and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
-    kernels: [arduino, mainline]
+    comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino]
 
 qcs615-ride:
   - test: EFI_Variable_Validation
@@ -59,8 +59,8 @@ qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
   - test: fastrpc_test
-    comment: "fails on arduino and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [arduino, mainline]
+    comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino]
 
 qrb2210-rb1:
   - test: EFI_Variable_Validation
