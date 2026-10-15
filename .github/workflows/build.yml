@@ -135,7 +135,7 @@ jobs:
     name: Internal CI trigger (qcom-next images built)
     needs: build
     if: needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions: {}
     steps:
       - run: echo "qcom-next images built"
@@ -159,7 +159,7 @@ jobs:
     if: >-
       needs.test.result == 'success' &&
       needs.publish-test-results.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions: {}
     steps:
       - run: echo "qcom-next images tested"

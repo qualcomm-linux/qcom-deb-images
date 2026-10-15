@@ -19,7 +19,7 @@ concurrency:
 jobs:
   flake8:
     name: Install and run Flake8 on Python scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
     steps:
@@ -38,7 +38,7 @@ jobs:
 
   pylint:
     name: Install and run Pylint on Python scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
     steps:
@@ -57,7 +57,7 @@ jobs:
 
   shellcheck:
     name: Install and run ShellCheck on shell scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
     steps:
