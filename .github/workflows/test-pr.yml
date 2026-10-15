@@ -140,6 +140,12 @@ jobs:
           echo "## Test results for commit ${HEAD_SHA}" > pr-comment.txt
           echo "" >> pr-comment.txt
           find summary -type f -exec cat {} + >> pr-comment.txt
+          # the previous comment is hidden rather than edited (see below)
+          {
+            echo ""
+            echo "---"
+            echo "♻️ This comment replaces earlier results, which are hidden as outdated."
+          } >> pr-comment.txt
           cat pr-comment.txt
 
       - name: Comment on PR
