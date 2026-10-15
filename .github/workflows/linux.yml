@@ -229,7 +229,7 @@ jobs:
       kernel: ${{ inputs.kernel_name || 'mainline' }}
 
   publish-test-results:
-    if: always() && needs.test-linux-deb.result != 'skipped'
+    if: ${{ !cancelled() && needs.test-linux-deb.result != 'skipped' }}
     needs: test-linux-deb
     uses: $/.github/workflows/publish-results.yml
     permissions:

@@ -127,10 +127,10 @@ jobs:
           # this workflow rather than a pass
           action_fail_on_inconclusive: true
 
-      # always(), so failed results get their check too: the step above fails
-      # the job when tests fail
+      # !cancelled(), so failed results get their check too: the step above
+      # fails the job when tests fail
       - name: Publish check run
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPOSITORY: ${{ github.repository }}

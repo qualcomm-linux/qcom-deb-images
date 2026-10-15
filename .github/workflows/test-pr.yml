@@ -114,7 +114,7 @@ jobs:
     # publish-test-results decides whether the tests passed, after known
     # failures are applied, so wait for it to give the verdict
     needs: [retrieve-build-url, test, publish-test-results]
-    if: always() && needs.test.outputs.summary_id != ''
+    if: ${{ !cancelled() && needs.test.outputs.summary_id != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -181,7 +181,7 @@ jobs:
           hide_classify: OUTDATED
 
   publish-test-results:
-    if: always() && needs.test.result != 'skipped'
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
