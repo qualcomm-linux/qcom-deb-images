@@ -80,7 +80,7 @@ jobs:
       kernel: debian
 
   publish-test-results:
-    if: always() && needs.test-debian.result != 'skipped'
+    if: ${{ !cancelled() && needs.test-debian.result != 'skipped' }}
     needs: test-debian
     uses: $/.github/workflows/publish-results.yml
     permissions:

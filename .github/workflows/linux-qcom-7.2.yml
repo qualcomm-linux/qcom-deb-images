@@ -97,7 +97,7 @@ jobs:
       kernel: qcom-7.2
 
   publish-test-results:
-    if: always() && needs.test.result != 'skipped'
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
@@ -132,8 +132,8 @@ jobs:
   #   passed (after known failures are applied)
   # - test: still fails when one of its other jobs fails (e.g.
   #   preparing, collecting or summarising results), while
-  #   publish-test-results runs on always() and could pass on partial
-  #   results in that case
+  #   publish-test-results runs on !cancelled() and could pass on
+  #   partial results in that case
   # build isn't listed: if it fails, test and everything after it is
   # skipped. don't rename, move or remove this job without updating the
   # internal CI configuration at the same time

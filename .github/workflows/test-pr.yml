@@ -110,7 +110,7 @@ jobs:
       head_repository: ${{ github.event.workflow_run.head_repository.full_name }}
 
   publish-test-results:
-    if: always() && needs.test.result != 'skipped'
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
@@ -130,7 +130,7 @@ jobs:
     # publish-test-results decides whether the tests passed, after known
     # failures are applied, so wait for it to give the verdict
     needs: [retrieve-build-url, test, publish-test-results]
-    if: always() && needs.test.outputs.summary_id != ''
+    if: ${{ !cancelled() && needs.test.outputs.summary_id != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
