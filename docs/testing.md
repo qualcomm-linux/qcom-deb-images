@@ -20,11 +20,9 @@ build workflow  ──▶  test.yml  ──▶  test-distro.yml  ──▶  LAVA
   for them and writes the summary. It runs the boot jobs first and then the
   `pre-merge` tests on every board that booted — a board that fails to boot no
   longer stops the others from being tested.
-* **`.github/actions/test-job-summary`** reads the finished jobs back out of
-  LAVA and renders the results table. It is vendored from
-  [qcom-reusable-workflows][qrw], where it was written; its header records the
-  commit it came from. Fixes that are not specific to this repository belong
-  upstream first.
+* The **`test-job-summary`** action from [qcom-reusable-workflows][qrw],
+  pinned in `test-distro.yml`, reads the finished jobs back out of LAVA and
+  renders the results table. Fixes to it belong upstream.
 * The job definitions themselves are **not** in this repository. They are
   rendered by [lava-test-plans][ltp] from the `qcom-deb-images` project, which
   holds the per-board flashing parameters, and the tests come from

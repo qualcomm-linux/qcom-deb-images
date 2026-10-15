@@ -351,8 +351,7 @@ jobs:
       summary_id: ${{ steps.generate-summary.outputs.artifact_id }}
     steps:
       # the known failures list the summary reads is a file in this
-      # repository, so it has to be checked out. The action itself is
-      # referenced as $/ and is fetched by the runner, not from the workspace.
+      # repository, so it has to be checked out
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -360,9 +359,7 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
-        # local action pinned to the running workflow's commit
-        # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
-        uses: $/.github/actions/test-job-summary
+        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@1b3e75efaf857a0f0a0a6d65d6110c8bc1eff455 # v2.0.13
         with:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}
