@@ -31,8 +31,8 @@ lemans-evk:
 
 monaco-arduino-monza:
   - test: Ethernet_Basic_Validation
-    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
-    kernels: [arduino, linux-next, mainline]
+    comment: "fails on arduino and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino, mainline]
 
 qcs615-ride:
   - test: EFI_Variable_Validation
@@ -59,15 +59,9 @@ qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
   - test: fastrpc_test
-    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [arduino, linux-next, mainline]
+    comment: "fails on arduino and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino, mainline]
 
 qrb2210-rb1:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-
-shikra-iqs-evk:
-  # shikra is only tested on linux-next, see .github/lava-boards.yml
-  - test: fastrpc_test
-    comment: "no FastRPC session can be created on the CDSP (AEE_EUNABLETOLOAD), https://github.com/qualcomm-linux/qcom-deb-images/issues/671"
-    kernels: [linux-next]
