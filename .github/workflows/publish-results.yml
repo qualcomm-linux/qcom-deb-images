@@ -127,11 +127,11 @@ jobs:
           # this workflow rather than a pass
           action_fail_on_inconclusive: true
 
-      # always(), so failed results get their check too: the step above fails
-      # the job when tests fail
+      # !cancelled(), so failed results get their check too: the step above
+      # fails the job when tests fail
       - name: Prepare check run
         id: check
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULTS: ${{ steps.publish.outputs.json || '{}' }}
@@ -159,7 +159,7 @@ jobs:
           echo "output=${output}" >> "$GITHUB_OUTPUT"
 
       - name: Publish check run
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
         uses: LouisBrunner/checks-action@937cbbcde3259005b50746dc91cde29098aac2ff # v3.1.0
         with:
           token: ${{ steps.app_token.outputs.token }}
