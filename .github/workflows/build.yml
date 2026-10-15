@@ -134,17 +134,31 @@ jobs:
   internal-ci-images-built:
     name: Internal CI trigger (qcom-next images built)
     needs: build
+    if: needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - run: echo "qcom-next images built"
 
   # trigger for the Qualcomm internal CI, as above, once every test has
-  # passed; don't rename, move or remove this job without updating the
+  # passed, and skipped otherwise. both jobs are needed:
+  # - publish-test-results: the Boot and Pre-merge jobs in
+  #   test-distro.yml use continue-on-error, so test succeeds even when
+  #   they fail; only publish-test-results knows whether the tests
+  #   passed (after known failures are applied)
+  # - test: still fails when one of its other jobs fails (e.g.
+  #   preparing, collecting or summarising results), while
+  #   publish-test-results runs on always() and could pass on partial
+  #   results in that case
+  # build isn't listed: if it fails, test and everything after it is
+  # skipped. don't rename, move or remove this job without updating the
   # internal CI configuration at the same time
   internal-ci-images-tested:
     name: Internal CI trigger (qcom-next images tested)
-    needs: test
+    needs: [test, publish-test-results]
+    if: >-
+      needs.test.result == 'success' &&
+      needs.publish-test-results.result == 'success'
     runs-on: ubuntu-latest
     permissions: {}
     steps:
