@@ -23,10 +23,10 @@ actions:
 
   - action: download
     description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
-    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/e27e9b433d1bd7757d99c9970368ab8acdbffe2d.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/dfa9f221a88e97a6acf1db32f0ce5934cfef4b38.tar.gz
     name: qcom-dtb-metadata
     filename: qcom-dtb-metadata.tar.gz
-    sha256sum: 638b3b2d2079d55ccc2e5553aba6a30b623ace38e71b7e8f90a6729ba5285406
+    sha256sum: 45e697717d676f4d1d19aac9e71065f80612640c1080c5cf70684d42f188ecee
     unpack: true
 
 # soc_id identifies the SoC/SKU each board is built on, using the same
@@ -55,6 +55,32 @@ actions:
     )
     "cdt_filename" "CRD/cdt_glymur_crd_0.1.0.bin"
     "dtb" "qcom/glymur-crd.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- /*
+    Kalambo CRD shares the same qcom-ptool platform (glymur-crd) and boot
+    binaries as Mahua CRD; it differs only in soc_id and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "kalambo-crd"
+    "soc_id" "kalambo"
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "boot_binaries_download" (dict
+        "description" "Kalambo boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
+        "name" "kalambo_boot-binaries"
+        "filename" "kalambo_boot-binaries.zip"
+        "sha256sum" "2477f98d66023a4cd59e7b8cca53dae1c8d2383979534e66348183f40b29d775"
+    )
+    "cdt_download" (dict
+        "description" "Kalambo CRD CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8440XP/cdt/sc8440xp-crd.zip"
+        "name" "kalambo-crd_cdt"
+        "filename" "kalambo-crd_cdt.zip"
+        "sha256sum" "b229f339eb221f295fca66461a87e362505ecbb7e44f1d3b38a8a9fa4a244b71"
+    )
+    "cdt_filename" "CRD/cdt_mahua_crd_0.1.0.bin"
+    "dtb" "qcom/kalambo-crd.dtb"
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
