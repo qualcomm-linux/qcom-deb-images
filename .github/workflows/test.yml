@@ -155,7 +155,7 @@ jobs:
   prepare-test-results:
     name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
     needs: test
-    if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read # actions/checkout
