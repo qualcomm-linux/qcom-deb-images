@@ -88,7 +88,7 @@ env:
 jobs:
   prepare-boot-jobs:
     name: Prepare boot jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       jobmatrix: ${{ steps.lava-test-plans.outputs.jobmatrix }}
       artifact_id: ${{ steps.lava-test-plans.outputs.artifact_id }}
@@ -153,7 +153,7 @@ jobs:
 
   submit-boot-job:
     needs: prepare-boot-jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # one red board must not stop the others; the failure is reported through
     # the summary and the JUnit results instead
     continue-on-error: true
@@ -201,7 +201,7 @@ jobs:
 
   boot-job-result:
     name: Collect boot results
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [submit-boot-job]
     if: always()
     permissions:
@@ -242,7 +242,7 @@ jobs:
 
   prepare-premerge-jobs:
     name: Prepare pre-merge jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: boot-job-result
     if: ${{ needs.boot-job-result.outputs.booted_devices != '' }}
     outputs:
@@ -309,7 +309,7 @@ jobs:
 
   submit-premerge-job:
     needs: prepare-premerge-jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     continue-on-error: true
     name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
     permissions:
@@ -342,7 +342,7 @@ jobs:
     name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
     needs: [boot-job-result, submit-premerge-job]
     if: always() && needs.boot-job-result.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
       checks: write
