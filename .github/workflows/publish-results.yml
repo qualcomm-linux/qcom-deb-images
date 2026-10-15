@@ -44,9 +44,9 @@ on:
       TEST_REPORTING_APP_TOKEN:
         description: >
           Private key of the Test Reporting GitHub App. Its token publishes the
-          check and the pull request comment, so they come from the app rather
-          than from github-actions and the check gets a check suite of its own
-          instead of landing in whichever workflow's suite happened to run.
+          check, so it comes from the app rather than from github-actions and
+          gets a check suite of its own instead of landing in whichever
+          workflow's suite happened to run.
         required: true
 
 # grant nothing by default; every job below declares the scopes it needs. these
@@ -111,10 +111,12 @@ jobs:
           # images, so a delta against an earlier commit compares unlike sets
           compare_to_earlier_commit: false
           # when not reporting externally, failures must not show up as a red
-          # check on the commit (which may well be on main) or as a pull
-          # request comment; the job summary keeps the full table either way.
+          # check on the commit (which may well be on main); the job summary
+          # keeps the full table either way.
           check_run: ${{ inputs.report_test_results_externally }}
-          comment_mode: ${{ inputs.report_test_results_externally && 'always' || 'off' }}
+          # test-pr.yml already posts the results as a pull request comment,
+          # so a comment from here would only duplicate it
+          comment_mode: off
           # A failed test that is not a known failure has to fail this job
           action_fail: true
           # no results at all, or files that parse to nothing, is a failure of
