@@ -101,7 +101,11 @@ jobs:
           commit: ${{ inputs.commit }}
           event_file: ${{ inputs.commit != '' && format('{0}/event-file/event.json', github.workspace) || '' }}
           event_name: ${{ inputs.event_name }}
-          check_name: Test Results
+          # GitHub only shows the latest check run of a given name from an
+          # app on a commit; several workflows publish results for the same
+          # commit on main, so each needs a name of its own or they hide each
+          # other. github.workflow is the calling workflow's name
+          check_name: Test Results (${{ github.workflow }})
           github_token: ${{ steps.app_token.outputs.token }}
           # one variant per kernel and suite runs the same tests, so tell the
           # runs apart instead of folding them into one result per test
