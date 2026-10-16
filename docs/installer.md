@@ -84,6 +84,7 @@ running as root. `SUITE` picks the Debian suite (default `trixie`), and
 | `--arch` | host architecture | target architecture, `arm64` or `amd64` |
 | `--suite` | `trixie` | Debian suite, e.g. `forky` |
 | `--installer` | `cdrom` | installer type, only `cdrom` for now |
+| `--qli-repo` | off | add the Qualcomm Linux APT repository to the installed system, for ISOs with a qcom kernel |
 
 For example:
 
@@ -138,6 +139,18 @@ tasksel's standard task and the packages in
 `overlays/common/package-lists/`, so the installer can install a standard
 system offline.
 
+`build.sh` adds further packages to the pool, from `config/packages.binary/`:
+
+- the kernel `.deb`(s), in place of the stock kernel, which
+  `0060-drop-stock-kernel.hook.binary` drops
+- on arm64, the firmware packages `fetch-firmware.sh` fetched, and `stubble`
+  with its dependencies (`scripts/lib/fetch-stubble.sh`), from
+  `trixie-backports` on trixie
+
+It also generates preseed lines in `config/installer-preseed.cfg` so that
+base-installer installs the custom kernel and pkgsel the firmware and
+`stubble`.
+
 ## Boot menu
 
 On arm64, `overlays/arm64/hooks/normal/0100-qcom-laptop-boot.hook.binary`
@@ -147,19 +160,46 @@ builds the GRUB menu:
   Stubble EFI binary, which bundles every DTB of the kernel with an entry in
   Stubble's HWID database and picks the right one at boot.
 
+## Installed system
+
+The installed system gets the custom kernel, which boots it.
+
+`scripts/lib/target-apt.sh` sets up APT on it like the debos rootfs
+(`debos-recipes/qualcomm-linux-debian-rootfs.yaml`), through apt-setup:
+`non-free-firmware`, `trixie-backports` on trixie, and with `--qli-repo` the
+Qualcomm Linux repository, so that a qcom kernel gets updates from it. The
+pins for these are in `/qli/apt/` on the ISO.
+
+On arm64, `overlays/arm64/preseed/cdrom/qcom-laptop-postinst.cfg` runs
+`/qli/qcom-laptop-postinst.sh` from the ISO at the end of the install, to
+install the files no package ships:
+
+- the APT pins, in `/etc/apt/preferences.d/`
+- the initramfs hooks from `/qli/initramfs-tools/` (see below)
+- the kernel hooks from `/qli/stubble/kernel/`, which build
+  `/boot/stubble-$VERSION.efi` (the kernel plus the DTBs Stubble has HWIDs
+  for) for each kernel, and remove it with the kernel
+- `/qli/stubble/grub.d/09_qcom-stubble`, which adds a GRUB entry for each
+  Stubble image ahead of the stock ones, so the newest is the default
+- the laptops' boot arguments (`overlays/arm64/lib/qcom-laptop-boot-args.sh`)
+  in `/etc/default/grub.d/qcom-laptop.cfg`
+
+It then rebuilds the initrds, the Stubble images and `grub.cfg`. Packaging
+these files would make it unnecessary.
+
+The Stubble images are unsigned, so booting them likely needs Secure Boot
+disabled.
+
 ## ThinkPad T14s Gen 6
 
 The ADSP runs the Type-C port manager on Snapdragon X laptops, and resetting it
 makes the USB media vanish if it has already been found. So the installer
 resets the ADSP early, from
 `overlays/arm64/initrd/usr/lib/debian-installer-startup.d/S03qcom-adsp`, and
-the installed system does the same from its initramfs.
-
-As a temporary workaround,
-`overlays/arm64/preseed/cdrom/qcom-laptop-postinst.cfg` runs
-`/qli/qcom-laptop-postinst.sh` from the ISO at the end of the install. It adds
-the initramfs hooks and ADSP firmware to the installed system, and on trixie
-installs the newer kernel from `trixie-backports`.
+the installed system does the same from its initramfs: the `qcom-adsp`
+initramfs hooks load `qcom_q6v5_pas` before the root filesystem is mounted,
+and `qcom-laptop-firmware` adds the ADSP firmware from the firmware packages
+to the initrd.
 
 ## CI
 
@@ -172,4 +212,4 @@ for three kernels, each on trixie and forky:
 
 `.github/workflows/installer-build.yml` downloads the kernel `.deb`(s), builds
 the image and uploads it gzipped as `$SUITE-$KERNEL-installer-cdrom.img.gz`,
-with its `sha256sums`.
+with its `sha256sums`. It passes `--qli-repo` for the qcom kernels.
