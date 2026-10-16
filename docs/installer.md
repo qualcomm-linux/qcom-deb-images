@@ -143,6 +143,9 @@ system offline.
 
 - the kernel `.deb`(s), in place of the stock kernel, which
   `0060-drop-stock-kernel.hook.binary` drops
+- the kernel's dependencies (`scripts/lib/fetch-kernel-deps.sh`), since
+  base-installer installs the kernel before backports is set up on the
+  target; on trixie, `linux-base` comes from `trixie-backports`
 - on arm64, the firmware packages `fetch-firmware.sh` fetched, and `stubble`
   with its dependencies (`scripts/lib/fetch-stubble.sh`), from
   `trixie-backports` on trixie
