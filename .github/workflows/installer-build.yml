@@ -159,7 +159,15 @@ jobs:
           fi
 
       - name: Build debian-installer image
-        run: installer/scripts/build.sh --arch arm64 --installer cdrom --suite "${SUITE}" kernel/*.deb
+        run: |
+          set -ux
+          # the Qualcomm Linux repository gives the target the kernel updates
+          set --
+          if [ "${KERNEL}" != debian ]; then
+              set -- --qli-repo
+          fi
+          installer/scripts/build.sh --arch arm64 --installer cdrom \
+              --suite "${SUITE}" "$@" kernel/*.deb
 
       - name: Stage installer artifacts for publishing
         run: |

@@ -10,9 +10,8 @@
 #     qcom-laptop-firmware adds the laptop's firmware to the initrd. Also copy
 #     the ADSP firmware from the ISO's /qli/firmware/ to the target, which
 #     has none otherwise
-#  2) trixie only: add the trixie-backports apt source and install its
-#     kernel, which is newer than the one base-installer put in from the
-#     ISO's pool. Needs the network
+#  2) install the APT pins from the ISO's /qli/apt/, for the backports and
+#     Qualcomm Linux sources apt-setup added
 #  3) regenerate the initrds, so they pick up the hooks
 set -e
 
@@ -32,8 +31,6 @@ log() {
 #    exit 0
 #fi
 
-# Before the kernel install below, so its postinst builds the initrd with
-# them.
 for hook in \
     hooks/qcom-adsp \
     hooks/qcom-laptop-firmware \
@@ -73,38 +70,17 @@ do
     chmod 0644 "$TARGET/usr/lib/firmware/$FIRMWARE_DIR/$fw"
 done
 
-# Only trixie: later suites' kernels are new enough, and have no backports
-# yet. A failed install (e.g. no network) keeps the stock kernel.
-# shellcheck disable=SC1091
-SUITE=$(. "$TARGET/etc/os-release" && echo "$VERSION_CODENAME")
-if [ "$SUITE" = trixie ]; then
-    log "adding trixie-backports"
-    cat >"$TARGET/etc/apt/sources.list.d/trixie-backports.sources" <<EOF
-Types: deb
-URIs: http://deb.debian.org/debian/
-Suites: trixie-backports
-Components: main non-free-firmware
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-EOF
+# The APT pins target-apt.sh generated: d-i sets up the sources, but has no
+# preseed for pins.
+for pref in /cdrom/qli/apt/*.pref; do
+    [ -f "$pref" ] || continue
+    log "installing /etc/apt/preferences.d/${pref##*/}"
+    mkdir -p "$TARGET/etc/apt/preferences.d"
+    cp "$pref" "$TARGET/etc/apt/preferences.d/${pref##*/}"
+    chmod 0644 "$TARGET/etc/apt/preferences.d/${pref##*/}"
+done
 
-    # The target's sources.list still has the installer's cdrom entry (d-i only
-    # comments it out later, in finish-install), and the cdrom isn't reachable
-    # from in-target, so apt-get update fails on it even though the other
-    # sources update fine. Let the install decide whether it can go ahead.
-    if ! in-target apt-get update; then
-        log "apt-get update failed for some sources (e.g. the cdrom), trying anyway"
-    fi
-
-    log "installing the trixie-backports kernel"
-    if ! in-target env DEBIAN_FRONTEND=noninteractive \
-            apt-get -y install -t trixie-backports linux-image-arm64; then
-        log "failed to install the trixie-backports kernel, keeping the stock one"
-    fi
-fi
-
-# Covers the kernels whose initrd was built before the hooks were installed:
-# the one base-installer put in from the ISO's pool, which stays on other
-# suites, and on trixie if the backports install failed.
+# base-installer built the kernel's initrd before the hooks were installed.
 log "regenerating the initrds"
 chroot "$TARGET" update-initramfs -u -k all
 
