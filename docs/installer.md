@@ -17,7 +17,7 @@ Build on a Debian host with:
 
 ```bash
 apt -y install live-build apt-utils xorriso python3-pefile \
-    device-tree-compiler stubble
+    device-tree-compiler stubble fdisk
 ```
 
 live-build runs natively, not in the debos container, and has to run as root.
@@ -44,10 +44,13 @@ On trixie, `stubble` is in `trixie-backports`.
 
 ## Kernel requirements
 
-The kernel `.deb` must ship its DTBs, and must be able to mount the ISO:
-the `cdrom` installer only finds its media by mounting it as ISO 9660, and
-the kernel can't load the stock `isofs` udeb. The build checks for this before
-it starts. arm64 `defconfig` lacks it, so set:
+The kernel `.deb` must ship its DTBs.
+
+For now the build writes a FAT32 disk image (`.img`, to write to a USB
+stick) instead of an ISO, which the installer mounts as vfat, so the kernel
+needs no ISO 9660 support. To mount an ISO, the `cdrom` installer needs it
+built into the kernel, since the kernel can't load the stock `isofs` udeb,
+and arm64 `defconfig` lacks it:
 
 ```
 CONFIG_ISO9660_FS=m
@@ -85,7 +88,7 @@ For example:
 make installer KERNEL_DEB=linux-image-qcom-next.deb SUITE=forky
 ```
 
-The ISO is written to `installer/build/$ARCH/$SUITE/cdrom/`. Each suite and
+The image is written to `installer/build/$ARCH/$SUITE/cdrom/`. Each suite and
 installer type has its own live-build tree there, with its own cache, so
 rebuilds reuse the bootstrap. To start from a clean tree, remove it:
 
@@ -162,5 +165,5 @@ for three kernels, each on trixie and forky:
 - `debian`: Debian's `linux-image-arm64` (from `trixie-backports` on trixie)
 
 `.github/workflows/installer-build.yml` downloads the kernel `.deb`, builds
-the ISO and uploads it as `$SUITE-$KERNEL-installer-cdrom.iso`, with its
+the image and uploads it as `$SUITE-$KERNEL-installer-cdrom.img`, with its
 `sha256sums`.

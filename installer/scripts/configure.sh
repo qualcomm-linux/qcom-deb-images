@@ -99,6 +99,9 @@ done
 MIRROR_ARGS+=(--mirror-chroot-security "$MIRROR_SECURITY"
     --parent-mirror-chroot-security "$MIRROR_SECURITY")
 
+# Temporary: build a FAT32 disk image rather than an ISO, so the kernel
+# needs no ISO 9660 support. cdrom-detect falls back to mounting disks and
+# USB partitions as vfat, and the UEFI firmware boots the FAT partition.
 lb config \
     "${MIRROR_ARGS[@]}" \
     --distribution "$SUITE" \
@@ -110,7 +113,9 @@ lb config \
     --firmware-binary false \
     --chroot-filesystem squashfs \
     --cache-stages "bootstrap" \
-    --uefi-secure-boot enable
+    --uefi-secure-boot enable \
+    --binary-images hdd \
+    --binary-filesystem fat32
 
 # Copy tracked customizations (hooks, includes, bootloader templates, shared
 # libs) on top of the generated config/: first overlays/common/, then the

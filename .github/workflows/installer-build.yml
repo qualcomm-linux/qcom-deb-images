@@ -58,8 +58,9 @@ jobs:
 
       # git: configure.sh puts the commit in the boot menu's title
       # dctrl-tools: grep-aptavail lists tasksel's standard task for the pool
+      # fdisk: live-build's binary_hdd needs it for the disk image
       - name: Install live-build and dependencies
-        run: apt -y install live-build apt-utils fakeroot xorriso python3-pefile device-tree-compiler ca-certificates git sudo kmod squashfs-tools pigz zstd xz-utils debian-archive-keyring dctrl-tools
+        run: apt -y install live-build apt-utils fakeroot xorriso python3-pefile device-tree-compiler ca-certificates git sudo kmod squashfs-tools pigz zstd xz-utils debian-archive-keyring dctrl-tools fdisk
 
       # stubble (stubblify, the Stubble EFI stub and its HWID database) and
       # the newer Debian kernel are only in trixie-backports on trixie
@@ -149,7 +150,7 @@ jobs:
               exit 1
           fi
 
-      - name: Build debian-installer ISO
+      - name: Build debian-installer image
         run: installer/scripts/build.sh --arch arm64 --installer cdrom --suite "${SUITE}" kernel/*.deb
 
       - name: Stage installer artifacts for publishing
@@ -157,8 +158,8 @@ jobs:
           set -ux
           dir="installer-artifacts"
           mkdir -v "${dir}"
-          cp -av installer/build/arm64/"${SUITE}"/cdrom/*.iso \
-              "${dir}/${SUITE}-${KERNEL}-installer-cdrom.iso"
+          cp -av installer/build/arm64/"${SUITE}"/cdrom/*.img \
+              "${dir}/${SUITE}-${KERNEL}-installer-cdrom.img"
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${SUITE}-${KERNEL}-installer-sha256sums.txt")
 

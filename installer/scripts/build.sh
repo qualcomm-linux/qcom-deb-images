@@ -64,27 +64,6 @@ BUILD_DIR="$SUITE_DIR/$INSTALLER"
 
 KERNEL=$(realpath "$KERNEL_DEB")
 
-# The cdrom installer's cdrom-detect only finds its media by mounting it as
-# iso9660, and the stock isofs udeb on the ISO can't be loaded by a custom
-# kernel (nor read before the ISO is mounted). arm64 defconfig lacks
-# CONFIG_ISO9660_FS, which makes d-i report that it can't find the
-# installation media, so check before spending time on a build.
-#
-# Capture before grepping: grep -q exiting early would SIGPIPE the producer
-# and fail the pipeline under pipefail.
-KERNEL_FILES=$(dpkg-deb -c "$KERNEL")
-KERNEL_BUILTIN=$(dpkg-deb --fsys-tarfile "$KERNEL" |
-    tar -xO --wildcards '*/modules.builtin' 2>/dev/null || true)
-
-if ! grep -q '/kernel/fs/isofs/isofs\.ko' <<<"$KERNEL_FILES" &&
-    ! grep -qx 'kernel/fs/isofs/isofs\.ko' <<<"$KERNEL_BUILTIN"
-then
-    echo "$KERNEL_DEB has no ISO 9660 support, which the cdrom installer" \
-        "needs to find its media; rebuild the kernel with" \
-        "CONFIG_ISO9660_FS=m (plus CONFIG_JOLIET=y, CONFIG_ZISOFS=y)" >&2
-    exit 1
-fi
-
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
@@ -255,7 +234,7 @@ touch \
     "$BUILD_DIR/.build/binary_rootfs" \
     "$BUILD_DIR/.build/binary_manifest"
 
-stage "Build ISO"
+stage "Build image"
 
 lb binary
 
@@ -265,4 +244,4 @@ echo "=== Complete ==="
 
 printf '%s\n' "${STAGE_TIMES[@]}"
 printf '%5ds  total\n' "$SECONDS"
-ls -lh ./*.iso
+ls -lh ./*.img
