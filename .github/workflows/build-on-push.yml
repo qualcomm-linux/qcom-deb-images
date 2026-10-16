@@ -2,13 +2,18 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    # HACK: temporary, drop before merging: build the installers on pushes
+    # to the installer branch
+    branches: [main, wip/obbardc/iso-installer]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
 
 jobs:
   build:
+    # HACK: temporary, drop before merging: only the installers build on the
+    # installer branch; test and publish-test-results skip with this job
+    if: github.ref == 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -53,3 +58,23 @@ jobs:
       pull-requests: write
     secrets:
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+
+  # HACK: temporary, drop before merging: build the installer ISOs on every
+  # push to the installer branch
+  installer:
+    if: github.ref == 'refs/heads/wip/obbardc/iso-installer'
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: [qcom-7.2, qcom-next, debian]
+        suite: [trixie, forky]
+        exclude:
+          # qcom-7.2 isn't built for forky yet
+          - kernel: qcom-7.2
+            suite: forky
+    uses: $/.github/workflows/installer-build.yml
+    permissions:
+      contents: read
+    with:
+      kernel: ${{ matrix.kernel }}
+      suite: ${{ matrix.suite }}
