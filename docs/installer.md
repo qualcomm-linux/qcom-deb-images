@@ -146,9 +146,6 @@ builds the GRUB menu:
 - `QLI Graphical installer` (the default) and `QLI Text installer` boot a
   Stubble EFI binary, which bundles every DTB of the kernel with an entry in
   Stubble's HWID database and picks the right one at boot.
-- `Advanced install options ...` has graphical and text entries for each
-  board in the hook's `BOARDS` list, which boot the kernel with GRUB's
-  `devicetree` directive instead. Only these boards' DTBs are on the ISO.
 
 ## ThinkPad T14s Gen 6
 
@@ -158,12 +155,10 @@ resets the ADSP early, from
 `overlays/arm64/initrd/usr/lib/debian-installer-startup.d/S03qcom-adsp`, and
 the installed system does the same from its initramfs.
 
-Debian's GRUB doesn't load a devicetree, and the T14s doesn't boot without
-one. As a temporary workaround, `overlays/arm64/preseed/cdrom/t14s-postinst.cfg`
-runs `/qli/t14s-dtb.sh` from the ISO at the end of the install. It copies the
-T14s DTB to `/boot` and adds it to the installed system's `grub.cfg`, adds the
-initramfs hooks and ADSP firmware, and on trixie installs the newer kernel from
-`trixie-backports`.
+As a temporary workaround, `overlays/arm64/preseed/cdrom/t14s-postinst.cfg`
+runs `/qli/t14s-dtb.sh` from the ISO at the end of the install. It adds the
+initramfs hooks and ADSP firmware to the installed system, and on trixie
+installs the newer kernel from `trixie-backports`.
 
 ## CI
 

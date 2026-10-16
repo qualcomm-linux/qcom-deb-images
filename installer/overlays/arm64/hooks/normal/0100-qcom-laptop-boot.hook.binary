@@ -9,13 +9,10 @@
 # and the Stubble stub, stubblify and HWID database from the build host's
 # stubble package.
 #
-# Fills the "# QLI_ENTRIES" and "# QLI_ADVANCED_ENTRIES" markers in the
-# generated grub.cfg (from the template in
-# overlays/arm64/bootloaders/grub-pc/grub.cfg) with GRUB menu entries for
-# both Debian Installer kernels (the live kernel is disabled via
-# --linux-packages none).
-#
-# Top level (# QLI_ENTRIES):
+# Fills the "# QLI_ENTRIES" marker in the generated grub.cfg (from the
+# template in overlays/arm64/bootloaders/grub-pc/grub.cfg) with GRUB menu
+# entries for both Debian Installer kernels (the live kernel is disabled via
+# --linux-packages none):
 #
 #   1. "QLI Graphical installer" - a Stubble-wrapped EFI stub
 #      (EFI/boot/stubble.efi) bundling every DTB that has a Stubble HWID
@@ -23,16 +20,10 @@
 #      graphical installer. This is the default.
 #   2. "QLI Text installer" - the same Stubble EFI stub, text installer.
 #
-# "Advanced install options ..." submenu (# QLI_ADVANCED_ENTRIES), for
-# DTB-specific entries using GRUB's native `devicetree` directive: for each
-# variant, one "<variant label> (<board label>)" entry per BOARDS record,
-# e.g. "QLI Graphical installer (ThinkPad T14s Gen 6)". Only the BOARDS DTBs
-# are copied to the ISO, into install/dtbs/ next to the installer kernel.
-#
 # The graphical and text installers only differ in their initrd and args:
 # replace-di-kernel.sh puts the same kernel in install/vmlinuz and
-# install/gtk/vmlinuz. So every entry boots /install/vmlinuz, and the
-# duplicate install/gtk/vmlinuz is removed.
+# install/gtk/vmlinuz. So the Stubble EFI stub embeds install/vmlinuz, and
+# the duplicate install/gtk/vmlinuz is removed.
 #
 # Finally, removes live-build's unused install.cfg, install_start.cfg and
 # root efi.img.
@@ -45,14 +36,6 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GRUB_CFG="boot/grub/grub.cfg"
 INSTALL_CFG="boot/grub/install.cfg"
 DTB_SRC_DIR="../config/dtbs"
-# Next to the installer kernel the native entries boot.
-DTB_DIR="install/dtbs"
-# Boards that get native devicetree entries in the advanced submenu, as
-# dtb_name:label records (in menu order). Only these DTBs are copied to the
-# ISO; the Stubble entries bundle their own.
-BOARDS=(
-    "x1e78100-lenovo-thinkpad-t14s.dtb:ThinkPad T14s Gen 6"
-)
 HWIDS="/usr/share/stubble/hwids"
 # Extracted from stubble:arm64 (see docs/installer.md); the native package's
 # stubble.efi matches the build host's architecture, not the target's.
@@ -82,14 +65,6 @@ pe = pefile.PE(sys.argv[1], fast_load=True)
 if pe.FILE_HEADER.Machine != 0xAA64:
     raise SystemExit(f"0100-qcom-laptop-boot: {sys.argv[1]} is not AArch64")
 PY
-
-mkdir -p "$DTB_DIR"
-for board in "${BOARDS[@]}"; do
-    dtb_name="${board%%:*}"
-    [ -f "$DTB_SRC_DIR/$dtb_name" ] ||
-        die "$dtb_name not found in the kernel package"
-    cp "$DTB_SRC_DIR/$dtb_name" "$DTB_DIR/"
-done
 
 # Only bundle DTBs whose root compatible has a Stubble HWID entry; the rest
 # could never be selected.
@@ -140,46 +115,39 @@ PY
     )"
 }
 
-# Replace the "# QLI_ENTRIES" marker line in grub.cfg with the top-level
-# entries, making the first one the default, and the
-# "# QLI_ADVANCED_ENTRIES" marker line with the advanced submenu entries.
+# Replace the "# QLI_ENTRIES" marker line in grub.cfg with the entries,
+# making the first one the default.
 insert_entries() {
-    local entries="$1" advanced_entries="$2"
-    python3 - "$GRUB_CFG" "$entries" "$advanced_entries" <<'PY'
+    local entries="$1"
+    python3 - "$GRUB_CFG" "$entries" <<'PY'
 import pathlib
 import re
 import sys
 
 path = pathlib.Path(sys.argv[1])
-entries, advanced_entries = sys.argv[2:4]
+entries = sys.argv[2]
 
-config = path.read_text()
-for marker, replacement in (
-    ("QLI_ENTRIES", "set default=0\n" + entries),
-    ("QLI_ADVANCED_ENTRIES", advanced_entries),
-):
-    config, count = re.subn(
-        rf"^# {marker}$", lambda _: replacement, config,
-        count=1, flags=re.MULTILINE,
+config, count = re.subn(
+    r"^# QLI_ENTRIES$", lambda _: "set default=0\n" + entries,
+    path.read_text(), count=1, flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit(
+        f"0100-qcom-laptop-boot: no '# QLI_ENTRIES' marker in {path} "
+        "(grub-pc template overlay not applied?)"
     )
-    if count != 1:
-        raise SystemExit(
-            f"0100-qcom-laptop-boot: no '# {marker}' marker in {path} "
-            "(grub-pc template overlay not applied?)"
-        )
 path.write_text(config)
 PY
 }
 
-BOOT_KERNEL="/install/vmlinuz"
-BOOT_KERNEL_REL="${BOOT_KERNEL#/}"
-GTK_KERNEL_REL="install/gtk/vmlinuz"
-[ -f "$BOOT_KERNEL_REL" ] || die "$BOOT_KERNEL_REL not found"
-if [ -f "$GTK_KERNEL_REL" ] && ! cmp -s "$GTK_KERNEL_REL" "$BOOT_KERNEL_REL"; then
-    die "$GTK_KERNEL_REL differs from $BOOT_KERNEL_REL, so can't be dropped"
+BOOT_KERNEL="install/vmlinuz"
+GTK_KERNEL="install/gtk/vmlinuz"
+[ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
+if [ -f "$GTK_KERNEL" ] && ! cmp -s "$GTK_KERNEL" "$BOOT_KERNEL"; then
+    die "$GTK_KERNEL differs from $BOOT_KERNEL, so can't be dropped"
 fi
 
-# --- Stubble multi-DTB EFI stub, shared by every top-level entry ---
+# --- Stubble multi-DTB EFI stub, shared by every entry ---
 STUBBLE_OUTPUT="EFI/boot/stubble.efi"
 
 DTB_ARGS=()
@@ -192,17 +160,16 @@ mkdir -p "$(dirname "$STUBBLE_OUTPUT")"
 # Stubble embeds the kernel as is, so it must be a PE image. A
 # CONFIG_EFI_ZBOOT kernel is one and stays compressed. A plain gzipped Image
 # (e.g. Debian's linux-image-arm64) isn't, so embed the unpacked Image
-# instead: with CONFIG_EFI_STUB that's a PE image too. The native GRUB
-# entries still boot the gzipped /install/vmlinuz.
+# instead: with CONFIG_EFI_STUB that's a PE image too.
 #
 # TODO: the Stubble entries with a gzipped (non-ZBOOT) kernel are untested
 # on hardware and need testing. If Stubble turns out to unpack a gzipped
 # Image itself, this unpacking can go.
-STUBBLE_KERNEL="$BOOT_KERNEL_REL"
-if gzip -t "$BOOT_KERNEL_REL" 2>/dev/null; then
+STUBBLE_KERNEL="$BOOT_KERNEL"
+if gzip -t "$BOOT_KERNEL" 2>/dev/null; then
     STUBBLE_KERNEL=$(mktemp)
     trap 'rm -f "$STUBBLE_KERNEL"' EXIT
-    gzip -dc "$BOOT_KERNEL_REL" > "$STUBBLE_KERNEL"
+    gzip -dc "$BOOT_KERNEL" > "$STUBBLE_KERNEL"
 fi
 
 "$STUBBLIFY" build \
@@ -225,15 +192,13 @@ PY
 
 # variant records: id:install_cfg_kernel:label (in menu order).
 # install_cfg_kernel is the kernel path install.cfg uses for that installer,
-# to look up its initrd and args; every entry boots $BOOT_KERNEL. Native
-# entries append the board label, e.g. "QLI Text installer (ThinkPad ...)".
+# to look up its initrd and args; every entry boots the Stubble EFI stub.
 VARIANTS=(
     "gtk:/install/gtk/vmlinuz:QLI Graphical installer"
     "text:/install/vmlinuz:QLI Text installer"
 )
 
 ENTRIES=""
-ADVANCED_ENTRIES=""
 
 for variant in "${VARIANTS[@]}"; do
     IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL <<< "$variant"
@@ -244,34 +209,11 @@ for variant in "${VARIANTS[@]}"; do
     CMDLINE="$(echo "$CMDLINE" | tr -s ' ')"
 
     echo "Variant: $VARIANT_ID"
-    echo "  Kernel:  $BOOT_KERNEL"
     echo "  Stubble: /$STUBBLE_OUTPUT"
     echo "  Initrd:  $INITRD"
     echo "  Args:    $CMDLINE"
 
-    # --- Native GRUB devicetree entries, one per board ---
-    for board in "${BOARDS[@]}"; do
-        IFS=':' read -r DTB_NAME BOARD_LABEL <<< "$board"
-        echo "  DTB:     /$DTB_DIR/$DTB_NAME ($BOARD_LABEL)"
-
-        NATIVE_ENTRY=$(cat <<EOF
-
-menuentry '$LABEL ($BOARD_LABEL)' {
-    search --no-floppy --file --set=root $BOOT_KERNEL
-
-    linux $BOOT_KERNEL $CMDLINE
-    devicetree /$DTB_DIR/$DTB_NAME
-    initrd $INITRD
-}
-
-EOF
-        )
-
-        ADVANCED_ENTRIES+="$NATIVE_ENTRY"
-    done
-
-    # --- Stubble multi-DTB EFI stub entry ---
-    STUBBLE_ENTRY=$(cat <<EOF
+    ENTRIES+=$(cat <<EOF
 
 menuentry '$LABEL' {
     search --no-floppy --file --set=root /$STUBBLE_OUTPUT
@@ -282,14 +224,12 @@ menuentry '$LABEL' {
 
 EOF
     )
-
-    ENTRIES+="$STUBBLE_ENTRY"
 done
 
-insert_entries "$ENTRIES" "$ADVANCED_ENTRIES"
+insert_entries "$ENTRIES"
 
 # Only live-build's install.cfg (no longer sourced by the menu) boots it now.
-rm -f "$GTK_KERNEL_REL"
+rm -f "$GTK_KERNEL"
 
 # Drop live-build's leftovers that nothing on the ISO uses:
 # - install.cfg and install_start.cfg: the stock menus the template replaces

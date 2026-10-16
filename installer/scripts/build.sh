@@ -195,8 +195,7 @@ if [ "$ARCH" = "arm64" ]; then
 
     # All of the kernel's DTBs, not just the ones the ISO ships: the
     # 0100-qcom-laptop-boot binary hook bundles only those with a Stubble HWID
-    # entry into the Stubble EFI binary, and copies only its BOARDS DTBs
-    # to the ISO for the native GRUB entries. The rest stay in config/.
+    # entry into the Stubble EFI binary. The rest stay in config/.
     rm -rf "$BUILD_DIR/config/dtbs"
     mkdir -p "$BUILD_DIR/config/dtbs"
 
