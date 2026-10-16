@@ -16,6 +16,12 @@
 #   gcdaa64.efi.signed  -> EFI/boot/grubaa64.efi
 #   mmaa64.efi.signed   -> EFI/boot/mmaa64.efi
 #
+# It also installs the GRUB font that live-build's efi-image normally
+# copies, without which config.cfg's loadfont fails and the live-theme
+# (all Unifont Regular 16) can't be drawn:
+#
+#   unicode.pf2         -> boot/grub/unicode.pf2
+#
 # The gcd GRUB image finds its root through /.disk/info and loads
 # /boot/grub/grub.cfg.
 #
@@ -48,11 +54,12 @@ HELPERS_DEB="$(find_deb pool/main/s/shim-helpers-arm64-signed \
     'shim-helpers-arm64-signed_*_arm64.deb')"
 GRUB_DEB="$(find_deb pool/main/g/grub-efi-arm64-signed \
     'grub-efi-arm64-signed_*_arm64.deb')"
+GRUB_COMMON_DEB="$(find_deb pool/main/g/grub2 'grub-common_*_arm64.deb')"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-for deb in "$SHIM_DEB" "$HELPERS_DEB" "$GRUB_DEB"; do
+for deb in "$SHIM_DEB" "$HELPERS_DEB" "$GRUB_DEB" "$GRUB_COMMON_DEB"; do
     dpkg-deb -x "$deb" "$TMP_DIR"
 done
 
@@ -62,3 +69,5 @@ install -D -m 0644 "$TMP_DIR/usr/lib/grub/arm64-efi-signed/gcdaa64.efi.signed" \
     EFI/boot/grubaa64.efi
 install -D -m 0644 "$TMP_DIR/usr/lib/shim/mmaa64.efi.signed" \
     EFI/boot/mmaa64.efi
+install -D -m 0644 "$TMP_DIR/usr/share/grub/unicode.pf2" \
+    boot/grub/unicode.pf2
