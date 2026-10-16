@@ -1,0 +1,55 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# /etc/grub.d/09_qcom-stubble
+#
+# Installed by qcom-laptop-postinst.sh from the installer ISO. Adds a GRUB
+# entry for each Stubble image /etc/kernel/postinst.d/zz-qcom-stubble
+# built, newest first. Being before 10_linux, the newest one is the
+# default; 10_linux's plain kernel entries, which have no DTB, stay as a
+# fallback. Same root= logic as 10_linux, minus LVM, btrfs and ZFS, which
+# the installer doesn't set up for these laptops.
+set -e
+
+# grub-mkconfig_lib uses these, as in 10_linux.
+# shellcheck disable=SC2034
+prefix=/usr
+# shellcheck disable=SC2034
+exec_prefix=/usr
+datarootdir=/usr/share
+
+# shellcheck source=/dev/null
+. "$datarootdir/grub/grub-mkconfig_lib"
+
+OS=${GRUB_DISTRIBUTOR:-Debian}
+case "$OS" in
+    Debian) OS="$OS GNU/Linux" ;;
+esac
+
+if [ -n "${GRUB_DEVICE_UUID:-}" ] &&
+    [ "${GRUB_DISABLE_LINUX_UUID:-}" != true ] &&
+    [ -e "/dev/disk/by-uuid/$GRUB_DEVICE_UUID" ]; then
+    ROOT_DEVICE=UUID=$GRUB_DEVICE_UUID
+else
+    ROOT_DEVICE=$GRUB_DEVICE
+fi
+
+for image in $(for f in /boot/stubble-*.efi; do
+    [ -f "$f" ] && echo "$f"
+done | version_sort -r); do
+    version=${image#/boot/stubble-}
+    version=${version%.efi}
+    initrd=/boot/initrd.img-$version
+    if [ ! -f "$initrd" ]; then
+        echo "09_qcom-stubble: no $initrd, skipping $image" >&2
+        continue
+    fi
+
+    echo "Found Stubble image: $image" >&2
+    echo "menuentry '$OS, with Linux $version (Stubble)' {"
+    prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" | sed 's/^/\t/'
+    echo "	linux $(make_system_path_relative_to_its_root "$image") root=$ROOT_DEVICE ro ${GRUB_CMDLINE_LINUX:-} ${GRUB_CMDLINE_LINUX_DEFAULT:-}"
+    echo "	initrd $(make_system_path_relative_to_its_root "$initrd")"
+    echo "}"
+done

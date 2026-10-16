@@ -1,0 +1,14 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# /etc/kernel/postrm.d/zz-qcom-stubble <version> [<image path>]
+#
+# Installed by qcom-laptop-postinst.sh from the installer ISO. Removes the
+# Stubble image /etc/kernel/postinst.d/zz-qcom-stubble built for the
+# kernel; this runs before zz-update-grub, which drops its GRUB entry.
+set -eu
+
+VERSION=${1:?Usage: $0 <version> [<image path>]}
+
+rm -f "/boot/stubble-$VERSION.efi"

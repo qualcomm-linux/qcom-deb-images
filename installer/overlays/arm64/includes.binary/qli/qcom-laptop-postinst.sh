@@ -11,11 +11,17 @@
 #     packages pkgsel installed) to the initrd
 #  2) install the APT pins from the ISO's /qli/apt/, for the backports and
 #     Qualcomm Linux sources apt-setup added
-#  3) regenerate the initrds, so they pick up the hooks
+#  3) boot the kernels through Stubble: install the kernel hooks and the
+#     grub.d script from the ISO's /qli/stubble/, which build a Stubble image
+#     (the kernel plus the laptops' DTBs) per kernel and add GRUB entries for
+#     them, plus the laptops' boot arguments for GRUB
+#  4) regenerate the initrds, so they pick up the hooks, then build the
+#     Stubble images and grub.cfg
 set -e
 
 TARGET=${1:-/target}
 HOOKS_SRC=/cdrom/qli/initramfs-tools
+STUBBLE_SRC=/cdrom/qli/stubble
 
 log() {
     echo "qcom-laptop-postinst: $*"
@@ -54,7 +60,42 @@ for pref in /cdrom/qli/apt/*.pref; do
     chmod 0644 "$TARGET/etc/apt/preferences.d/${pref##*/}"
 done
 
+# Copy <src> to /target/<dest> with <mode>; busybox has no install.
+install_file() {
+    if [ ! -f "$1" ]; then
+        log "missing $1"
+        exit 1
+    fi
+
+    log "installing $2"
+    mkdir -p "$(dirname "$TARGET$2")"
+    cp "$1" "$TARGET$2"
+    chmod "$3" "$TARGET$2"
+}
+
+install_file "$STUBBLE_SRC/kernel/postinst.d/zz-qcom-stubble" \
+    /etc/kernel/postinst.d/zz-qcom-stubble 0755
+install_file "$STUBBLE_SRC/kernel/postrm.d/zz-qcom-stubble" \
+    /etc/kernel/postrm.d/zz-qcom-stubble 0755
+install_file "$STUBBLE_SRC/grub.d/09_qcom-stubble" \
+    /etc/grub.d/09_qcom-stubble 0755
+install_file "$STUBBLE_SRC/grub/qcom-laptop.cfg" \
+    /etc/default/grub.d/qcom-laptop.cfg 0644
+
 # base-installer built the kernel's initrd before the hooks were installed.
 log "regenerating the initrds"
 chroot "$TARGET" update-initramfs -u -k all
+
+# The kernel was installed before the Stubble hook, so build its image now;
+# later kernels get theirs from the hook.
+for image in "$TARGET"/boot/vmlinuz-*; do
+    [ -f "$image" ] || continue
+    version=${image##*/vmlinuz-}
+    log "building /boot/stubble-$version.efi"
+    chroot "$TARGET" /etc/kernel/postinst.d/zz-qcom-stubble "$version" \
+        "/boot/vmlinuz-$version"
+done
+
+log "updating grub.cfg"
+chroot "$TARGET" update-grub
 
