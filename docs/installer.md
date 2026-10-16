@@ -155,9 +155,10 @@ resets the ADSP early, from
 `overlays/arm64/initrd/usr/lib/debian-installer-startup.d/S03qcom-adsp`, and
 the installed system does the same from its initramfs.
 
-As a temporary workaround, `overlays/arm64/preseed/cdrom/t14s-postinst.cfg`
-runs `/qli/t14s-dtb.sh` from the ISO at the end of the install. It adds the
-initramfs hooks and ADSP firmware to the installed system, and on trixie
+As a temporary workaround,
+`overlays/arm64/preseed/cdrom/qcom-laptop-postinst.cfg` runs
+`/qli/qcom-laptop-postinst.sh` from the ISO at the end of the install. It adds
+the initramfs hooks and ADSP firmware to the installed system, and on trixie
 installs the newer kernel from `trixie-backports`.
 
 ## CI

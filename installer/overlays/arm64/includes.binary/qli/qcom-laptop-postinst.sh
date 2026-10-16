@@ -22,8 +22,8 @@ FIRMWARE_SRC=/cdrom/qli/firmware
 FIRMWARE_DIR=qcom/x1e80100/LENOVO/21N1
 
 log() {
-    echo "t14s-dtb: $*"
-    logger -t t14s-dtb "$*" 2>/dev/null || true
+    echo "qcom-laptop-postinst: $*"
+    logger -t qcom-laptop-postinst "$*" 2>/dev/null || true
 }
 
 # Only for the T14s, going by the DT the installer booted with.

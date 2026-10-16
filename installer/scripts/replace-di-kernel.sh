@@ -62,7 +62,7 @@ INSTALL=$(realpath "$2")
 FIRMWARE=""
 
 # Optional /lib/firmware-style tree to add to the installer initrds.
-# TODO: use a hook like in overlays/arm64/includes.binary/qli/t14s-dtb.sh
+# TODO: use a hook like in overlays/arm64/includes.binary/qli/qcom-laptop-postinst.sh
 # TODO: install firmware from apt, not the fetch-firmware script...
 # TODO: make the list of firmware minimal
 if [ "$#" -eq 3 ]; then

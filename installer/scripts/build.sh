@@ -141,8 +141,9 @@ if [ "$ARCH" = "arm64" ]; then
         echo "Not adding firmware to the installer initrds (INITRD_FIRMWARE=0)"
     fi
 
-    # Temporary, along with t14s-dtb.sh: ship the SoC firmware on the ISO as
-    # /qli/firmware/, which t14s-dtb.sh copies just the ADSP firmware from.
+    # Temporary, along with qcom-laptop-postinst.sh: ship the SoC firmware on
+    # the ISO as /qli/firmware/, which qcom-laptop-postinst.sh copies just the
+    # ADSP firmware from.
     QLI_FIRMWARE="$BUILD_DIR/config/includes.binary/qli/firmware"
     rm -rf "$QLI_FIRMWARE"
     if [ -d "$BUILD_DIR/firmware/qcom/x1e80100" ]; then
