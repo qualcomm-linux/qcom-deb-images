@@ -1,0 +1,30 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb installer has filled the pool and
+# generated its indices, and before binary_checksums and binary_iso.
+#
+# Removes the stock Debian kernel from the ISO's package pool. lb installer
+# adds the kernel module udebs (pool-udeb/*/l/linux*/, ~71 MB) regardless
+# of --linux-packages none, but the installer boots the custom kernel from
+# replace-di-kernel.sh, which can't load them. The linux-image debs stay:
+# the cdrom installer's base-installer installs linux-image-* from the pool.
+#
+# Then it regenerates the indices (see pool-lib.sh).
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../pool-lib.sh"
+
+REMOVED=()
+shopt -s nullglob
+
+for f in pool-udeb/*/l/linux/*.udeb pool-udeb/*/l/linux-signed-*/*.udeb; do
+    REMOVED+=("$f")
+done
+
+pool_remove "the stock kernel module udebs" "${REMOVED[@]}"

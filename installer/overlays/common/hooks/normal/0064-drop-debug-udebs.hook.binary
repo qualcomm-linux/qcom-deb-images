@@ -1,0 +1,32 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb installer has filled the pool and
+# generated its indices, and before binary_checksums and binary_iso.
+#
+# Removes the debugging udebs (strace, screen). pciutils-udeb stays:
+# disk-detect and ethdetect depend on it.
+#
+# Then it regenerates the indices (see pool-lib.sh).
+set -euo pipefail
+
+# TODO: enable once the installer no longer needs debugging.
+ENABLED=false
+if [ "$ENABLED" != true ]; then
+    echo "0064-drop-debug-udebs: disabled, keeping the debug udebs"
+    exit 0
+fi
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../pool-lib.sh"
+
+shopt -s nullglob
+mapfile -t REMOVED < <(pool_udebs \
+    strace-udeb \
+    screen-udeb)
+
+pool_remove "the debug udebs" "${REMOVED[@]}"
