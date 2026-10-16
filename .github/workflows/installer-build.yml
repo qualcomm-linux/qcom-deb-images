@@ -6,8 +6,9 @@ on:
       kernel:
         description: >
           Kernel the installer boots and installs: qcom-7.2 or qcom-next
-          (from the Qualcomm Linux APT repository) or debian (Debian's
-          linux-image-arm64)
+          (from the Qualcomm Linux APT repository), debian (Debian's
+          linux-image-arm64) or efs/<name> (the kernel debs a linux.yml
+          caller such as linux-qcom-laptops.yml last published to EFS)
         required: true
         type: string
       suite:
@@ -38,6 +39,9 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       options: --privileged
+      # kernel debs published by linux.yml, for efs/<name> kernels
+      volumes:
+        - /efsx/qli/qcom-deb-images:/efs
     env:
       KERNEL: ${{ inputs.kernel }}
       SUITE: ${{ inputs.suite }}
@@ -117,11 +121,41 @@ jobs:
       # metapackage depends on, as build.sh needs the kernel, modules and
       # DTBs; Debian splits these out of linux-image-<version> (which is
       # then empty) into linux-base-, linux-binary- and linux-modules-
-      # <version>, so download those too
+      # <version>, so download those too; kernels from EFS are bindeb-pkg
+      # builds with everything in linux-image-<version>, so copy just that
       - name: Download kernel packages
         run: |
           set -eux
+          mkdir -v kernel
           case "${KERNEL}" in
+              efs/*)
+                  # the directory is a symlink published by linux.yml, so
+                  # report a missing or empty one rather than failing later;
+                  # skip the -dbg package, build.sh takes one linux-image
+                  efs_kernel_dir="/efs/${KERNEL#efs/}"
+                  if [ ! -d "${efs_kernel_dir}" ]; then
+                      echo "ERROR: ${efs_kernel_dir} does not exist" >&2
+                      echo "run the workflow publishing '${KERNEL#efs/}' kernel debs first" >&2
+                      exit 1
+                  fi
+                  find "${efs_kernel_dir}/" -maxdepth 1 -type f \
+                      -name 'linux-image-*.deb' -not -name '*dbg*' \
+                      -exec cp -av -t kernel {} +
+                  if [ "$(find kernel -name '*.deb' | wc -l)" -ne 1 ]; then
+                      echo "ERROR: expected one linux-image-*.deb in ${efs_kernel_dir}" >&2
+                      exit 1
+                  fi
+                  # the installer build runs after the kernel build, so show
+                  # which one it got in case that failed and this is stale
+                  {
+                      echo "## Kernel"
+                      echo "EFS build: \`$(readlink -f "${efs_kernel_dir}")\`"
+                      echo
+                      echo "Package: \`$(dpkg-deb -W --showformat='${Package} ${Version}' kernel/*.deb)\`"
+                  } >>"${GITHUB_STEP_SUMMARY}"
+                  ls -l kernel
+                  exit 0
+                  ;;
               qcom-7.2|qcom-next)
                   meta="linux-image-${KERNEL}"
                   set --
@@ -150,7 +184,6 @@ jobs:
                   ($2 == "linux-base-" kver ||
                    $2 == "linux-binary-" kver ||
                    $2 == "linux-modules-" kver) { print $2 }')
-          mkdir -v kernel
           (cd kernel && apt-get "$@" download "${pkg}" ${deps})
           ls -l kernel
           if [ "$(find kernel -name '*.deb' | wc -l)" -lt 1 ]; then
@@ -161,7 +194,9 @@ jobs:
       - name: Build debian-installer image
         run: |
           set -ux
-          # the Qualcomm Linux repository gives the target the kernel updates
+          # the Qualcomm Linux repository gives the target the qcom kernel
+          # updates and the same QLI packages as the debos images; kernels
+          # from EFS are in no repository, so the target won't update those
           set --
           if [ "${KERNEL}" != debian ]; then
               set -- --qli-repo
@@ -173,11 +208,13 @@ jobs:
         run: |
           set -ux
           dir="installer-artifacts"
+          # efs/qcom-laptops -> qcom-laptops
+          name="${SUITE}-${KERNEL#efs/}"
           mkdir -v "${dir}"
           pigz -c installer/build/arm64/"${SUITE}"/cdrom/*.img \
-              >"${dir}/${SUITE}-${KERNEL}-installer-cdrom.img.gz"
+              >"${dir}/${name}-installer-cdrom.img.gz"
           # generate sha256sums for all artifacts
-          (cd "${dir}" && sha256sum * | tee "${SUITE}-${KERNEL}-installer-sha256sums.txt")
+          (cd "${dir}" && sha256sum * | tee "${name}-installer-sha256sums.txt")
 
       # upload to a cloud storage space accessible by Axiom
       - name: Upload private artifacts (S3)
