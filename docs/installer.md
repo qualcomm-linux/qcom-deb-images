@@ -165,5 +165,5 @@ for three kernels, each on trixie and forky:
 - `debian`: Debian's `linux-image-arm64` (from `trixie-backports` on trixie)
 
 `.github/workflows/installer-build.yml` downloads the kernel `.deb`, builds
-the image and uploads it as `$SUITE-$KERNEL-installer-cdrom.img`, with its
-`sha256sums`.
+the image and uploads it gzipped as `$SUITE-$KERNEL-installer-cdrom.img.gz`,
+with its `sha256sums`.

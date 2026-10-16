@@ -158,8 +158,8 @@ jobs:
           set -ux
           dir="installer-artifacts"
           mkdir -v "${dir}"
-          cp -av installer/build/arm64/"${SUITE}"/cdrom/*.img \
-              "${dir}/${SUITE}-${KERNEL}-installer-cdrom.img"
+          pigz -c installer/build/arm64/"${SUITE}"/cdrom/*.img \
+              >"${dir}/${SUITE}-${KERNEL}-installer-cdrom.img.gz"
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${SUITE}-${KERNEL}-installer-sha256sums.txt")
 
