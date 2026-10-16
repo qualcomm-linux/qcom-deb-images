@@ -189,16 +189,25 @@ done
 
 mkdir -p "$(dirname "$STUBBLE_OUTPUT")"
 
-# Stubble embeds the kernel as is, so it stays compressed, but it must be a
-# PE image: build it with CONFIG_EFI_ZBOOT. A plain gzipped Image (e.g.
-# Debian's kernels) isn't one.
+# Stubble embeds the kernel as is, so it must be a PE image. A
+# CONFIG_EFI_ZBOOT kernel is one and stays compressed. A plain gzipped Image
+# (e.g. Debian's linux-image-arm64) isn't, so embed the unpacked Image
+# instead: with CONFIG_EFI_STUB that's a PE image too. The native GRUB
+# entries still boot the gzipped /install/vmlinuz.
+#
+# TODO: the Stubble entries with a gzipped (non-ZBOOT) kernel are untested
+# on hardware and need testing. If Stubble turns out to unpack a gzipped
+# Image itself, this unpacking can go.
+STUBBLE_KERNEL="$BOOT_KERNEL_REL"
 if gzip -t "$BOOT_KERNEL_REL" 2>/dev/null; then
-    die "$BOOT_KERNEL_REL is a gzipped Image; Stubble needs a CONFIG_EFI_ZBOOT kernel"
+    STUBBLE_KERNEL=$(mktemp)
+    trap 'rm -f "$STUBBLE_KERNEL"' EXIT
+    gzip -dc "$BOOT_KERNEL_REL" > "$STUBBLE_KERNEL"
 fi
 
 "$STUBBLIFY" build \
     --efi-arch=aa64 \
-    --linux="$BOOT_KERNEL_REL" \
+    --linux="$STUBBLE_KERNEL" \
     --stub="$STUB" \
     --hwids="$HWIDS" \
     "${DTB_ARGS[@]}" \
