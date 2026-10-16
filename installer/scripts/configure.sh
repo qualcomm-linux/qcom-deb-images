@@ -76,7 +76,12 @@ mkdir -p cache
 # anything under /usr/lib/firmware, e.g. indi-dsi (for one .hex file), which
 # drags in libindi, libnova, cfitsio, fftw3, theora etc., plus
 # firmware-linux-free, ath9k-htc, carl9170 etc. None of it is for this
-# hardware: the SoC firmware comes from lib/fetch-firmware.sh instead.
+# hardware: build.sh adds the SoC and wifi firmware packages
+# lib/fetch-firmware.sh fetched to config/packages.binary/ instead.
+#
+# Those land in the pool's non-free-firmware component, so list it in the
+# archive areas: the ISO's Release only has the parent archive areas'
+# components, and apt on the target skips any component it doesn't list.
 #
 # With APT_PROXY set (e.g. http://host.containers.internal:3142 for
 # apt-cacher-ng on the podman host), fetch the bootstrap, chroot, pool debs
@@ -106,6 +111,8 @@ lb config \
     "${MIRROR_ARGS[@]}" \
     --distribution "$SUITE" \
     --architectures "$ARCH" \
+    --archive-areas "main non-free-firmware" \
+    --parent-archive-areas "main non-free-firmware" \
     --linux-packages none \
     --debian-installer "$INSTALLER" \
     --debian-installer-distribution "$SUITE" \
