@@ -205,20 +205,16 @@ cat > "$STANDARD_LIST" <<'EOF'
 ! grep-aptavail -n -s Package -F Priority -X standard
 EOF
 
-# Add the installer type, suite, kernel name, this repo's commit and the build
-# ID to the boot menu's title, e.g. "Debian Installer (Qualcomm) - forky cdrom
-# - qcom-laptops - QLI Installer 1a2b3c4 - build 123456789-1"; the kernel name
-# and build ID are left out when not given. apply_overlay copies theme.txt
-# afresh on every run, so this never stacks. safe.directory: in the build
-# container the repo is owned by another user, which git otherwise refuses. It
-# must name the repository's top-level directory, the parent of installer/.
-QLI_COMMIT=$(git -c safe.directory="$(dirname "$REPO_ROOT")" -C "$REPO_ROOT" \
-    describe --always --dirty --abbrev=7 2>/dev/null || echo unknown)
+# Add the installer type, suite, kernel name and build ID to the boot menu's
+# title, e.g. "Debian Installer (Qualcomm) - forky cdrom - qcom-laptops - QLI
+# Installer - build 123456789-1"; the kernel name and build ID are left out
+# when not given. apply_overlay copies theme.txt afresh on every run, so this
+# never stacks.
 TITLE=" - $SUITE $INSTALLER"
 if [ -n "$KERNEL_NAME" ]; then
     TITLE+=" - $KERNEL_NAME"
 fi
-TITLE+=" - QLI Installer $QLI_COMMIT"
+TITLE+=" - QLI Installer"
 if [ -n "$BUILD_ID" ]; then
     TITLE+=" - build $BUILD_ID"
 fi

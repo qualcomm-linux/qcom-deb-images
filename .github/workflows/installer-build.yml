@@ -63,11 +63,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # git: configure.sh puts the commit in the boot menu's title
       # dctrl-tools: grep-aptavail lists tasksel's standard task for the pool
       # fdisk: live-build's binary_hdd needs it for the disk image
       - name: Install live-build and dependencies
-        run: apt -y install live-build apt-utils fakeroot xorriso python3-pefile device-tree-compiler ca-certificates git sudo kmod squashfs-tools pigz zstd xz-utils debian-archive-keyring dctrl-tools fdisk
+        run: apt -y install live-build apt-utils fakeroot xorriso python3-pefile device-tree-compiler ca-certificates sudo kmod squashfs-tools pigz zstd xz-utils debian-archive-keyring dctrl-tools fdisk
 
       # stubble (stubblify, the Stubble EFI stub and its HWID database) and
       # the newer Debian kernel are only in trixie-backports on trixie

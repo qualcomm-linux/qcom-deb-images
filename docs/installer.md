@@ -165,11 +165,10 @@ builds the GRUB menu:
   Stubble EFI binary, which bundles every DTB of the kernel with an entry in
   Stubble's HWID database and picks the right one at boot.
 
-The menu's title shows the suite, installer type, kernel name, this
-repository's commit and build ID, e.g. `Debian Installer (Qualcomm) - forky
-cdrom - qcom-laptops - QLI Installer 1a2b3c4 - build 123456789-1`; the kernel
-name and build ID are left out unless `--kernel-name` and `--build-id` are
-given, as CI does.
+The menu's title shows the suite, installer type, kernel name and build ID,
+e.g. `Debian Installer (Qualcomm) - forky cdrom - qcom-laptops - QLI
+Installer - build 123456789-1`; the kernel name and build ID are left out
+unless `--kernel-name` and `--build-id` are given, as CI does.
 
 ## Installed system
 
