@@ -114,9 +114,11 @@ jobs:
           apt update
 
       # download the real linux-image-<version> package the kernel's
-      # metapackage depends on, as build.sh needs the package with the
-      # kernel, modules and DTBs
-      - name: Download kernel package
+      # metapackage depends on, as build.sh needs the kernel, modules and
+      # DTBs; Debian splits these out of linux-image-<version> (which is
+      # then empty) into linux-base-, linux-binary- and linux-modules-
+      # <version>, so download those too
+      - name: Download kernel packages
         run: |
           set -eux
           case "${KERNEL}" in
@@ -142,11 +144,17 @@ jobs:
               echo "${meta} depends on no linux-image package" >&2
               exit 1
           fi
+          kver="${pkg#linux-image-}"
+          deps=$(apt-cache "$@" depends --no-recommends --no-suggests "${pkg}" |
+              awk -v kver="${kver}" '$1 ~ /Depends:$/ &&
+                  ($2 == "linux-base-" kver ||
+                   $2 == "linux-binary-" kver ||
+                   $2 == "linux-modules-" kver) { print $2 }')
           mkdir -v kernel
-          (cd kernel && apt-get "$@" download "${pkg}")
+          (cd kernel && apt-get "$@" download "${pkg}" ${deps})
           ls -l kernel
-          if [ "$(find kernel -name '*.deb' | wc -l)" -ne 1 ]; then
-              echo "Expected exactly one kernel package in kernel/" >&2
+          if [ "$(find kernel -name '*.deb' | wc -l)" -lt 1 ]; then
+              echo "Expected kernel package(s) in kernel/" >&2
               exit 1
           fi
 
