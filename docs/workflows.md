@@ -18,6 +18,7 @@ as any change to them.
 | 07:00 | daily   | Build Debian                   | `build-debian.yml`       |
 | 09:00 | Monday  | mainline linux build           | `linux-mainline.yml`     |
 | 11:00 | Monday  | Build U-Boot for RB1           | `u-boot.yml`             |
+| 13:00 | daily   | Build installers               | `installer.yml`          |
 
 `stale-issues.yaml` also runs daily at 01:30, but only on a GitHub-hosted
 runner and without LAVA jobs, so it is not part of the sequence above.
@@ -34,10 +35,14 @@ runner and without LAVA jobs, so it is not part of the sequence above.
   from queuing behind the previous workflows.
 * The rest follow in no particular order. The project-specific kernels
   (arduino, qcom-laptops) come next, then linux-next. Vanilla Debian is the
-  last daily build as it tracks upstream Debian rather than what QLI ships.
+  last daily image build as it tracks upstream Debian rather than what QLI
+  ships.
 * The weekly builds run on Monday after the daily ones. The Mainline and U-Boot
   workflows only start once the daily builds are done with the runners and LAVA,
   so they don't add their jobs on top.
+* The installer ISOs build last, after the weekly builds. They run no LAVA
+  jobs, so only compete for the runners, and 13:00 keeps the two hour gap
+  after Monday's 11:00 U-Boot build.
 * EFS maintenance runs before the first build, to prune old artifacts, which is
   best avoided while a build is publishing to EFS.
 

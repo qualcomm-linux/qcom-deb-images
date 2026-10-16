@@ -1,0 +1,76 @@
+# Builds the debian-installer cdrom ISO for Snapdragon laptops with each
+# kernel, on each suite:
+#  - qcom-7.2 and qcom-next kernels (from QLI APT repo)
+#  - Debian's linux-image-arm64 kernel
+#
+# See docs/installer.md.
+
+name: Build installers
+
+on:
+  schedule:
+    - cron: '00 13 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  qcom-7-2:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        # qcom-7.2 isn't built for forky yet
+        suite: [trixie]
+    uses: $/.github/workflows/installer-build.yml
+    permissions:
+      contents: read
+    with:
+      kernel: qcom-7.2
+      suite: ${{ matrix.suite }}
+
+  qcom-next:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: $/.github/workflows/installer-build.yml
+    permissions:
+      contents: read
+    with:
+      kernel: qcom-next
+      suite: ${{ matrix.suite }}
+
+  debian:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [trixie, forky]
+    uses: $/.github/workflows/installer-build.yml
+    permissions:
+      contents: read
+    with:
+      kernel: debian
+      suite: ${{ matrix.suite }}
