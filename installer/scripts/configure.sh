@@ -12,6 +12,8 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 ARCH="$(dpkg --print-architecture)"
 INSTALLER="cdrom"
 SUITE="trixie"
+KERNEL_NAME=""
+BUILD_ID=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -25,6 +27,14 @@ while [ "$#" -gt 0 ]; do
             ;;
         --suite)
             SUITE="${2:?Missing value for --suite}"
+            shift 2
+            ;;
+        --kernel-name)
+            KERNEL_NAME="${2:?Missing value for --kernel-name}"
+            shift 2
+            ;;
+        --build-id)
+            BUILD_ID="${2:?Missing value for --build-id}"
             shift 2
             ;;
         *)
@@ -195,17 +205,26 @@ cat > "$STANDARD_LIST" <<'EOF'
 ! grep-aptavail -n -s Package -F Priority -X standard
 EOF
 
-# Add the installer type, suite and this repo's commit to the boot menu's
-# title, e.g. "Debian Installer (Qualcomm) - trixie cdrom - QLI Installer
-# 1a2b3c4-dirty". apply_overlay copies theme.txt afresh on every run, so this
-# never stacks. safe.directory: in the build container the repo is owned by
-# another user, which git otherwise refuses. It must name the repository's
-# top-level directory, the parent of installer/.
+# Add the installer type, suite, kernel name, this repo's commit and the build
+# ID to the boot menu's title, e.g. "Debian Installer (Qualcomm) - forky cdrom
+# - qcom-laptops - QLI Installer 1a2b3c4 - build 123456789-1"; the kernel name
+# and build ID are left out when not given. apply_overlay copies theme.txt
+# afresh on every run, so this never stacks. safe.directory: in the build
+# container the repo is owned by another user, which git otherwise refuses. It
+# must name the repository's top-level directory, the parent of installer/.
 QLI_COMMIT=$(git -c safe.directory="$(dirname "$REPO_ROOT")" -C "$REPO_ROOT" \
     describe --always --dirty --abbrev=7 2>/dev/null || echo unknown)
+TITLE=" - $SUITE $INSTALLER"
+if [ -n "$KERNEL_NAME" ]; then
+    TITLE+=" - $KERNEL_NAME"
+fi
+TITLE+=" - QLI Installer $QLI_COMMIT"
+if [ -n "$BUILD_ID" ]; then
+    TITLE+=" - build $BUILD_ID"
+fi
 THEME="$BUILD_DIR/config/bootloaders/grub-pc/live-theme/theme.txt"
 if [ -f "$THEME" ]; then
-    sed -i -E "s|^(title-text: \"[^\"]*)\"|\1 - $SUITE $INSTALLER - QLI Installer $QLI_COMMIT\"|" "$THEME"
+    sed -i -E "s|^(title-text: \"[^\"]*)\"|\1$TITLE\"|" "$THEME"
 fi
 
 echo "Configured live-build in: $BUILD_DIR"

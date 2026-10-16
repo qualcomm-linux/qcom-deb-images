@@ -46,6 +46,8 @@ jobs:
     env:
       KERNEL: ${{ inputs.kernel }}
       SUITE: ${{ inputs.suite }}
+      # shown in the boot menu's title, like the debos images' buildid
+      BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       # make sure we have latest packages first, to get latest fixes and to
       # avoid an automated update while we're building
@@ -200,7 +202,8 @@ jobs:
               set -- --qli-repo
           fi
           installer/scripts/build.sh --arch arm64 --installer cdrom \
-              --suite "${SUITE}" "$@" kernel/*.deb
+              --suite "${SUITE}" --kernel-name "${KERNEL}" \
+              --build-id "${BUILD_ID}" "$@" kernel/*.deb
 
       - name: Stage installer artifacts for publishing
         run: |

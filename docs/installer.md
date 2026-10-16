@@ -85,6 +85,8 @@ running as root. `SUITE` picks the Debian suite (default `trixie`), and
 | `--suite` | `trixie` | Debian suite, e.g. `forky` |
 | `--installer` | `cdrom` | installer type, only `cdrom` for now |
 | `--qli-repo` | off | add the Qualcomm Linux APT repository to the installed system, for ISOs with a qcom kernel |
+| `--kernel-name` | none | kernel name shown in the boot menu's title, e.g. `qcom-laptops` |
+| `--build-id` | none | build ID shown in the boot menu's title; CI passes its run ID and attempt |
 
 For example:
 
@@ -162,6 +164,12 @@ builds the GRUB menu:
 - `QLI Graphical installer` (the default) and `QLI Text installer` boot a
   Stubble EFI binary, which bundles every DTB of the kernel with an entry in
   Stubble's HWID database and picks the right one at boot.
+
+The menu's title shows the suite, installer type, kernel name, this
+repository's commit and build ID, e.g. `Debian Installer (Qualcomm) - forky
+cdrom - qcom-laptops - QLI Installer 1a2b3c4 - build 123456789-1`; the kernel
+name and build ID are left out unless `--kernel-name` and `--build-id` are
+given, as CI does.
 
 ## Installed system
 

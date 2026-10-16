@@ -8,8 +8,10 @@ ARCH="$(dpkg --print-architecture)"
 INSTALLER="cdrom"
 SUITE="trixie"
 QLI_REPO=0
+KERNEL_NAME=""
+BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] [--qli-repo] KERNEL.deb..."
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] [--qli-repo] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -30,6 +32,15 @@ while [ "$#" -gt 0 ]; do
         --qli-repo)
             QLI_REPO=1
             shift
+            ;;
+        # Shown in the boot menu's title, e.g. qcom-laptops and the CI run.
+        --kernel-name)
+            KERNEL_NAME="${2:?Missing value for --kernel-name}"
+            shift 2
+            ;;
+        --build-id)
+            BUILD_ID="${2:?Missing value for --build-id}"
+            shift 2
             ;;
         # The kernel package, or all of its packages if it is split (like
         # Debian's linux-image, linux-base, linux-binary and linux-modules).
@@ -88,7 +99,14 @@ stage() {
 
 stage "Configure live-build"
 
-"$SCRIPT_DIR/configure.sh" --arch "$ARCH" --suite "$SUITE" --installer "$INSTALLER"
+CONFIGURE_ARGS=(--arch "$ARCH" --suite "$SUITE" --installer "$INSTALLER")
+if [ -n "$KERNEL_NAME" ]; then
+    CONFIGURE_ARGS+=(--kernel-name "$KERNEL_NAME")
+fi
+if [ -n "$BUILD_ID" ]; then
+    CONFIGURE_ARGS+=(--build-id "$BUILD_ID")
+fi
+"$SCRIPT_DIR/configure.sh" "${CONFIGURE_ARGS[@]}"
 
 stage "Clean previous binary build"
 
