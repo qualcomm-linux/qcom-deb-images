@@ -74,7 +74,7 @@ jobs:
             suite: forky
         include:
           # qcom-laptops is only built for forky
-          - kernel: efs/qcom-laptops
+          - kernel: qcom-laptops
             suite: forky
     uses: $/.github/workflows/installer-build.yml
     permissions:

@@ -7,8 +7,9 @@ on:
         description: >
           Kernel the installer boots and installs: qcom-7.2 or qcom-next
           (from the Qualcomm Linux APT repository), debian (Debian's
-          linux-image-arm64) or efs/<name> (the kernel debs a linux.yml
-          caller such as linux-qcom-laptops.yml last published to EFS)
+          linux-image-arm64) or the name of the kernel debs a linux.yml
+          caller such as linux-qcom-laptops.yml last published to EFS
+          (e.g. qcom-laptops)
         required: true
         type: string
       suite:
@@ -39,7 +40,7 @@ jobs:
     container:
       image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       options: --privileged
-      # kernel debs published by linux.yml, for efs/<name> kernels
+      # kernel debs published by linux.yml, for kernels from EFS
       volumes:
         - /efsx/qli/qcom-deb-images:/efs
     env:
@@ -128,14 +129,26 @@ jobs:
           set -eux
           mkdir -v kernel
           case "${KERNEL}" in
-              efs/*)
-                  # the directory is a symlink published by linux.yml, so
-                  # report a missing or empty one rather than failing later;
-                  # skip the -dbg package, build.sh takes one linux-image
-                  efs_kernel_dir="/efs/${KERNEL#efs/}"
+              qcom-7.2|qcom-next)
+                  meta="linux-image-${KERNEL}"
+                  set --
+                  ;;
+              debian)
+                  meta="linux-image-arm64"
+                  set --
+                  if [ "${SUITE}" = trixie ]; then
+                      set -- -t trixie-backports
+                  fi
+                  ;;
+              *)
+                  # any other kernel is one linux.yml published to EFS; the
+                  # directory is a symlink published by linux.yml, so report
+                  # a missing or empty one rather than failing later; skip
+                  # the -dbg package, build.sh takes one linux-image
+                  efs_kernel_dir="/efs/${KERNEL}"
                   if [ ! -d "${efs_kernel_dir}" ]; then
-                      echo "ERROR: ${efs_kernel_dir} does not exist" >&2
-                      echo "run the workflow publishing '${KERNEL#efs/}' kernel debs first" >&2
+                      echo "ERROR: unknown kernel '${KERNEL}': ${efs_kernel_dir} does not exist" >&2
+                      echo "run the workflow publishing '${KERNEL}' kernel debs first" >&2
                       exit 1
                   fi
                   find "${efs_kernel_dir}/" -maxdepth 1 -type f \
@@ -155,21 +168,6 @@ jobs:
                   } >>"${GITHUB_STEP_SUMMARY}"
                   ls -l kernel
                   exit 0
-                  ;;
-              qcom-7.2|qcom-next)
-                  meta="linux-image-${KERNEL}"
-                  set --
-                  ;;
-              debian)
-                  meta="linux-image-arm64"
-                  set --
-                  if [ "${SUITE}" = trixie ]; then
-                      set -- -t trixie-backports
-                  fi
-                  ;;
-              *)
-                  echo "Unknown kernel: ${KERNEL}" >&2
-                  exit 1
                   ;;
           esac
           pkg=$(apt-cache "$@" depends --no-recommends --no-suggests "${meta}" |
@@ -208,8 +206,7 @@ jobs:
         run: |
           set -ux
           dir="installer-artifacts"
-          # efs/qcom-laptops -> qcom-laptops
-          name="${SUITE}-${KERNEL#efs/}"
+          name="${SUITE}-${KERNEL}"
           mkdir -v "${dir}"
           pigz -c installer/build/arm64/"${SUITE}"/cdrom/*.img \
               >"${dir}/${name}-installer-cdrom.img.gz"
