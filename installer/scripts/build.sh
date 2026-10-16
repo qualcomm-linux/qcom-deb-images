@@ -7,8 +7,8 @@ set -euo pipefail
 ARCH="$(dpkg --print-architecture)"
 INSTALLER="cdrom"
 SUITE="trixie"
-KERNEL_DEB=""
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] KERNEL.deb"
+KERNEL_DEBS=()
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -24,18 +24,16 @@ while [ "$#" -gt 0 ]; do
             SUITE="${2:?Missing value for --suite}"
             shift 2
             ;;
+        # The kernel package, or all of its packages if it is split (like
+        # Debian's linux-image, linux-base, linux-binary and linux-modules).
         *)
-            if [ -n "$KERNEL_DEB" ]; then
-                echo "$USAGE" >&2
-                exit 1
-            fi
-            KERNEL_DEB="$1"
+            KERNEL_DEBS+=("$(realpath "$1")")
             shift
             ;;
     esac
 done
 
-if [ -z "$KERNEL_DEB" ]; then
+if [ "${#KERNEL_DEBS[@]}" -eq 0 ]; then
     echo "$USAGE" >&2
     exit 1
 fi
@@ -61,8 +59,6 @@ REPO_ROOT=$(realpath "$SCRIPT_DIR/..")
 # firmware/) in BUILD_DIR, so different types can build in parallel.
 SUITE_DIR="$REPO_ROOT/build/$ARCH/$SUITE"
 BUILD_DIR="$SUITE_DIR/$INSTALLER"
-
-KERNEL=$(realpath "$KERNEL_DEB")
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
@@ -155,6 +151,16 @@ if [ "$ARCH" = "arm64" ]; then
     fi
 fi
 
+stage "Unpack kernel"
+
+KERNEL_DIR=$(mktemp -d)
+trap 'rm -rf "$KERNEL_DIR"' EXIT
+
+for DEB in "${KERNEL_DEBS[@]}"; do
+    echo "Unpacking $DEB"
+    dpkg-deb -x "$DEB" "$KERNEL_DIR"
+done
+
 stage "Replace installer kernel"
 
 # configure.sh gathers the overlays' preseeds for this installer type into
@@ -180,38 +186,36 @@ fi
     "${PRESEED_ARGS[@]}" \
     "${MODULE_RULES_ARGS[@]}" \
     "${INITRD_OVERLAY_ARGS[@]}" \
-    "$KERNEL" \
+    "$KERNEL_DIR" \
     "$BUILD_DIR/binary/install" \
     "${FIRMWARE_ARGS[@]}"
 
 if [ "$ARCH" = "arm64" ]; then
     stage "Extract DTBs"
 
-    # All of the package's DTBs, not just the ones the ISO ships: the
+    # All of the kernel's DTBs, not just the ones the ISO ships: the
     # 0100-qcom-laptop-boot binary hook bundles only those with a Stubble HWID
     # entry into the Stubble EFI binary, and copies only its BOARDS DTBs
     # to the ISO for the native GRUB entries. The rest stay in config/.
-    DTB_WORK=$(mktemp -d)
-    trap 'rm -rf "$DTB_WORK"' EXIT
-
-    # Only the DTBs, not the modules.
-    dpkg-deb --fsys-tarfile "$KERNEL" |
-        tar -x -C "$DTB_WORK" --wildcards '*.dtb'
-
     rm -rf "$BUILD_DIR/config/dtbs"
     mkdir -p "$BUILD_DIR/config/dtbs"
 
-    find "$DTB_WORK" -path '*/linux-image-*/*' -name '*.dtb' -type f \
+    # Single kernel packages ship the DTBs in /usr/lib/linux-image-$KVER/;
+    # Debian's split ones in /usr/lib/modules/$KVER/dtb/, with the former as
+    # a symlink to it.
+    find "$KERNEL_DIR" \
+        \( -path '*/linux-image-*/*' -o -path '*/modules/*/dtb/*' \) \
+        -name '*.dtb' -type f \
         -exec cp -t "$BUILD_DIR/config/dtbs/" {} +
 
     if ! compgen -G "$BUILD_DIR/config/dtbs/*.dtb" >/dev/null; then
-        echo "Kernel package contains no DTBs under */linux-image-*/" >&2
+        echo "Kernel package(s) contain no DTBs" >&2
         exit 1
     fi
-
-    rm -rf "$DTB_WORK"
-    trap - EXIT
 fi
+
+rm -rf "$KERNEL_DIR"
+trap - EXIT
 
 # live-build only ships udeb_include lists for amd64, and binary_disk fails
 # for cdrom when ${ARCH}_udeb_include is missing. It leaves an existing

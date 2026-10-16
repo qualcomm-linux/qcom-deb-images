@@ -6,7 +6,7 @@ ThinkPad T14s Gen 6.
 
 The ISO is a `cdrom` installer: it installs Debian from the packages in its
 pool, optionally adding a network mirror. The installer boots a kernel taken
-from a kernel `.deb` you provide, in place of the stock d-i kernel, so it
+from the kernel `.deb`(s) you provide, in place of the stock d-i kernel, so it
 supports the same hardware as that kernel.
 
 This is still a prototype.
@@ -44,7 +44,10 @@ On trixie, `stubble` is in `trixie-backports`.
 
 ## Kernel requirements
 
-The kernel `.deb` must ship its DTBs.
+The kernel `.deb` must ship its DTBs. If the kernel is split into several
+packages, pass all of them: Debian's `linux-image-$KVER` is empty, and the
+kernel, DTBs and modules are in `linux-binary-$KVER`, `linux-base-$KVER` and
+`linux-modules-$KVER`.
 
 For now the build writes a FAT32 disk image (`.img`, to write to a USB
 stick) instead of an ISO, which the installer mounts as vfat, so the kernel
@@ -88,6 +91,13 @@ For example:
 make installer KERNEL_DEB=linux-image-qcom-next.deb SUITE=forky
 ```
 
+or, for a split Debian kernel:
+
+```bash
+make installer SUITE=forky \
+    KERNEL_DEB="linux-image-*.deb linux-base-*.deb linux-binary-*.deb linux-modules-*.deb"
+```
+
 The image is written to `installer/build/$ARCH/$SUITE/cdrom/`. Each suite and
 installer type has its own live-build tree there, with its own cache, so
 rebuilds reuse the bootstrap. To start from a clean tree, remove it:
@@ -110,7 +120,7 @@ overlay wins. The overlays follow the layout of live-build's `config/`
 directory.
 
 After `lb installer`, `scripts/replace-di-kernel.sh` replaces the kernel in
-the installer's initrds with the one from the kernel `.deb`, along with its
+the installer's initrds with the one from the kernel `.deb`(s), along with its
 modules, the preseeds and, on arm64, firmware:
 
 - `scripts/lib/trim-modules.sh` drops the modules the installer doesn't need,
@@ -164,6 +174,6 @@ for three kernels, each on trixie and forky:
 - `qcom-next`: `linux-image-qcom-next` from the Qualcomm Linux APT repository
 - `debian`: Debian's `linux-image-arm64` (from `trixie-backports` on trixie)
 
-`.github/workflows/installer-build.yml` downloads the kernel `.deb`, builds
+`.github/workflows/installer-build.yml` downloads the kernel `.deb`(s), builds
 the image and uploads it gzipped as `$SUITE-$KERNEL-installer-cdrom.img.gz`,
 with its `sha256sums`.

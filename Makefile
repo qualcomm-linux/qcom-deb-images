@@ -77,7 +77,8 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
-# The installer boots the kernel from KERNEL_DEB, and installs SUITE, e.g.:
+# The installer boots the kernel from KERNEL_DEB (one or more .debs, as
+# Debian splits its kernels into several packages), and installs SUITE, e.g.:
 #     make installer KERNEL_DEB=linux-image-custom.deb SUITE=forky
 # INSTALLER_OPTS are passed to the installer build script, e.g.:
 #     make installer KERNEL_DEB=... INSTALLER_OPTS="--arch arm64"
@@ -91,7 +92,7 @@ INSTALLER_SUDO := $(if $(filter 0,$(shell id -u)),,sudo)
 .PHONY: installer
 installer:
 	@if [ -z "$(KERNEL_DEB)" ]; then \
-		echo "Set KERNEL_DEB to a kernel .deb, see docs/installer.md" >&2; \
+		echo "Set KERNEL_DEB to the kernel .deb(s), see docs/installer.md" >&2; \
 		exit 1; \
 	fi
 	$(INSTALLER_SUDO) installer/scripts/build.sh --suite $(SUITE) $(INSTALLER_OPTS) $(KERNEL_DEB)

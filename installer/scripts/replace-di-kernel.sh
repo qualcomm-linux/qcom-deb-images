@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-USAGE="Usage: $0 [--preseed PRESEED.cfg] [--module-rules RULES] [--initrd-overlay DIR] KERNEL.deb INSTALLER_DIR [FIRMWARE_DIR]"
+USAGE="Usage: $0 [--preseed PRESEED.cfg] [--module-rules RULES] [--initrd-overlay DIR] KERNEL_DIR INSTALLER_DIR [FIRMWARE_DIR]"
 PRESEED=""
 MODULE_RULES=""
 INITRD_OVERLAY=""
@@ -54,7 +54,10 @@ if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     exit 1
 fi
 
-DEB=$(realpath "$1")
+# The custom kernel's package(s), unpacked into one tree: Debian splits its
+# kernels into linux-image, linux-base, linux-binary and linux-modules
+# packages.
+KERNEL=$(realpath "$1")
 INSTALL=$(realpath "$2")
 FIRMWARE=""
 
@@ -76,6 +79,11 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+if [ ! -d "$KERNEL" ]; then
+    echo "Missing kernel directory: $KERNEL" >&2
+    exit 1
+fi
+
 if [ ! -d "$INSTALL" ]; then
     echo "Missing $INSTALL; run lb installer first" >&2
     exit 1
@@ -90,12 +98,6 @@ if command -v pigz >/dev/null; then
     GZ=pigz
 fi
 
-KERNEL="$WORK/kernel"
-mkdir -p "$KERNEL"
-
-echo "Extracting custom kernel..."
-dpkg-deb -x "$DEB" "$KERNEL"
-
 # Support both traditional and merged-/usr kernel packages.
 MODULES="$KERNEL/lib/modules"
 
@@ -104,7 +106,7 @@ if [ ! -d "$MODULES" ]; then
 fi
 
 if [ ! -d "$MODULES" ]; then
-    echo "Kernel package contains no modules" >&2
+    echo "Kernel package(s) contain no modules" >&2
     exit 1
 fi
 
@@ -120,7 +122,12 @@ if [ "${#VERSIONS[@]}" -ne 1 ]; then
 fi
 
 KVER="${VERSIONS[0]}"
-VMLINUX="$KERNEL/boot/vmlinuz-$KVER"
+# Debian's split kernel packages ship the image next to the modules.
+VMLINUX="$MODULES/$KVER/vmlinuz"
+
+if [ ! -f "$VMLINUX" ]; then
+    VMLINUX="$KERNEL/boot/vmlinuz-$KVER"
+fi
 
 if [ ! -f "$VMLINUX" ]; then
     echo "Missing kernel image: $VMLINUX" >&2
@@ -128,6 +135,15 @@ if [ ! -f "$VMLINUX" ]; then
 fi
 
 echo "Custom kernel: $KVER"
+
+# Debian's split kernel packages don't ship modules.dep (their postinst
+# generates it), and lib/trim-modules.sh needs it. depmod looks in
+# lib/modules, so give a merged-/usr tree the usual /lib symlink.
+if [ ! -e "$KERNEL/lib" ]; then
+    ln -s usr/lib "$KERNEL/lib"
+fi
+
+depmod -b "$KERNEL" "$KVER"
 
 # Trim the modules once here, rather than in each initrd.
 if [ -n "$MODULE_RULES" ]; then
@@ -185,6 +201,12 @@ do
     cp -a \
         "$MODULES/$KVER" \
         "$MODULE_DEST/"
+
+    # The initrd needs neither the kernel image nor the DTBs that Debian's
+    # split kernel packages ship next to the modules.
+    rm -rf \
+        "$MODULE_DEST/$KVER/vmlinuz" \
+        "$MODULE_DEST/$KVER/dtb"
 
     # Generate module dependency metadata.
     depmod -b "$ROOT" "$KVER"
