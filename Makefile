@@ -77,16 +77,24 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
+# The installer boots the kernel from KERNEL_DEB, and installs SUITE, e.g.:
+#     make installer KERNEL_DEB=linux-image-custom.deb SUITE=forky
 # INSTALLER_OPTS are passed to the installer build script, e.g.:
-#     make INSTALLER_OPTS="--suite forky --installer netinst" installer
+#     make installer KERNEL_DEB=... INSTALLER_OPTS="--arch arm64"
 # live-build has to run as root, so the installer targets use sudo unless make
 # already runs as root.
+KERNEL_DEB ?=
+SUITE ?= trixie
 INSTALLER_OPTS ?=
 INSTALLER_SUDO := $(if $(filter 0,$(shell id -u)),,sudo)
 
 .PHONY: installer
 installer:
-	$(INSTALLER_SUDO) installer/scripts/build.sh $(INSTALLER_OPTS)
+	@if [ -z "$(KERNEL_DEB)" ]; then \
+		echo "Set KERNEL_DEB to a kernel .deb, see docs/installer.md" >&2; \
+		exit 1; \
+	fi
+	$(INSTALLER_SUDO) installer/scripts/build.sh --suite $(SUITE) $(INSTALLER_OPTS) $(KERNEL_DEB)
 
 .PHONY: clean-installer
 clean-installer:

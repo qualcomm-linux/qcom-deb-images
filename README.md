@@ -463,10 +463,11 @@ Qualcomm platform patches which `linux-image-qcom-next` does.
 ## Build an installer ISO
 
 An early prototype of a Debian installer ISO is built with live-build. It
-needs `live-build` and `xorriso`, and runs as root:
+boots a kernel from a kernel `.deb` you provide, needs `live-build`,
+`xorriso` and `stubble` among others, and runs as root:
 
 ```bash
-make installer
+make installer KERNEL_DEB=/path/to/linux-image-custom.deb
 ```
 
 See [docs/installer.md](docs/installer.md) for the options, the current
