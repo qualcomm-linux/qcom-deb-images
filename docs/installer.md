@@ -204,12 +204,24 @@ to the initrd.
 ## CI
 
 `.github/workflows/installer.yml` builds the ISO every night and on demand,
-for three kernels, each on trixie and forky:
+for these kernels:
 
-- `qcom-7.2`: `linux-image-qcom-7.2` from the Qualcomm Linux APT repository
-- `qcom-next`: `linux-image-qcom-next` from the Qualcomm Linux APT repository
-- `debian`: Debian's `linux-image-arm64` (from `trixie-backports` on trixie)
+- `qcom-7.2`: `linux-image-qcom-7.2` from the Qualcomm Linux APT repository,
+  on trixie
+- `qcom-next`: `linux-image-qcom-next` from the Qualcomm Linux APT repository,
+  on trixie and forky
+- `debian`: Debian's `linux-image-arm64` (from `trixie-backports` on trixie),
+  on trixie and forky
+- `qcom-laptops`: the `linux-image-<version>` deb that
+  `.github/workflows/linux-qcom-laptops.yml` last published to EFS, on forky
 
 `.github/workflows/installer-build.yml` downloads the kernel `.deb`(s), builds
 the image and uploads it gzipped as `$SUITE-$KERNEL-installer-cdrom.img.gz`,
 with its `sha256sums`. It passes `--qli-repo` for the qcom kernels.
+
+The `qcom-laptops` kernel isn't in any APT repository and has no
+metapackage, so a system installed from that image keeps the kernel it was
+installed with until another one is installed by hand. The image is built
+from whatever the last kernel build published: if that build failed, the
+image has the previous day's kernel. The job summary shows which EFS build
+and kernel version it used.

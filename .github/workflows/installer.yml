@@ -2,6 +2,8 @@
 # kernel, on each suite:
 #  - qcom-7.2 and qcom-next kernels (from QLI APT repo)
 #  - Debian's linux-image-arm64 kernel
+#  - qcom-laptops kernel (latest build linux-qcom-laptops.yml published to
+#    EFS), on forky only
 #
 # See docs/installer.md.
 
@@ -73,4 +75,24 @@ jobs:
       contents: read
     with:
       kernel: debian
+      suite: ${{ matrix.suite }}
+
+  qcom-laptops:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        # qcom-laptops is only built for forky
+        suite: [forky]
+    uses: $/.github/workflows/installer-build.yml
+    permissions:
+      contents: read
+    with:
+      kernel: efs/qcom-laptops
       suite: ${{ matrix.suite }}
