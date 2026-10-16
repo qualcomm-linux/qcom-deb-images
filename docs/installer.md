@@ -166,9 +166,9 @@ builds the GRUB menu:
   Stubble's HWID database and picks the right one at boot.
 
 The menu's title shows the suite, installer type, kernel name and build ID,
-e.g. `Debian Installer (Qualcomm) - forky cdrom - qcom-laptops - QLI
-Installer - build 123456789-1`; the kernel name and build ID are left out
-unless `--kernel-name` and `--build-id` are given, as CI does.
+e.g. `Debian Installer (QLI) - forky cdrom - qcom-laptops - build
+123456789-1`; the kernel name and build ID are left out unless
+`--kernel-name` and `--build-id` are given, as CI does.
 
 ## Installed system
 

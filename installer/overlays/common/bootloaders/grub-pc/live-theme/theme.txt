@@ -8,7 +8,7 @@ desktop-color: "#111827"
 
 title-color: "#ffffff"
 title-font: "Unifont Regular 16"
-title-text: "Debian Installer (Qualcomm)"
+title-text: "Debian Installer (QLI)"
 message-font: "Unifont Regular 16"
 terminal-font: "Unifont Regular 16"
 

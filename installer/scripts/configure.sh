@@ -206,15 +206,13 @@ cat > "$STANDARD_LIST" <<'EOF'
 EOF
 
 # Add the installer type, suite, kernel name and build ID to the boot menu's
-# title, e.g. "Debian Installer (Qualcomm) - forky cdrom - qcom-laptops - QLI
-# Installer - build 123456789-1"; the kernel name and build ID are left out
-# when not given. apply_overlay copies theme.txt afresh on every run, so this
-# never stacks.
+# title, e.g. "Debian Installer (QLI) - forky cdrom - qcom-laptops - build
+# 123456789-1"; the kernel name and build ID are left out when not given.
+# apply_overlay copies theme.txt afresh on every run, so this never stacks.
 TITLE=" - $SUITE $INSTALLER"
 if [ -n "$KERNEL_NAME" ]; then
     TITLE+=" - $KERNEL_NAME"
 fi
-TITLE+=" - QLI Installer"
 if [ -n "$BUILD_ID" ]; then
     TITLE+=" - build $BUILD_ID"
 fi
