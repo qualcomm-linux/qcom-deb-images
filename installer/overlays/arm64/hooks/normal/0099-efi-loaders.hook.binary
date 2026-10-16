@@ -22,6 +22,11 @@
 # trixie and in grub2-common from forky on:
 #
 #   unicode.pf2         -> boot/grub/unicode.pf2
+#                       -> boot/grub/fonts/unicode.pf2
+#
+# The signed GRUB sets feature_default_font_path, so config.cfg loads
+# "unicode", which GRUB looks up as $prefix/fonts/unicode.pf2; the copy
+# in boot/grub is kept for a GRUB without that feature.
 #
 # The gcd GRUB image finds its root through /.disk/info and loads
 # /boot/grub/grub.cfg.
@@ -82,3 +87,5 @@ install -D -m 0644 "$TMP_DIR/usr/lib/shim/mmaa64.efi.signed" \
     EFI/boot/mmaa64.efi
 install -D -m 0644 "$TMP_DIR/usr/share/grub/unicode.pf2" \
     boot/grub/unicode.pf2
+install -D -m 0644 "$TMP_DIR/usr/share/grub/unicode.pf2" \
+    boot/grub/fonts/unicode.pf2
