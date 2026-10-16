@@ -163,6 +163,17 @@ if [ -z "$KERNEL_PACKAGE" ]; then
     exit 1
 fi
 
+stage "Fetch kernel dependencies"
+
+# base-installer installs the kernel from the pool before apt-setup adds
+# backports on the target, so the pool needs anything newer the kernel
+# depends on, e.g. linux-base from trixie-backports.
+"$SCRIPT_DIR/lib/fetch-kernel-deps.sh" "$BUILD_DIR" "$SUITE" "$ARCH" "${KERNEL_DEBS[@]}"
+for DEB in "$BUILD_DIR"/kernel-deps-apt/debs/*.deb; do
+    [ -e "$DEB" ] || continue
+    pool_add "$DEB"
+done
+
 # Packages from config/packages.binary/ for pkgsel to install on the
 # target, on top of the base system and the standard task.
 POOL_INCLUDE=()
