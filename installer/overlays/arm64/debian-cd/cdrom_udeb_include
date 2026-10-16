@@ -1,3 +1,6 @@
-# TODO: clear this file out
-#netcfg
-#ethdetect
+# Extra udebs for the cdrom installer. Networking is kept for apt-setup and a
+# mirror on the target; the base system still installs from the ISO's pool.
+netcfg
+ethdetect
+choose-mirror-bin
+apt-mirror-setup
