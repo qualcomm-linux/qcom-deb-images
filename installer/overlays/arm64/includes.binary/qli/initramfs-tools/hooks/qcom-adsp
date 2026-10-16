@@ -1,0 +1,53 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Include the Qualcomm ADSP/CDSP remoteproc driver, but blacklisted so that
+# udev does not autoload it.
+#
+# On Qualcomm Snapdragon X1 laptops with SoCs sc8280xp (makena) and x1e (hamoa)
+# the ADSP also hosts the TCPM (Type-C Port Manager). The BIOS boots the ADSP
+# with a limited firmware image, and the kernel reboots it with the full
+# image; that reset also resets the TCPM, which tears down and re-enumerates
+# every device on the Type-C bus.
+#
+# When booting from a USB drive this loses the backing device of an
+# already-mounted filesystem. The fix is to reset the ADSP before the root
+# filesystem is mounted, via scripts/init-top/qcom-adsp.
+#
+# The driver must not be autoloaded by udev, for two reasons:
+#   - on laptops, udev may load it after the root filesystem is mounted, which
+#     is worse than not loading it at all;
+#   - on other Qualcomm platforms (e.g. IoT boards) the model specific
+#     firmware is generally not in the initramfs. request_firmware() then
+#     fails and the driver does not retry after the switch to the real root,
+#     leaving the DSPs down for the rest of the boot.
+#
+# Blacklisting suppresses modalias-driven autoload while still allowing an
+# explicit "modprobe qcom_q6v5_pas" by name.
+
+PREREQ="kmod"
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case "${1}" in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# shellcheck source=/dev/null
+. /usr/share/initramfs-tools/hook-functions
+
+manual_add_modules qcom_q6v5_pas
+
+mkdir -p "${DESTDIR}/usr/lib/modprobe.d"
+cat > "${DESTDIR}/usr/lib/modprobe.d/qcom-adsp.conf" <<EOF
+# Loaded explicitly by scripts/init-top/qcom-adsp before udev is started, and
+# only on platforms where the ADSP gates the Type-C bus. See hooks/qcom-adsp.
+blacklist qcom_q6v5_pas
+EOF
