@@ -62,6 +62,19 @@ install_file "$SRC/stubble/grub.d/09_qcom-stubble" \
 install_file "$SRC/stubble/grub/qcom-laptop.cfg" \
     /etc/default/grub.d/qcom-laptop.cfg 0644
 
+# MODULES=dep (see qcom-laptop-postinst.cfg) needs sysfs, and /proc for the
+# root device, which a bare chroot lacks; d-i's in-target mounts them, but
+# only for /target. Mount whichever are missing, and unmount them on exit.
+mounted=
+for fs in proc:proc sys:sysfs; do
+    dir=$TARGET/${fs%%:*}
+    if ! grep -q " $dir " /proc/mounts; then
+        mount -t "${fs#*:}" "${fs#*:}" "$dir"
+        mounted="$dir $mounted"
+    fi
+done
+trap 'for dir in $mounted; do umount "$dir"; done' EXIT
+
 # base-installer built the kernel's initrd before the hooks were installed.
 log "regenerating the initrds"
 chroot "$TARGET" update-initramfs -u -k all
