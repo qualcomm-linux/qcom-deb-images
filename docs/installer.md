@@ -197,6 +197,12 @@ install the files no package ships:
 It then rebuilds the initrds, the Stubble images and `grub.cfg`. Packaging
 these files would make it unnecessary.
 
+The same preseed file sets `base-installer/initramfs-tools/driver-policy`
+to `dep`, so the installed system's initrds only have the modules its
+hardware needs: with Debian's default (`MODULES=most`) initrd and the
+uncompressed kernel in the Stubble image, the X1E firmware fails
+`ExitBootServices` on the T14s.
+
 The Stubble images are unsigned, so booting them likely needs Secure Boot
 disabled.
 
