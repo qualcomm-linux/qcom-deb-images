@@ -4,12 +4,14 @@
 
 # /etc/grub.d/09_qcom-stubble
 #
-# Installed by qcom-laptop-postinst.sh from the installer ISO. Adds a GRUB
-# entry for each Stubble image /etc/kernel/postinst.d/zz-qcom-stubble
-# built, newest first. Being before 10_linux, the newest one is the
-# default; 10_linux's plain kernel entries, which have no DTB, stay as a
-# fallback. Same root= logic as 10_linux, minus LVM, btrfs and ZFS, which
-# the installer doesn't set up for these laptops.
+# Installed by qcom-laptop-postinst.sh from the installer ISO. Adds GRUB
+# entries for the Stubble images /etc/kernel/postinst.d/zz-qcom-stubble
+# built, laid out like 10_linux's: the newest image as the default, then
+# an "Advanced options" submenu with every image, newest first, and their
+# recovery modes. They replace 10_linux's entries, which have no DTB and
+# so can't boot these laptops; qcom-laptop-postinst.sh diverts 10_linux
+# out of /etc/grub.d. Same root= logic as 10_linux, minus LVM, btrfs and
+# ZFS, which the installer doesn't set up for these laptops.
 set -e
 
 # grub-mkconfig_lib uses these, as in 10_linux.
@@ -35,6 +37,16 @@ else
     ROOT_DEVICE=$GRUB_DEVICE
 fi
 
+# entry <title> <image> <initrd> <args> [<indent>]
+entry() {
+    echo "${5:-}menuentry '$1' {"
+    prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" | sed "s/^/${5:-}\t/"
+    echo "${5:-}	linux $(make_system_path_relative_to_its_root "$2") root=$ROOT_DEVICE ro $4"
+    echo "${5:-}	initrd $(make_system_path_relative_to_its_root "$3")"
+    echo "${5:-}}"
+}
+
+first=true
 for image in $(for f in /boot/stubble-*.efi; do
     [ -f "$f" ] && echo "$f"
 done | version_sort -r); do
@@ -47,9 +59,19 @@ done | version_sort -r); do
     fi
 
     echo "Found Stubble image: $image" >&2
-    echo "menuentry '$OS, with Linux $version (Stubble)' {"
-    prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" | sed 's/^/\t/'
-    echo "	linux $(make_system_path_relative_to_its_root "$image") root=$ROOT_DEVICE ro ${GRUB_CMDLINE_LINUX:-} ${GRUB_CMDLINE_LINUX_DEFAULT:-}"
-    echo "	initrd $(make_system_path_relative_to_its_root "$initrd")"
-    echo "}"
+    args="${GRUB_CMDLINE_LINUX:-} ${GRUB_CMDLINE_LINUX_DEFAULT:-}"
+    if [ "$first" = true ]; then
+        entry "$OS" "$image" "$initrd" "$args"
+        echo "submenu 'Advanced options for $OS' {"
+        first=false
+    fi
+    entry "$OS, with Linux $version" "$image" "$initrd" "$args" "	"
+    if [ "${GRUB_DISABLE_RECOVERY:-}" != true ]; then
+        entry "$OS, with Linux $version (recovery mode)" "$image" "$initrd" \
+            "single ${GRUB_CMDLINE_LINUX:-}" "	"
+    fi
 done
+
+if [ "$first" = false ]; then
+    echo "}"
+fi

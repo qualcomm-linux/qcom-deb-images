@@ -189,8 +189,12 @@ install the files no package ships:
 - the kernel hooks from `/qli/stubble/kernel/`, which build
   `/boot/stubble-$VERSION.efi` (the kernel plus the DTBs Stubble has HWIDs
   for) for each kernel, and remove it with the kernel
-- `/qli/stubble/grub.d/09_qcom-stubble`, which adds a GRUB entry for each
-  Stubble image ahead of the stock ones, so the newest is the default
+- `/qli/stubble/grub.d/09_qcom-stubble`, which adds GRUB entries for the
+  Stubble images, laid out like the stock ones with the newest as the
+  default. They replace the stock entries, which have no DTB:
+  `/etc/grub.d/10_linux` is diverted to
+  `/usr/lib/qcom-laptop/grub.d/10_linux` (undo with
+  `dpkg-divert --rename --remove /etc/grub.d/10_linux`)
 - the laptops' boot arguments (`overlays/arm64/lib/qcom-laptop-boot-args.sh`)
   in `/etc/default/grub.d/qcom-laptop.cfg`
 

@@ -14,8 +14,9 @@
 #  - apt/: the pins for the backports and Qualcomm Linux sources apt-setup
 #    added; d-i has no preseed for pins
 #  - stubble/: kernel hooks that build a Stubble image (the kernel plus
-#    the laptops' DTBs) per kernel, a grub.d script that adds GRUB entries
-#    for them, and the laptops' boot arguments for GRUB
+#    the laptops' DTBs) per kernel, a grub.d script whose GRUB entries for
+#    them replace the stock 10_linux ones (diverted away, as they have no
+#    DTB), and the laptops' boot arguments for GRUB
 set -e
 
 TARGET=${1:-/target}
@@ -74,6 +75,17 @@ for image in "$TARGET"/boot/vmlinuz-*; do
     chroot "$TARGET" /etc/kernel/postinst.d/zz-qcom-stubble "$version" \
         "/boot/vmlinuz-$version"
 done
+
+# 10_linux's entries have no DTB, so they can't boot these laptops;
+# 09_qcom-stubble's replace them. grub-mkconfig runs whatever is in
+# /etc/grub.d, so divert 10_linux out of it, which also keeps grub-common
+# upgrades from bringing it back.
+if [ ! -e "$TARGET/usr/lib/qcom-laptop/grub.d/10_linux" ]; then
+    log "diverting /etc/grub.d/10_linux"
+    mkdir -p "$TARGET/usr/lib/qcom-laptop/grub.d"
+    chroot "$TARGET" dpkg-divert --local --rename \
+        --divert /usr/lib/qcom-laptop/grub.d/10_linux /etc/grub.d/10_linux
+fi
 
 log "updating grub.cfg"
 chroot "$TARGET" update-grub
