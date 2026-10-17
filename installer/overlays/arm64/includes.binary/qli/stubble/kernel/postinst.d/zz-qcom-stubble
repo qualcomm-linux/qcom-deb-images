@@ -1,0 +1,82 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# /etc/kernel/postinst.d/zz-qcom-stubble <version> [<image path>]
+#
+# Installed by qcom-laptop-postinst.sh from the installer ISO. Wraps the
+# kernel in a Stubble EFI stub, /boot/stubble-<version>.efi, that bundles
+# every DTB of the kernel with a Stubble HWID entry and picks the right one
+# for the machine at boot. The laptops' firmware provides no DTB, so the
+# plain kernel can't boot them. /etc/grub.d/09_qcom-stubble adds GRUB
+# entries for these images; this runs before zz-update-grub, which
+# regenerates grub.cfg. The initrd isn't bundled, so its updates need no
+# new image.
+set -eu
+
+VERSION=${1:?Usage: $0 <version> [<image path>]}
+IMAGE=${2:-/boot/vmlinuz-$VERSION}
+OUTPUT=/boot/stubble-$VERSION.efi
+
+STUB=/usr/lib/stubble/stubble.efi
+STUBBLIFY=/usr/bin/stubblify
+FINDDTBS=/usr/libexec/stubble/finddtbs.py
+HWIDS=/usr/share/stubble/hwids
+
+log() {
+    echo "zz-qcom-stubble: $*" >&2
+}
+
+if [ ! -x "$STUBBLIFY" ]; then
+    log "stubble not installed, not building $OUTPUT"
+    exit 0
+fi
+
+# Single kernel packages ship the DTBs in /usr/lib/linux-image-$VERSION/;
+# Debian's split ones in /usr/lib/modules/$VERSION/dtb/, with the former as
+# a symlink to it.
+DTB_DIR=""
+for dir in "/usr/lib/linux-image-$VERSION" "/usr/lib/modules/$VERSION/dtb"; do
+    if [ -d "$dir" ]; then
+        DTB_DIR=$dir
+        break
+    fi
+done
+if [ -z "$DTB_DIR" ]; then
+    log "no DTBs for $VERSION, not building $OUTPUT"
+    exit 0
+fi
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+# Only bundle DTBs whose root compatible has a Stubble HWID entry; the rest
+# could never be selected.
+set --
+"$FINDDTBS" "$DTB_DIR" "$HWIDS" | sort > "$TMPDIR/dtbs"
+while read -r dtb; do
+    set -- "$@" "--devicetree-auto=$dtb"
+done < "$TMPDIR/dtbs"
+if [ "$#" -eq 0 ]; then
+    log "no DTBs in $DTB_DIR match $HWIDS, not building $OUTPUT"
+    exit 0
+fi
+
+# Stubble embeds the kernel as is, so it must be a PE image. A
+# CONFIG_EFI_ZBOOT kernel is one; a plain gzipped Image (e.g. Debian's
+# linux-image-arm64) isn't, so embed the unpacked Image instead.
+KERNEL=$IMAGE
+if gzip -t "$IMAGE" 2>/dev/null; then
+    KERNEL=$TMPDIR/Image
+    gzip -dc "$IMAGE" > "$KERNEL"
+fi
+
+log "building $OUTPUT"
+"$STUBBLIFY" build \
+    --efi-arch=aa64 \
+    --linux="$KERNEL" \
+    --stub="$STUB" \
+    --hwids="$HWIDS" \
+    "$@" \
+    --output="$OUTPUT.new"
+mv "$OUTPUT.new" "$OUTPUT"

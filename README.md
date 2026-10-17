@@ -460,6 +460,19 @@ never pull a Qualcomm Linux package on upgrade. Expect reduced hardware support
 compared to the default image, as the Debian kernel does not carry the
 Qualcomm platform patches which `linux-image-qcom-next` does.
 
+## Build an installer ISO
+
+An early prototype of a Debian installer ISO is built with live-build. It
+boots a kernel from a kernel `.deb` you provide, needs `live-build`,
+`xorriso` and `stubble` among others, and runs as root:
+
+```bash
+make installer KERNEL_DEB=/path/to/linux-image-custom.deb
+```
+
+See [docs/installer.md](docs/installer.md) for the options, the current
+limitations and how it is built in CI.
+
 ## Development
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.

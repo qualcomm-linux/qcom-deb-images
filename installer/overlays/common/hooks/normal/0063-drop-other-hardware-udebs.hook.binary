@@ -1,0 +1,36 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb installer has filled the pool and
+# generated its indices, and before binary_checksums and binary_iso.
+#
+# Removes udebs for hardware the ISO doesn't target (UEFI laptops):
+#  - depthcharge-tools-installer, partman-cros: ChromeOS bootloader
+#  - flash-kernel-installer: U-Boot and other non-UEFI boards
+#  - pcmciautils-udeb: PCMCIA
+#  - console-keymaps-*: keyboards of old non-PC machines
+#
+# Then it regenerates the indices (see pool-lib.sh).
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../pool-lib.sh"
+
+shopt -s nullglob
+mapfile -t REMOVED < <(pool_udebs \
+    depthcharge-tools-installer \
+    partman-cros \
+    flash-kernel-installer \
+    pcmciautils-udeb \
+    console-keymaps-acorn \
+    console-keymaps-amiga \
+    console-keymaps-atari \
+    console-keymaps-dec \
+    console-keymaps-mac \
+    console-keymaps-sun)
+
+pool_remove "the udebs for other hardware" "${REMOVED[@]}"

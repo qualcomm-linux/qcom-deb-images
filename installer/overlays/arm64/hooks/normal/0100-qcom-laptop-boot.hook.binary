@@ -1,0 +1,243 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso.
+# Uses the DTBs that build.sh extracts from the kernel .deb into config/dtbs/,
+# and the Stubble stub, stubblify and HWID database from the build host's
+# stubble package.
+#
+# Fills the "# QLI_ENTRIES" marker in the generated grub.cfg (from the
+# template in overlays/arm64/bootloaders/grub-pc/grub.cfg) with GRUB menu
+# entries for both Debian Installer kernels (the live kernel is disabled via
+# --linux-packages none):
+#
+#   1. "QLI Graphical installer" - a Stubble-wrapped EFI stub
+#      (EFI/boot/stubble.efi) bundling every DTB that has a Stubble HWID
+#      entry, selected automatically at boot via HWID matching, booting the
+#      graphical installer. This is the default.
+#   2. "QLI Text installer" - the same Stubble EFI stub, text installer.
+#
+# The graphical and text installers only differ in their initrd and args:
+# replace-di-kernel.sh puts the same kernel in install/vmlinuz and
+# install/gtk/vmlinuz. So the Stubble EFI stub embeds install/vmlinuz, and
+# the duplicate install/gtk/vmlinuz is removed.
+#
+# Finally, removes live-build's unused install.cfg, install_start.cfg and
+# root efi.img.
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../qcom-laptop-boot-args.sh"
+
+GRUB_CFG="boot/grub/grub.cfg"
+INSTALL_CFG="boot/grub/install.cfg"
+DTB_SRC_DIR="../config/dtbs"
+HWIDS="/usr/share/stubble/hwids"
+# Extracted from stubble:arm64 (see docs/installer.md); the native package's
+# stubble.efi matches the build host's architecture, not the target's.
+STUB="/usr/lib/stubble/stubble-aa64.efi"
+STUBBLIFY="/usr/bin/stubblify"
+FINDDTBS="/usr/libexec/stubble/finddtbs.py"
+
+die() {
+    echo "0100-qcom-laptop-boot: $*" >&2
+    exit 1
+}
+
+[ -f "$GRUB_CFG" ] || die "$GRUB_CFG not found"
+[ -f "$INSTALL_CFG" ] || die "$INSTALL_CFG not found"
+[ -d "$DTB_SRC_DIR" ] || die "$DTB_SRC_DIR not found (build.sh extracts it from the kernel .deb)"
+for f in "$STUB" "$STUBBLIFY" "$FINDDTBS"; do
+    [ -e "$f" ] || die "$f not found (see docs/installer.md)"
+done
+[ -d "$HWIDS" ] || die "$HWIDS not found (see docs/installer.md)"
+
+python3 - "$STUB" <<'PY'
+import pefile
+import sys
+
+pe = pefile.PE(sys.argv[1], fast_load=True)
+
+if pe.FILE_HEADER.Machine != 0xAA64:
+    raise SystemExit(f"0100-qcom-laptop-boot: {sys.argv[1]} is not AArch64")
+PY
+
+# Only bundle DTBs whose root compatible has a Stubble HWID entry; the rest
+# could never be selected.
+mapfile -t STUBBLE_DTBS < <("$FINDDTBS" "$DTB_SRC_DIR" "$HWIDS" | sort)
+[ "${#STUBBLE_DTBS[@]}" -gt 0 ] || die "no DTBs in $DTB_SRC_DIR match $HWIDS"
+
+echo "Stubble DTBs:"
+printf '  %s\n' "${STUBBLE_DTBS[@]##*/}"
+
+# Extract the kernel/initrd/args for a given installer kernel path from
+# live-build's install.cfg (still generated, but no longer sourced by the
+# menu, and removed at the end). Taking the first match selects the plain
+# installer entry over the Expert/Automated/Rescue/dark-theme/
+# speech-synthesis variants.
+extract_boot_info() {
+    local kernel_path="$1"
+    eval "$(python3 - "$INSTALL_CFG" "$kernel_path" <<'PY'
+import pathlib
+import re
+import sys
+
+install_cfg, kernel_path = sys.argv[1:3]
+
+config = pathlib.Path(install_cfg).read_text()
+
+kernel_re = re.escape(kernel_path)
+linux_match = re.search(
+    rf"^\s*linux\s+{kernel_re}\s+(.*)$", config, re.MULTILINE
+)
+if not linux_match:
+    raise SystemExit(f"Could not find a linux command for {kernel_path}")
+
+args = linux_match.group(1).strip()
+
+initrd_match = re.search(r"^\s*initrd\s+(.+)$", config[linux_match.end():], re.MULTILINE)
+if not initrd_match:
+    raise SystemExit(f"Could not find an initrd command for {kernel_path}")
+
+initrd = initrd_match.group(1).strip()
+
+args = re.sub(r"(?<!\S)(quiet|splash|boot=live|components|findiso=\S+)(?!\S)", "", args)
+args = " ".join(args.split())
+
+print(f"KERNEL={kernel_path!r}")
+print(f"INITRD={initrd!r}")
+print(f"BASE_ARGS={args!r}")
+PY
+    )"
+}
+
+# Replace the "# QLI_ENTRIES" marker line in grub.cfg with the entries,
+# making the first one the default.
+insert_entries() {
+    local entries="$1"
+    python3 - "$GRUB_CFG" "$entries" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+entries = sys.argv[2]
+
+config, count = re.subn(
+    r"^# QLI_ENTRIES$", lambda _: "set default=0\n" + entries,
+    path.read_text(), count=1, flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit(
+        f"0100-qcom-laptop-boot: no '# QLI_ENTRIES' marker in {path} "
+        "(grub-pc template overlay not applied?)"
+    )
+path.write_text(config)
+PY
+}
+
+BOOT_KERNEL="install/vmlinuz"
+GTK_KERNEL="install/gtk/vmlinuz"
+[ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
+if [ -f "$GTK_KERNEL" ] && ! cmp -s "$GTK_KERNEL" "$BOOT_KERNEL"; then
+    die "$GTK_KERNEL differs from $BOOT_KERNEL, so can't be dropped"
+fi
+
+# --- Stubble multi-DTB EFI stub, shared by every entry ---
+STUBBLE_OUTPUT="EFI/boot/stubble.efi"
+
+DTB_ARGS=()
+for dtb in "${STUBBLE_DTBS[@]}"; do
+    DTB_ARGS+=("--devicetree-auto=$dtb")
+done
+
+mkdir -p "$(dirname "$STUBBLE_OUTPUT")"
+
+# Stubble embeds the kernel as is, so it must be a PE image. A
+# CONFIG_EFI_ZBOOT kernel is one and stays compressed. A plain gzipped Image
+# (e.g. Debian's linux-image-arm64) isn't, so embed the unpacked Image
+# instead: with CONFIG_EFI_STUB that's a PE image too.
+#
+# TODO: the Stubble entries with a gzipped (non-ZBOOT) kernel are untested
+# on hardware and need testing. If Stubble turns out to unpack a gzipped
+# Image itself, this unpacking can go.
+STUBBLE_KERNEL="$BOOT_KERNEL"
+if gzip -t "$BOOT_KERNEL" 2>/dev/null; then
+    STUBBLE_KERNEL=$(mktemp)
+    trap 'rm -f "$STUBBLE_KERNEL"' EXIT
+    gzip -dc "$BOOT_KERNEL" > "$STUBBLE_KERNEL"
+fi
+
+"$STUBBLIFY" build \
+    --efi-arch=aa64 \
+    --linux="$STUBBLE_KERNEL" \
+    --stub="$STUB" \
+    --hwids="$HWIDS" \
+    "${DTB_ARGS[@]}" \
+    --output="$STUBBLE_OUTPUT"
+
+python3 - "$STUBBLE_OUTPUT" <<'PY'
+import pefile
+import sys
+
+pe = pefile.PE(sys.argv[1], fast_load=True)
+
+if pe.FILE_HEADER.Machine != 0xAA64:
+    raise SystemExit("Generated Stubble kernel is not AArch64")
+PY
+
+# variant records: id:install_cfg_kernel:label (in menu order).
+# install_cfg_kernel is the kernel path install.cfg uses for that installer,
+# to look up its initrd and args; every entry boots the Stubble EFI stub.
+VARIANTS=(
+    "gtk:/install/gtk/vmlinuz:QLI Graphical installer"
+    "text:/install/vmlinuz:QLI Text installer"
+)
+
+ENTRIES=""
+
+for variant in "${VARIANTS[@]}"; do
+    IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL <<< "$variant"
+
+    extract_boot_info "$INSTALL_CFG_KERNEL"
+
+    CMDLINE="$BASE_ARGS $QCOM_LAPTOP_BOOT_ARGS"
+    CMDLINE="$(echo "$CMDLINE" | tr -s ' ')"
+
+    echo "Variant: $VARIANT_ID"
+    echo "  Stubble: /$STUBBLE_OUTPUT"
+    echo "  Initrd:  $INITRD"
+    echo "  Args:    $CMDLINE"
+
+    ENTRIES+=$(cat <<EOF
+
+menuentry '$LABEL' {
+    search --no-floppy --file --set=root /$STUBBLE_OUTPUT
+
+    linux /$STUBBLE_OUTPUT $CMDLINE
+    initrd $INITRD
+}
+
+EOF
+    )
+done
+
+insert_entries "$ENTRIES"
+
+# Only live-build's install.cfg (no longer sourced by the menu) boots it now.
+rm -f "$GTK_KERNEL"
+
+# Drop live-build's leftovers that nothing on the ISO uses:
+# - install.cfg and install_start.cfg: the stock menus the template replaces
+#   (install.cfg was only needed above, for extract_boot_info), which still
+#   reference the removed install/gtk/vmlinuz
+# - efi.img: binary_grub-efi's intermediate image (plain grub-mkimage
+#   bootaa64.efi), copied to the root along with the rest of its temp dir;
+#   the ISO boots boot/grub/efi.img
+rm -f "$INSTALL_CFG" boot/grub/install_start.cfg efi.img
+
+echo "0100-qcom-laptop-boot: done"

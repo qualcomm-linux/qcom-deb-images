@@ -1,0 +1,31 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb installer has filled the pool and
+# generated its indices, and before binary_checksums and binary_iso.
+#
+# Removes the speech synthesis udebs (espeakup, ~10 MB with its voices):
+# the boot menu has no speech synthesis entry (see
+# 0100-qcom-laptop-boot.hook.binary). alsa-utils-udeb and libasound2-udeb
+# go too, as only espeakup-udeb depends on them. The fonts stay: the
+# graphical installer uses them.
+#
+# Then it regenerates the indices (see pool-lib.sh).
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../pool-lib.sh"
+
+shopt -s nullglob
+mapfile -t REMOVED < <(pool_udebs \
+    espeakup-udeb \
+    espeak-ng-data-udeb \
+    espeak-data-udeb \
+    alsa-utils-udeb \
+    libasound2-udeb)
+
+pool_remove "the speech synthesis udebs" "${REMOVED[@]}"

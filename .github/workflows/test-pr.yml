@@ -26,7 +26,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read # actions/github-script
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # HACK: temporary, drop before merging: Build on PR skips PRs from the
+    # installer branch, but its run still succeeds, so skip them here too
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch != 'wip/obbardc/iso-installer' }}
     outputs:
       url: ${{ steps.set-build-url.outputs.url }}
       pr_number: ${{ steps.pr-details.outputs.pr_number }}

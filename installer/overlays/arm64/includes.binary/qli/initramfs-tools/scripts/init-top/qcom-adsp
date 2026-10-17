@@ -1,0 +1,35 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Reset the ADSP before udev is started and before the root filesystem is
+# mounted, on Qualcomm laptops where the ADSP hosts the Type-C Port Manager.
+#
+# See hooks/qcom-adsp for the rationale. The driver is blacklisted, so it is
+# only loaded here, by name, and only when this platform needs it.
+#
+# This script must run before scripts/init-top/udev. It has no prereqs, so
+# it is ordered by name, and "qcom-adsp" sorts before "udev".
+
+PREREQ=""
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case "${1}" in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# Platforms where the ADSP gates the Type-C bus. Keep in sync with the
+# firmware selection in hooks/qcom-adsp.
+adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
+
+grep -q -E "${adsp_compatibles}" \
+	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null || exit 0
+
+modprobe qcom_q6v5_pas || true
