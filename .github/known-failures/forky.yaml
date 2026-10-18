@@ -7,11 +7,6 @@
 # The failures below were all observed in run 35371401209 and are collected in
 # https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
-glymur-crd:
-  - test: fastrpc_test
-    comment: "fails on linux-next, mainline and qcom-laptops, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [linux-next, mainline, qcom-laptops]
-
 qcs615-ride:
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
