@@ -11,6 +11,7 @@
 qcom-next:
   boot:
     - glymur-crd
+    - monaco-arduino-monza
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
