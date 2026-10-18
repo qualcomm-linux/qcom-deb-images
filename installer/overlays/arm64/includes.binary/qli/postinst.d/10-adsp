@@ -1,0 +1,21 @@
+# shellcheck shell=sh disable=SC2154 # TARGET, SRC: set by postinst.sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Sourced by postinst.sh. Installs the initramfs-tools files and rebuilds
+# the initrds: qcom-adsp loads qcom_q6v5_pas before the root filesystem is
+# mounted, as the ADSP reset also resets the Type-C bus (and so a USB root
+# device); qcom-adsp-firmware adds the laptop's ADSP firmware (from the
+# firmware packages) to the initrd.
+
+for hook in \
+    hooks/qcom-adsp \
+    hooks/qcom-adsp-firmware \
+    scripts/init-top/qcom-adsp
+do
+    install_file "$SRC/initramfs-tools/$hook" "/etc/initramfs-tools/$hook" 0755
+done
+
+# base-installer built the kernel's initrd before the hooks were installed.
+log "regenerating the initrds"
+chroot "$TARGET" update-initramfs -u -k all

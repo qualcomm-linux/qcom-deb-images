@@ -1,0 +1,57 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Add Qualcomm laptop ADSP firmware to the initramfs, so that the qcom-adsp
+# init-top script can boot the ADSP before the root filesystem is mounted (its
+# reset also resets the Type-C bus). The rest of the firmware (GPU, CDSP,
+# video, audio) is loaded later, from the root filesystem.
+#
+# The initramfs is generated before kernel-install runs, so the firmware is
+# in the initrd by the time the kernel-install hooks process the kernel.
+#
+# TODO This is experimental: only the Lenovo ThinkPad T14s Gen 6 (x1e80100)
+# is covered for now, as an example. Add other laptops, or derive the list
+# from the device trees shipped with the kernel.
+# TODO Add an equivalent dracut module.
+#
+# The firmware to add depends on where the initramfs is generated:
+#  1) At image build time, when not running on the target laptop, add a base
+#     set of firmware suitable for most laptops, so that one image can boot
+#     on all of them.
+#  2) On the laptop itself, e.g. after a kernel upgrade, add only the
+#     firmware that laptop needs, keeping the initramfs small.
+# TODO Only 1) is implemented: the list below is always added. Detect when
+# running on the target laptop and add only its firmware.
+#
+# See https://salsa.debian.org/kernel-team/initramfs-tools/-/merge_requests/197
+# See https://salsa.debian.org/kernel-team/initramfs-tools/-/merge_requests/201
+
+PREREQ=""
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# shellcheck source=/dev/null
+. /usr/share/initramfs-tools/hook-functions
+# Begin real processing below this line
+
+# The ADSP firmware-name from the T14s DT. add_firmware also picks up .zst
+# and .xz compressed firmware files. Missing files are not fatal as this hook
+# runs on every machine, not just laptops.
+for fw in \
+	qcom/x1e80100/LENOVO/21N1/qcadsp8380.mbn \
+	qcom/x1e80100/LENOVO/21N1/adsp_dtbs.elf
+do
+	if ! add_firmware "$fw"; then
+		echo "W: qcom-adsp-firmware: $fw not found" >&2
+	fi
+done

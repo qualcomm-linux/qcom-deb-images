@@ -157,9 +157,10 @@ done
 stage "Replace installer kernel"
 
 # --module-rules leaves the modules the installer doesn't need out of
-# its initrds.
+# its initrds; --initrd-overlay adds extra files to them.
 "$SCRIPT_DIR/replace-di-kernel.sh" \
     --module-rules "$REPO_ROOT/overlays/$ARCH/initrd-modules.rules" \
+    --initrd-overlay "$REPO_ROOT/overlays/$ARCH/initrd" \
     "$KERNEL_DIR" \
     "$BUILD_DIR/binary/install" \
     "${FIRMWARE_ARGS[@]}"
