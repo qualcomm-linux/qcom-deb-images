@@ -1,0 +1,40 @@
+# shellcheck shell=sh disable=SC2154 # TARGET, SRC: set by postinst.sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Sourced by postinst.sh. Installs the Stubble files and regenerates
+# grub.cfg: a kernel hook that wraps each kernel in Stubble (bundling the
+# laptops' DTBs), a grub.d script whose GRUB entries for them replace the
+# stock 10_linux ones (diverted away, as they have no DTB), and the laptops'
+# boot arguments for GRUB.
+
+install_file "$SRC/stubble/kernel/postinst.d/zz-qcom-stubble" \
+    /etc/kernel/postinst.d/zz-qcom-stubble 0755
+install_file "$SRC/stubble/grub.d/09_qcom-stubble" \
+    /etc/grub.d/09_qcom-stubble 0755
+install_file "$SRC/stubble/grub/custom-boot-args.cfg" \
+    /etc/default/grub.d/custom-boot-args.cfg 0644
+
+# The kernel was installed before the Stubble hook, so wrap it now; the
+# hook wraps later kernels.
+for image in "$TARGET"/boot/vmlinuz-*; do
+    [ -f "$image" ] || continue
+    version=${image##*/vmlinuz-}
+    log "wrapping /boot/vmlinuz-$version in Stubble"
+    chroot "$TARGET" /etc/kernel/postinst.d/zz-qcom-stubble "$version" \
+        "/boot/vmlinuz-$version"
+done
+
+# 10_linux's entries have no DTB, so they can't boot these laptops;
+# 09_qcom-stubble's replace them. grub-mkconfig runs whatever is in
+# /etc/grub.d, so divert 10_linux out of it, which also keeps grub-common
+# upgrades from bringing it back.
+if [ ! -e "$TARGET/usr/lib/qcom-stubble/grub.d/10_linux" ]; then
+    log "diverting /etc/grub.d/10_linux"
+    mkdir -p "$TARGET/usr/lib/qcom-stubble/grub.d"
+    chroot "$TARGET" dpkg-divert --local --rename \
+        --divert /usr/lib/qcom-stubble/grub.d/10_linux /etc/grub.d/10_linux
+fi
+
+log "updating grub.cfg"
+chroot "$TARGET" update-grub

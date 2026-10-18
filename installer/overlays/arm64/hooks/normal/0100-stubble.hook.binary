@@ -6,8 +6,8 @@
 #
 # Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso.
 # Uses the DTBs that build.sh extracts from the kernel .deb into config/dtbs/,
-# and the Stubble stub, stubblify and HWID database from the build host's
-# stubble package.
+# the AArch64 Stubble stub it extracts from stubble:arm64 into config/, and
+# stubblify and the HWID database from the build host's stubble package.
 #
 # Wraps the installer kernel (install/vmlinuz) in place in a Stubble EFI stub
 # bundling every DTB that has a Stubble HWID entry, selected automatically at
@@ -22,9 +22,9 @@ set -euo pipefail
 
 DTB_SRC_DIR="../config/dtbs"
 HWIDS="/usr/share/stubble/hwids"
-# Extracted from stubble:arm64 (see docs/installer.md); the native package's
-# stubble.efi matches the build host's architecture, not the target's.
-STUB="/usr/lib/stubble/stubble-aa64.efi"
+# Extracted by build.sh from stubble:arm64; the host package's stubble.efi
+# matches the build host's architecture, not the target's.
+STUB="../config/stubble-aa64.efi"
 STUBBLIFY="/usr/bin/stubblify"
 FINDDTBS="/usr/libexec/stubble/finddtbs.py"
 

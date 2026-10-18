@@ -123,7 +123,18 @@ for variant in "${VARIANTS[@]}"; do
 
     extract_boot_info "$INSTALL_CFG_KERNEL"
 
-    CMDLINE="$BASE_ARGS $CUSTOM_BOOT_ARGS"
+    # d-i's grub-installer copies the args after "---" (bar its own, e.g.
+    # preseed/file=) into the target's GRUB_CMDLINE_LINUX_DEFAULT, but the
+    # target gets CUSTOM_BOOT_ARGS from custom-boot-args.cfg already, so put
+    # them before "---" or they'd be there twice.
+    case " $BASE_ARGS " in
+        *" --- "*)
+            CMDLINE="${BASE_ARGS%%---*} $CUSTOM_BOOT_ARGS ---${BASE_ARGS#*---}"
+            ;;
+        *)
+            CMDLINE="$BASE_ARGS $CUSTOM_BOOT_ARGS"
+            ;;
+    esac
     CMDLINE="$(echo "$CMDLINE" | tr -s ' ')"
 
     echo "Variant: $VARIANT_ID"
