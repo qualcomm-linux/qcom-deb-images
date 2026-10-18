@@ -7,7 +7,8 @@ set -euo pipefail
 ARCH=arm64
 INSTALLER="cdrom"
 SUITE="trixie"
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE]"
+KERNEL_DEBS=()
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -23,12 +24,19 @@ while [ "$#" -gt 0 ]; do
             SUITE="${2:?Missing value for --suite}"
             shift 2
             ;;
+        # The kernel package, or all of its packages if it is split (like
+        # Debian's linux-image, linux-base, linux-binary and linux-modules).
         *)
-            echo "Unknown argument: $1" >&2
-            exit 1
+            KERNEL_DEBS+=("$(realpath "$1")")
+            shift
             ;;
     esac
 done
+
+if [ "${#KERNEL_DEBS[@]}" -eq 0 ]; then
+    echo "$USAGE" >&2
+    exit 1
+fi
 
 case "$INSTALLER" in
     cdrom) ;;
@@ -66,6 +74,78 @@ CONFIGURE_ARGS=(--arch "$ARCH" --suite "$SUITE" --installer "$INSTALLER")
 stage "Clean previous binary build"
 
 lb clean --binary
+
+stage "Regenerate installer"
+
+rm -f \
+    .build/installer_debian-installer \
+    .build/installer_preseed
+
+# live-build's udeb_exclude (copied from debian-cd) drops
+# apt-mirror-setup, which asks "use a network mirror?", so the installer
+# never sets up a mirror and tasksel only sees the ISO's pool. lb installer
+# only builds its exclude list when ./exclude doesn't exist yet (and removes
+# it afterwards), and config/debian-installer/udeb_exclude can only add to
+# it. So pre-seed the same list without apt-mirror-setup.
+LB_UDEB_DATA="/usr/share/live/build/data/debian-cd/$SUITE"
+rm -f exclude
+if [ -d "$LB_UDEB_DATA" ]; then
+    cat "$LB_UDEB_DATA/udeb_exclude" \
+        "$LB_UDEB_DATA/exclude-udebs" \
+        "$LB_UDEB_DATA/exclude-udebs-$ARCH" 2>/dev/null |
+        grep -v -e '^#' -e '^apt-mirror-setup$' > exclude || true
+fi
+
+FIRMWARE_ARGS=()
+
+# Toggle, 1 to enable: add the fetched firmware (ath12k wifi, SoC
+# remoteprocs/GPU) to the installer initrds. Without it the installer has no
+# wifi, and the remoteprocs/GPU fail to load their firmware. 0 keeps the
+# initrds small, which GRUB is slow to load.
+INITRD_FIRMWARE=${INITRD_FIRMWARE:-1}
+
+if [ "$ARCH" = "arm64" ]; then
+    stage "Fetch firmware"
+
+    # Backports: the WCN7850 firmware in trixie is too old for the custom
+    # kernel's ath12k (WMI command timeouts when the interface comes up).
+    # Other suites (e.g. forky) are new enough, and have no backports.
+    FIRMWARE_SUITE="$SUITE"
+    if [ "$SUITE" = "trixie" ]; then
+        FIRMWARE_SUITE="trixie-backports"
+    fi
+
+    "$SCRIPT_DIR/lib/fetch-firmware.sh" "$BUILD_DIR" "$FIRMWARE_SUITE"
+    if [ "$INITRD_FIRMWARE" = 1 ]; then
+        FIRMWARE_ARGS=("$BUILD_DIR/firmware")
+    else
+        echo "Not adding firmware to the installer initrds (INITRD_FIRMWARE=0)"
+    fi
+fi
+
+stage "Build installer"
+
+lb installer
+
+stage "Unpack kernel"
+
+KERNEL_DIR=$(mktemp -d)
+trap 'rm -rf "$KERNEL_DIR"' EXIT
+
+for DEB in "${KERNEL_DEBS[@]}"; do
+    echo "Unpacking $DEB"
+    dpkg-deb -x "$DEB" "$KERNEL_DIR"
+done
+
+stage "Replace installer kernel"
+
+"$SCRIPT_DIR/replace-di-kernel.sh" \
+    "$KERNEL_DIR" \
+    "$BUILD_DIR/binary/install" \
+    "${FIRMWARE_ARGS[@]}"
+
+rm -rf "$KERNEL_DIR"
+trap - EXIT
 
 # live-build only ships udeb_include lists for amd64, and binary_disk fails
 # for cdrom when ${ARCH}_udeb_include is missing. It leaves an existing
