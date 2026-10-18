@@ -173,4 +173,4 @@ lb binary
 
 echo "=== Complete ==="
 
-ls -lh ./*.iso
+ls -lh ./*.img
