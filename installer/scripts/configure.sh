@@ -139,6 +139,10 @@ apply_overlay() {
         mkdir -p "$BUILD_DIR/config/package-lists"
         cp -a "$overlay_dir/package-lists/." "$BUILD_DIR/config/package-lists/"
     fi
+
+    if [ -d "$overlay_dir/lib" ]; then
+        cp -a "$overlay_dir/lib/." "$BUILD_DIR/config/"
+    fi
 }
 
 # The overlays' package lists differ between installer types, so start afresh.

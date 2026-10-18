@@ -147,6 +147,29 @@ stage "Replace installer kernel"
     "$BUILD_DIR/binary/install" \
     "${FIRMWARE_ARGS[@]}"
 
+if [ "$ARCH" = "arm64" ]; then
+    stage "Extract DTBs"
+
+    # All of the kernel's DTBs, not just the ones the ISO ships: the
+    # 0100-stubble binary hook bundles only those with a Stubble HWID
+    # entry into the Stubble EFI binary. The rest stay in config/.
+    rm -rf "$BUILD_DIR/config/dtbs"
+    mkdir -p "$BUILD_DIR/config/dtbs"
+
+    # Single kernel packages ship the DTBs in /usr/lib/linux-image-$KVER/;
+    # Debian's split ones in /usr/lib/modules/$KVER/dtb/, with the former as
+    # a symlink to it.
+    find "$KERNEL_DIR" \
+        \( -path '*/linux-image-*/*' -o -path '*/modules/*/dtb/*' \) \
+        -name '*.dtb' -type f \
+        -exec cp -t "$BUILD_DIR/config/dtbs/" {} +
+
+    if ! compgen -G "$BUILD_DIR/config/dtbs/*.dtb" >/dev/null; then
+        echo "Kernel package(s) contain no DTBs" >&2
+        exit 1
+    fi
+fi
+
 rm -rf "$KERNEL_DIR"
 trap - EXIT
 
