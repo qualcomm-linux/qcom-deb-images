@@ -14,8 +14,8 @@ qcs615-ride:
   - test: WiFi_Firmware_Driver
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
     kernels: [debian]
-  - test: hotplug
-    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+  - test: fastrpc_test
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
     kernels: [debian]
 
 qcs6490-rb3gen2:
@@ -29,6 +29,9 @@ qcs6490-rb3gen2:
   - test: hotplug
     comment: "fails on qcom-next"
     kernels: [qcom-next]
+  - test: fastrpc_test
+    comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [debian]
 
 qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
