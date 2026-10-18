@@ -19,6 +19,10 @@ drivers/gpu/*
 drivers/net/wireless/*
 !drivers/net/wireless/ath/*
 
+# HACK: Realtek USB wifi adapters (rtl8xxxu), e.g. the Edimax N150, as
+# a fallback for testing.
+!drivers/net/wireless/realtek/rtl8xxxu/*
+
 # Wired: only the NICs Qualcomm boards use. USB network adapters
 # (drivers/net/usb) stay.
 drivers/net/ethernet/*

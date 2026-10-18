@@ -13,6 +13,8 @@
 #                      firmware-qcom-dsp   every x1e80100 device, optional)
 #   qcom/gen70500_*    firmware-qcom-soc  (GPU SQE/GMU, which live outside
 #                                          qcom/x1e80100, optional)
+#   rtlwifi/*          firmware-realtek   (HACK: Realtek USB wifi adapters
+#                                          for rtl8xxxu, optional)
 # From 20260810 (forky, trixie-backports) the ADSP/CDSP blobs moved out of
 # firmware-qcom-soc into firmware-qcom-dsp; older suites (trixie) have no
 # firmware-qcom-dsp, so it's only fetched when the suite has it.
@@ -26,9 +28,23 @@ set -eu
 BUILD_DIR=$1
 SUITE=$2
 
-PACKAGES="firmware-atheros firmware-qcom-soc"
+PACKAGES="firmware-atheros firmware-qcom-soc firmware-realtek"
 REQUIRED_PATHS="ath12k/WCN7850"
 OPTIONAL_PATHS="qcom/x1e80100 qcom/gen70500_sqe.fw qcom/gen70500_gmu.bin"
+# HACK: firmware for Realtek USB wifi adapters (rtl8xxxu).
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8188eufw.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8188fufw.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8192cufw_A.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8192cufw_B.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8192cufw_TMSC.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8192eu_nic.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8192fufw.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8710bufw_SMIC.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8710bufw_UMC.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8723aufw_A.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8723aufw_B.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8723aufw_B_NoBT.bin"
+OPTIONAL_PATHS="$OPTIONAL_PATHS rtlwifi/rtl8723bu_nic.bin"
 
 FIRMWARE_OUT="$BUILD_DIR/firmware"
 rm -rf "$FIRMWARE_OUT"
