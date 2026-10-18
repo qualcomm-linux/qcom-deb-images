@@ -83,6 +83,18 @@ mkdir -p cache
 # Boot via shim + Debian's signed GRUB. "enable" fails the build if shim is
 # missing, where the default "auto" silently falls back to unsigned GRUB.
 #
+# Don't let lb installer add firmware packages to the pool (and /firmware/):
+# by default it adds every package in the archive's Contents that ships
+# anything under /usr/lib/firmware, e.g. indi-dsi (for one .hex file), which
+# drags in libindi, libnova, cfitsio, fftw3, theora etc., plus
+# firmware-linux-free, ath9k-htc, carl9170 etc. None of it is for this
+# hardware: build.sh adds the SoC and wifi firmware packages
+# lib/fetch-firmware.sh fetched to config/packages.binary/ instead.
+#
+# Those land in the pool's non-free-firmware component, so list it in the
+# archive areas: the ISO's Release only has the parent archive areas'
+# components, and apt on the target skips any component it doesn't list.
+#
 # Set the mirrors explicitly, and the parent mirrors too as lb saves them
 # separately and doesn't rederive them. Keep the trailing slashes: lb appends
 # "dists" to the debian-installer mirror directly.
@@ -102,10 +114,13 @@ lb config \
     "${MIRROR_ARGS[@]}" \
     --distribution "$SUITE" \
     --architectures "$ARCH" \
+    --archive-areas "main non-free-firmware" \
+    --parent-archive-areas "main non-free-firmware" \
     --linux-packages none \
     --debian-installer cdrom \
     --debian-installer-distribution "$SUITE" \
     --debian-installer-gui true \
+    --firmware-binary false \
     --chroot-filesystem squashfs \
     --cache-stages "bootstrap" \
     --uefi-secure-boot enable \
