@@ -20,10 +20,16 @@ os-prober
 #  - tasksel, popularity-contest, installation-report: pkgsel
 #  - task-ssh-server: tasksel only offers a task whose Key: package is
 #    available, so without it "SSH server" is missing offline
+#  - task-gnome-desktop: likewise for "GNOME", which the installer ticks by
+#    default (tasksel-default-desktop.cfg); live-build adds the task's
 #    dependencies, so a desktop can be installed offline
 #  - task-xfce-desktop: likewise for "Xfce"
 #  (these two are in overlays/cdrom/package-lists/desktop-tasks.list.binary,
 #  which netinst doesn't get: it installs a desktop from the network mirror)
+#  - sudo: user-setup, to give the first user sudo when the root account is
+#    disabled (no-root-login.cfg). It's Priority: optional, so it isn't in
+#    the standard task, and offline installs otherwise end up with root
+#    locked and no sudo
 #  - the packages of tasksel's "standard system utilities" task (every
 #    Priority: standard package): see standard-task.list.binary, as an "!"
 #    line can't go in an #if
@@ -36,4 +42,5 @@ tasksel
 popularity-contest
 installation-report
 task-ssh-server
+sudo
 #endif
