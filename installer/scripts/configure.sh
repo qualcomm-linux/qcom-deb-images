@@ -150,12 +150,25 @@ apply_overlay() {
         cp -a "$overlay_dir/package-lists/." "$BUILD_DIR/config/package-lists/"
     fi
 
+    # Preseeds are per installer type. For ISOs, live-build's config/preseed/
+    # only ends up as /install/preseed.cfg on the ISO, which d-i ignores
+    # without a file= boot argument. So replace-di-kernel.sh puts them in the
+    # initrd as /preseed.cfg instead, which d-i always loads, before anything
+    # else runs. (Not via config/includes.installer: live-build unpacks the
+    # initrd without fakeroot, which can't mknod in a container.)
+    if compgen -G "$overlay_dir/preseed/cdrom/*.cfg" >/dev/null; then
+        cat "$overlay_dir/preseed/cdrom/"*.cfg >> "$PRESEED"
+    fi
+
     if [ -d "$overlay_dir/lib" ]; then
         cp -a "$overlay_dir/lib/." "$BUILD_DIR/config/"
     fi
 }
 
-# The overlays' package lists differ between installer types, so start afresh.
+# The preseed is appended to per overlay, so start afresh. As are the
+# overlays' package lists, which differ between installer types.
+PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
+rm -f "$PRESEED"
 for list in "$REPO_ROOT"/overlays/*/package-lists/*; do
     rm -f "$BUILD_DIR/config/package-lists/$(basename "$list")"
 done

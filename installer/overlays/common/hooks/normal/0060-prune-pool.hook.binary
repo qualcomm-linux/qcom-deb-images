@@ -38,6 +38,24 @@ for f in pool-udeb/*/l/linux/*.udeb pool-udeb/*/l/linux-signed-*/*.udeb; do
     REMOVED+=("$f")
 done
 
+# The stock kernel debs (linux-image-*, and Debian's split linux-base-*,
+# linux-binary-*, linux-modules-*): build.sh adds the custom kernel to the
+# pool and preseeds base-installer to install it on the target. The debs
+# build.sh added are listed in config/kernel-debs.list and stay, since the
+# stock kernel can share their pool directory.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KERNEL_DEBS_LIST="$HOOK_DIR/../../kernel-debs.list"
+for f in pool/*/l/linux/*.deb pool/*/l/linux-signed-*/*.deb; do
+    case "${f##*/}" in
+        linux-image-* | linux-base-[0-9]* | linux-binary-* | linux-modules-*) ;;
+        *) continue ;;
+    esac
+    if [ -f "$KERNEL_DEBS_LIST" ] && grep -qxF "${f##*/}" "$KERNEL_DEBS_LIST"; then
+        continue
+    fi
+    REMOVED+=("$f")
+done
+
 # The speech synthesis udebs (espeakup, ~10 MB with its voices): the boot
 # menu has no speech synthesis entry (see 0110-grub-menu.hook.binary).
 # alsa-utils-udeb and libasound2-udeb go too, as only espeakup-udeb depends
