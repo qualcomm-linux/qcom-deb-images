@@ -18,6 +18,11 @@
 #   1. "Graphical installer" - the installer kernel (install/vmlinuz),
 #      booting the graphical installer. The default without a live system.
 #   2. "Text installer" - the same kernel, text installer.
+#   3. "Automated install" - the graphical installer at critical
+#      priority, preseeded from automated-install-preseed.cfg at the root of
+#      the image (overlays/arm64/includes.binary/), which users edit on the
+#      USB stick. auto-install/enable delays the locale and keyboard
+#      questions until that file is loaded.
 #
 # The graphical and text installers only differ in their initrd and args, so
 # every installer entry boots install/vmlinuz (0100-stubble.hook.binary
@@ -112,12 +117,14 @@ PY
 BOOT_KERNEL="install/vmlinuz"
 [ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
 
-# variant records: id:install_cfg_kernel:label (in menu order).
+# variant records: id:install_cfg_kernel:label:extra_args (in menu order).
 # install_cfg_kernel is the kernel path install.cfg uses for that installer,
 # to look up its initrd and args; every entry boots install/vmlinuz.
+# extra_args are appended to the entry's kernel command line.
 VARIANTS=(
     "gtk:/install/gtk/vmlinuz:Graphical installer:"
     "text:/install/vmlinuz:Text installer:"
+    "auto:/install/gtk/vmlinuz:Automated install:auto-install/enable=true priority=critical preseed/file=/cdrom/automated-install-preseed.cfg"
 )
 
 ENTRIES=""
@@ -152,7 +159,7 @@ EOF
 fi
 
 for variant in "${VARIANTS[@]}"; do
-    IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL <<< "$variant"
+    IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL EXTRA_ARGS <<< "$variant"
 
     extract_boot_info "$INSTALL_CFG_KERNEL"
 
@@ -168,7 +175,7 @@ for variant in "${VARIANTS[@]}"; do
             CMDLINE="$BASE_ARGS $CUSTOM_BOOT_ARGS"
             ;;
     esac
-    CMDLINE="$(echo "$CMDLINE" | tr -s ' ')"
+    CMDLINE="$(echo "$CMDLINE $EXTRA_ARGS" | tr -s ' ')"
 
     echo "Variant: $VARIANT_ID"
     echo "  Kernel:  /$BOOT_KERNEL"

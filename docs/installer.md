@@ -178,6 +178,16 @@ builds the GRUB menu:
   `0100-stubble.hook.binary` wraps in place in a Stubble EFI binary. It
   bundles every DTB of the kernel with an entry in Stubble's HWID database
   and picks the right one at boot.
+- `Automated install` boots the graphical installer at critical priority
+  with the preseed `automated-install-preseed.cfg` from the root of the USB
+  stick (from `installer/overlays/arm64/includes.binary/` in this
+  repository). The installer takes the default
+  answer where there is one and asks the rest, unless the preseed answers
+  them. As shipped, it only answers what is the same for everyone (network,
+  mirror, clock), and falls back to an install without a network when there
+  is none. Personal settings (locale, user, ...) and partitioning are
+  commented out and described: edit the file on the stick and uncomment the
+  answers you want, e.g. the disk to install to, for an unattended install.
 
 The menu's title shows the kernel name, suite, installer type and build ID,
 e.g. `qcom-deb-images installer (qcom-laptops forky cdrom 123456789-1)`; the
