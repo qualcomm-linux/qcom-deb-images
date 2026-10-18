@@ -12,6 +12,8 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 ARCH=arm64
 INSTALLER="cdrom"
 SUITE="trixie"
+KERNEL_NAME=""
+BUILD_ID=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -25,6 +27,14 @@ while [ "$#" -gt 0 ]; do
             ;;
         --suite)
             SUITE="${2:?Missing value for --suite}"
+            shift 2
+            ;;
+        --kernel-name)
+            KERNEL_NAME="${2:?Missing value for --kernel-name}"
+            shift 2
+            ;;
+        --build-id)
+            BUILD_ID="${2:?Missing value for --build-id}"
             shift 2
             ;;
         *)
@@ -153,5 +163,23 @@ done
 for overlay_dir in "${OVERLAY_DIRS[@]}"; do
     apply_overlay "$overlay_dir"
 done
+
+# Add the kernel name, suite, installer type and build ID to the boot menu's
+# title, e.g. "qcom-deb-images installer (qcom-laptops forky cdrom 123456789-1)";
+# the kernel name and build ID are left out when not given.
+# apply_overlay copies theme.txt afresh on every run, so this never stacks.
+TITLE=""
+if [ -n "$KERNEL_NAME" ]; then
+    TITLE+="$KERNEL_NAME "
+fi
+TITLE+="$SUITE $INSTALLER"
+if [ -n "$BUILD_ID" ]; then
+    TITLE+=" $BUILD_ID"
+fi
+TITLE=" ($TITLE)"
+THEME="$BUILD_DIR/config/bootloaders/grub-pc/live-theme/theme.txt"
+if [ -f "$THEME" ]; then
+    sed -i -E "s|^(title-text: \"[^\"]*)\"|\1$TITLE\"|" "$THEME"
+fi
 
 echo "Configured live-build in: $BUILD_DIR"
