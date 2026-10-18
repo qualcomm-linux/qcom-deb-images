@@ -45,9 +45,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$INSTALLER" in
-    cdrom|live) ;;
+    cdrom|live|netinst) ;;
     *)
-        echo "Unknown installer type: $INSTALLER (expected cdrom or live)" >&2
+        echo "Unknown installer type: $INSTALLER (expected cdrom, live or netinst)" >&2
         exit 1
         ;;
 esac
@@ -179,7 +179,9 @@ apply_overlay() {
     # initrd as /preseed.cfg instead, which d-i always loads, before anything
     # else runs. (Not via config/includes.installer: live-build unpacks the
     # initrd without fakeroot, which can't mknod in a container.) live's
-    # installer is cdrom's, so it uses cdrom's preseeds.
+    # and netinst's installer is cdrom's, so they use cdrom's preseeds.
+    # netinst keeps tasksel-default-desktop.cfg: tasksel only offers the
+    # desktops when the network mirror has them.
     if compgen -G "$overlay_dir/preseed/cdrom/*.cfg" >/dev/null; then
         cat "$overlay_dir/preseed/cdrom/"*.cfg >> "$PRESEED"
     fi

@@ -10,7 +10,7 @@ SUITE="trixie"
 KERNEL_NAME=""
 BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live|netinst] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -49,8 +49,11 @@ if [ "${#KERNEL_DEBS[@]}" -eq 0 ]; then
     exit 1
 fi
 
+# cdrom installs the base system from the pool on the ISO. live adds a live
+# system to the boot menu, with the same installer. netinst is cdrom without
+# the desktops in the pool.
 case "$INSTALLER" in
-    cdrom|live) ;;
+    cdrom|live|netinst) ;;
     *)
         echo "$USAGE" >&2
         exit 1
