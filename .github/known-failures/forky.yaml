@@ -40,3 +40,6 @@ qrb2210-arduino-imola:
 qrb2210-rb1:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
+  - test: fastrpc_test
+    comment: "fails on qcom-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [qcom-next]
