@@ -1,0 +1,39 @@
+# Extra .debs for the ISO's pool (binary/pool), not installed into the chroot.
+#
+# live-build downloads grub/shim for d-i without Recommends, but d-i's
+# apt-install installs them, so grub-installer also wants os-prober
+# (Recommended by grub-efi-*). Without it on the ISO, installing GRUB falls
+# back to the network and fails offline.
+os-prober
+
+# cdrom installer: unlike a debian-cd ISO, live-build's pool only holds the
+# bootstrap debs and lb installer's own short list (the kernel, GRUB, shim,
+# busybox, lvm2 etc.), all without Recommends. Everything else d-i installs
+# into the target itself must be listed here, or that step fails offline:
+#
+#  - zstd: base-installer, to compress the initramfs
+#  - initramfs-tools: base-installer's initramfs generator. On trixie the
+#    kernel's dependencies already bring it, but on forky they're
+#    "dracut | initramfs-tools | linux-initramfs-tool", so only dracut lands
+#    in the pool
+#  - locales: localechooser, to set up the chosen locale
+#  - tasksel, popularity-contest, installation-report: pkgsel
+#  - task-ssh-server: tasksel only offers a task whose Key: package is
+#    available, so without it "SSH server" is missing offline
+#    dependencies, so a desktop can be installed offline
+#  - task-xfce-desktop: likewise for "Xfce"
+#  (these two are in overlays/cdrom/package-lists/desktop-tasks.list.binary,
+#  which netinst doesn't get: it installs a desktop from the network mirror)
+#  - the packages of tasksel's "standard system utilities" task (every
+#    Priority: standard package): see standard-task.list.binary, as an "!"
+#    line can't go in an #if
+#
+#if DEBIAN_INSTALLER cdrom
+zstd
+initramfs-tools
+locales
+tasksel
+popularity-contest
+installation-report
+task-ssh-server
+#endif

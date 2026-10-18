@@ -1,0 +1,6 @@
+# tasksel's GNOME and Xfce tasks for the ISO's pool, so a desktop can be
+# installed offline (see common/package-lists/installer-pool.list.binary).
+# live applies this overlay too; netinst doesn't, to keep the image small,
+# and installs a desktop from the network mirror instead.
+task-gnome-desktop
+task-xfce-desktop

@@ -134,7 +134,17 @@ apply_overlay() {
         mkdir -p "$BUILD_DIR/config/debian-cd"
         cp -a "$overlay_dir/debian-cd/." "$BUILD_DIR/config/debian-cd/"
     fi
+
+    if [ -d "$overlay_dir/package-lists" ]; then
+        mkdir -p "$BUILD_DIR/config/package-lists"
+        cp -a "$overlay_dir/package-lists/." "$BUILD_DIR/config/package-lists/"
+    fi
 }
+
+# The overlays' package lists differ between installer types, so start afresh.
+for list in "$REPO_ROOT"/overlays/*/package-lists/*; do
+    rm -f "$BUILD_DIR/config/package-lists/$(basename "$list")"
+done
 
 for overlay_dir in "${OVERLAY_DIRS[@]}"; do
     apply_overlay "$overlay_dir"
