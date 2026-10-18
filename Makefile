@@ -77,6 +77,17 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
+# INSTALLER_OPTS are passed to the installer build script, e.g.:
+# live-build has to run as root, so the installer targets use sudo unless make
+INSTALLER_OPTS ?=
+
+.PHONY: installer
+installer:
+
+.PHONY: clean-installer
+clean-installer:
+	$(INSTALLER_SUDO) rm -rf installer/build
+
 .PHONY: test
 test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
