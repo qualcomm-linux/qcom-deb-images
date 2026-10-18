@@ -10,7 +10,7 @@ SUITE="trixie"
 KERNEL_NAME=""
 BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -50,7 +50,7 @@ if [ "${#KERNEL_DEBS[@]}" -eq 0 ]; then
 fi
 
 case "$INSTALLER" in
-    cdrom) ;;
+    cdrom|live) ;;
     *)
         echo "$USAGE" >&2
         exit 1
@@ -119,25 +119,37 @@ fi
 # which lb installer's *_$ARCH.deb and *_all.deb globs rely on. The
 # 0060-prune-pool hook drops the stock kernel, keeping the debs listed
 # in config/kernel-debs.list.
+#
+# For live, also install the kernel, its dependencies and the firmware in the
+# live system: lb chroot installs every deb in config/packages.chroot/.
 PACKAGES_BINARY="$BUILD_DIR/config/packages.binary"
+PACKAGES_CHROOT="$BUILD_DIR/config/packages.chroot"
 KERNEL_DEBS_LIST="$BUILD_DIR/config/kernel-debs.list"
-rm -rf "$PACKAGES_BINARY"
+rm -rf "$PACKAGES_BINARY" "$PACKAGES_CHROOT"
 mkdir -p "$PACKAGES_BINARY"
 : > "$KERNEL_DEBS_LIST"
 
-# Copy a deb into config/packages.binary/, named as apt would name it. Sets
-# POOL_PKG and POOL_NAME to its package and file names.
+# Copy a deb into config/packages.binary/, named as apt would name it, and
+# with --chroot into config/packages.chroot/ too for live. Sets POOL_PKG and
+# POOL_NAME to its package and file names.
 pool_add() {
-    local ver
+    local chroot=0 ver
+    if [ "$1" = --chroot ]; then
+        chroot=1
+        shift
+    fi
     POOL_PKG=$(dpkg-deb -f "$1" Package)
     ver=$(dpkg-deb -f "$1" Version)
     POOL_NAME="${POOL_PKG}_${ver#*:}_$(dpkg-deb -f "$1" Architecture).deb"
     cp "$1" "$PACKAGES_BINARY/$POOL_NAME"
+    if [ "$chroot" = 1 ] && [ "$INSTALLER" = live ]; then
+        install -D -m 0644 "$1" "$PACKAGES_CHROOT/$POOL_NAME"
+    fi
 }
 
 KERNEL_PACKAGE=""
 for DEB in "${KERNEL_DEBS[@]}"; do
-    pool_add "$DEB"
+    pool_add --chroot "$DEB"
     echo "$POOL_NAME" >> "$KERNEL_DEBS_LIST"
     PKG="$POOL_PKG"
     case "$PKG" in
@@ -164,7 +176,7 @@ stage "Fetch kernel dependencies"
 "$SCRIPT_DIR/lib/fetch-kernel-deps.sh" "$BUILD_DIR" "$SUITE" "$ARCH" "${KERNEL_DEBS[@]}"
 for DEB in "$BUILD_DIR"/kernel-deps-apt/debs/*.deb; do
     [ -e "$DEB" ] || continue
-    pool_add "$DEB"
+    pool_add --chroot "$DEB"
 done
 
 # Packages from config/packages.binary/ for pkgsel to install on the
@@ -230,6 +242,30 @@ if [ "$ARCH" = "arm64" ]; then
 # installer-config.sh.
 GRUB_CMDLINE_LINUX="\$GRUB_CMDLINE_LINUX $CUSTOM_BOOT_ARGS"
 EOF
+fi
+
+stage "Build bootstrap and chroot"
+
+# After the fetch stages: lb chroot installs config/packages.chroot/. For
+# live, rebuild the chroot every time, so it has this build's kernel and
+# firmware. lb clean --chroot leaves the bootstrap's stagefiles, so remove
+# those too; lb bootstrap then restores the chroot from cache/bootstrap/.
+if [ "$INSTALLER" = live ]; then
+    lb clean --chroot
+    rm -f .build/bootstrap*
+fi
+
+lb bootstrap
+lb chroot
+
+# --linux-packages none makes binary_linux-image skip the live system's
+# kernel and initrd, so put them in binary/live/ via config/includes.binary/.
+# The 0100-stubble binary hook wraps the kernel with Stubble.
+LIVE_BOOT="$BUILD_DIR/config/includes.binary/live"
+rm -rf "$LIVE_BOOT"
+if [ "$INSTALLER" = live ]; then
+    mkdir -p "$LIVE_BOOT"
+    cp -L chroot/boot/vmlinuz-* chroot/boot/initrd.img-* "$LIVE_BOOT/"
 fi
 
 stage "Build installer"
@@ -320,15 +356,26 @@ fi
 # boots the installer, and d-i installs from the pool. Marking the stages
 # done leaves the chroot as binary_rootfs would, and nothing else needs
 # them. ("--chroot-filesystem none" can't do this: it replaces the whole
-mkdir -p "$BUILD_DIR/.build"
-touch \
-    "$BUILD_DIR/.build/binary_chroot" \
-    "$BUILD_DIR/.build/binary_rootfs" \
-    "$BUILD_DIR/.build/binary_manifest"
+# binary/ tree with the chroot, wiping the installer.) live keeps them, for
+# its live/filesystem.squashfs.
+if [ "$INSTALLER" != live ]; then
+    mkdir -p "$BUILD_DIR/.build"
+    touch \
+        "$BUILD_DIR/.build/binary_chroot" \
+        "$BUILD_DIR/.build/binary_rootfs" \
+        "$BUILD_DIR/.build/binary_manifest"
+fi
 
 stage "Build image"
 
 lb binary
+
+# The image is FAT32, which can't hold files of 4 GiB or more.
+SQUASHFS="$BUILD_DIR/binary/live/filesystem.squashfs"
+if [ -f "$SQUASHFS" ] && [ "$(stat -c %s "$SQUASHFS")" -gt 4294967295 ]; then
+    echo "$SQUASHFS is too big for FAT32 (4 GiB or more)" >&2
+    exit 1
+fi
 
 echo "=== Complete ==="
 

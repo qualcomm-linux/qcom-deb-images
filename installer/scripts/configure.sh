@@ -45,9 +45,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$INSTALLER" in
-    cdrom) ;;
+    cdrom|live) ;;
     *)
-        echo "Unknown installer type: $INSTALLER (expected cdrom)" >&2
+        echo "Unknown installer type: $INSTALLER (expected cdrom or live)" >&2
         exit 1
         ;;
 esac
@@ -57,7 +57,11 @@ esac
 # parallel. Suites don't share trees, so e.g. trixie and forky don't collide.
 SUITE_DIR="$REPO_ROOT/build/$ARCH/$SUITE"
 BUILD_DIR="$SUITE_DIR/$INSTALLER"
+# live is cdrom plus a live system, so it gets cdrom's overlay too.
 OVERLAY_DIRS=("$REPO_ROOT/overlays/common" "$REPO_ROOT/overlays/$ARCH")
+if [ "$INSTALLER" = live ]; then
+    OVERLAY_DIRS+=("$REPO_ROOT/overlays/cdrom")
+fi
 OVERLAY_DIRS+=("$REPO_ROOT/overlays/$INSTALLER")
 
 if ! command -v lb >/dev/null 2>&1; then
@@ -75,10 +79,14 @@ mkdir -p cache
 # It re-reads the saved config/ before applying these arguments, so dropping
 # an option here does NOT reset it to the default: set it explicitly instead.
 #
-# The chroot's filesystem.squashfs is never built: build.sh marks the
-# binary_chroot, binary_rootfs and binary_manifest stages as done, as the
-# installer installs from the pool. So only cache the bootstrap.
+# For cdrom, the chroot's filesystem.squashfs is never built: build.sh marks
+# the binary_chroot, binary_rootfs and binary_manifest stages as done, as the
+# installer installs from the pool. live builds it, for the live system. So
+# only cache the bootstrap.
 #
+# Both types use live-build's cdrom installer: its live installer would copy
+# the live system to the target instead of installing from the pool, so
+# live's installer stays the same as cdrom's.
 #
 # Boot via shim + Debian's signed GRUB. "enable" fails the build if shim is
 # missing, where the default "auto" silently falls back to unsigned GRUB.
@@ -170,9 +178,21 @@ apply_overlay() {
     # without a file= boot argument. So replace-di-kernel.sh puts them in the
     # initrd as /preseed.cfg instead, which d-i always loads, before anything
     # else runs. (Not via config/includes.installer: live-build unpacks the
-    # initrd without fakeroot, which can't mknod in a container.)
+    # initrd without fakeroot, which can't mknod in a container.) live's
+    # installer is cdrom's, so it uses cdrom's preseeds.
     if compgen -G "$overlay_dir/preseed/cdrom/*.cfg" >/dev/null; then
         cat "$overlay_dir/preseed/cdrom/"*.cfg >> "$PRESEED"
+    fi
+
+    # The live system's initrd needs the same initramfs-tools hooks as the
+    # installed system (see postinst.d/10-adsp), e.g. to reset the ADSP
+    # before mounting the root filesystem from USB. The live overlay's
+    # 0050-initramfs hook creates the initrd after copying
+    # config/includes.chroot/, and lb's chroot_hacks regenerates it.
+    if [ "$INSTALLER" = live ] && [ -d "$overlay_dir/includes.binary/qli/initramfs-tools" ]; then
+        mkdir -p "$BUILD_DIR/config/includes.chroot/etc/initramfs-tools"
+        cp -a "$overlay_dir/includes.binary/qli/initramfs-tools/." \
+            "$BUILD_DIR/config/includes.chroot/etc/initramfs-tools/"
     fi
 
     if [ -d "$overlay_dir/lib" ]; then
@@ -180,10 +200,12 @@ apply_overlay() {
     fi
 }
 
-# The preseed is appended to per overlay, so start afresh. As are the
-# overlays' package lists, which differ between installer types.
+# The preseed is appended to per overlay, so start afresh. As are the live
+# system's initramfs-tools hooks and the overlays' package lists, which
+# differ between installer types.
 PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 rm -f "$PRESEED"
+rm -rf "$BUILD_DIR/config/includes.chroot/etc/initramfs-tools"
 for list in "$REPO_ROOT"/overlays/*/package-lists/*; do
     rm -f "$BUILD_DIR/config/package-lists/$(basename "$list")"
 done

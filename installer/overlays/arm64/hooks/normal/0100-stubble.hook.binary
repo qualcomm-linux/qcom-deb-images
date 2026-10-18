@@ -11,8 +11,11 @@
 #
 # Wraps the installer kernel (install/vmlinuz) in place in a Stubble EFI stub
 # bundling every DTB that has a Stubble HWID entry, selected automatically at
-# boot via HWID matching. 0110-grub-menu.hook.binary adds the GRUB entries
-# that boot it.
+# boot via HWID matching. For the live installer type (when
+# live/filesystem.squashfs exists), also wraps the live system's kernel,
+# which build.sh puts in live/ (lb doesn't, with --linux-packages none), in
+# the same stub. 0110-grub-menu.hook.binary adds the GRUB entries that boot
+# them.
 #
 # The graphical and text installers only differ in their initrd and args:
 # replace-di-kernel.sh puts the same kernel in install/vmlinuz and
@@ -64,7 +67,7 @@ if [ -f "$GTK_KERNEL" ] && ! cmp -s "$GTK_KERNEL" "$BOOT_KERNEL"; then
     die "$GTK_KERNEL differs from $BOOT_KERNEL, so can't be dropped"
 fi
 
-# --- Stubble multi-DTB EFI stub ---
+# --- Stubble multi-DTB EFI stub, shared by every kernel ---
 DTB_ARGS=()
 for dtb in "${STUBBLE_DTBS[@]}"; do
     DTB_ARGS+=("--devicetree-auto=$dtb")
@@ -125,6 +128,17 @@ PY
 }
 
 stubble_wrap "$BOOT_KERNEL"
+
+# The live system's kernel (the live installer type only). build.sh puts it
+# in live/.
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    if [ "${#LIVE_KERNELS[@]}" -ne 1 ] || [ ! -f "${LIVE_KERNELS[0]}" ]; then
+        die "expected exactly one live/vmlinuz-*, found: ${LIVE_KERNELS[*]}"
+    fi
+
+    stubble_wrap "${LIVE_KERNELS[0]}"
+fi
 
 # Only live-build's install.cfg (replaced by 0110-grub-menu.hook.binary's
 # menu) boots it now.

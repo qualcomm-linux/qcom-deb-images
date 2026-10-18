@@ -9,10 +9,14 @@
 #
 # Fills the "# QLI_ENTRIES" marker in the generated grub.cfg (from the
 # template in overlays/arm64/bootloaders/grub-pc/grub.cfg) with GRUB menu
-# entries for both Debian Installer kernels:
+# entries for both Debian Installer kernels and, for the live installer type,
+# the live system:
 #
+#   0. "Live system (Xfce)" - only when live/filesystem.squashfs exists,
+#      then the default. Boots the live system's kernel and initrd, which
+#      build.sh puts in live/.
 #   1. "Graphical installer" - the installer kernel (install/vmlinuz),
-#      booting the graphical installer. The default.
+#      booting the graphical installer. The default without a live system.
 #   2. "Text installer" - the same kernel, text installer.
 #
 # The graphical and text installers only differ in their initrd and args, so
@@ -117,6 +121,35 @@ VARIANTS=(
 )
 
 ENTRIES=""
+
+# The live system (the live installer type only), first so it's the
+# default. build.sh puts its kernel and initrd in live/; live-boot finds
+# live/filesystem.squashfs on the stick by itself. 0100-stubble.hook.binary
+# checked there's exactly one live kernel.
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    LIVE_KERNEL="${LIVE_KERNELS[0]}"
+    LIVE_INITRD="live/initrd.img-${LIVE_KERNEL#live/vmlinuz-}"
+    [ -f "$LIVE_INITRD" ] || die "$LIVE_INITRD not found"
+
+    LABEL="Live system (Xfce)"
+    CMDLINE="boot=live components $CUSTOM_BOOT_ARGS"
+
+    echo "Variant: live"
+    echo "  Kernel:  /$LIVE_KERNEL"
+    echo "  Initrd:  /$LIVE_INITRD"
+    echo "  Args:    $CMDLINE"
+
+    ENTRIES+=$(cat <<EOF
+
+menuentry '$LABEL' {
+    linux /$LIVE_KERNEL $CMDLINE
+    initrd /$LIVE_INITRD
+}
+
+EOF
+    )
+fi
 
 for variant in "${VARIANTS[@]}"; do
     IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL <<< "$variant"

@@ -1,0 +1,4 @@
+# The live system's desktop, on top of lb's own live.list.chroot (live-boot,
+# live-config etc.). build.sh adds the custom kernel and the firmware to the
+# chroot.
+task-xfce-desktop
