@@ -9,6 +9,8 @@ permissions: {}
 jobs:
   event-file:
     name: "Upload event file"
+    # HACK: temporary, drop before merging: skip PRs from the installer branch
+    if: github.head_ref != 'wip/obbardc/iso-installer'
     runs-on: ubuntu-latest
     permissions:
       contents: read # actions/upload-artifact
@@ -20,6 +22,8 @@ jobs:
         path: ${{ github.event_path }}
 
   build:
+    # HACK: temporary, drop before merging: skip PRs from the installer branch
+    if: github.head_ref != 'wip/obbardc/iso-installer'
     strategy:
       fail-fast: false
       matrix:
