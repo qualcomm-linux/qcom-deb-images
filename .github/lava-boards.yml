@@ -29,9 +29,6 @@ arduino:
     - monaco-arduino-monza
     - monaco-evk
     - qrb2210-arduino-imola
-  premerge:
-    - monaco-arduino-monza
-    - monaco-evk
 
 linux-next:
   boot:
