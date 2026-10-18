@@ -27,9 +27,6 @@ jobs:
     with:
       kernel_name: arduino
       build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/arduino'
-      # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
-      overlays: 'workaround-initramfs-firmware-monaco'
       # the boards tested come from .github/lava-boards.yml, under arduino
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
