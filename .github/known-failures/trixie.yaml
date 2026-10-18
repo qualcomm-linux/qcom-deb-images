@@ -12,11 +12,6 @@ glymur-crd:
     comment: "fails on linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
     kernels: [linux-next, mainline]
 
-monaco-evk:
-  - test: BT_ON_OFF
-    comment: "fails on arduino, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
-    kernels: [arduino]
-
 qcs615-ride:
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
@@ -46,7 +41,5 @@ qrb2210-arduino-imola:
     kernels: [arduino]
 
 qrb2210-rb1:
-  - test: BT_ON_OFF
-    comment: "controller stays unconfigured (DOWN RAW, no valid BD address) and is not visible to bluetoothctl, https://github.com/qualcomm-linux/qcom-deb-images/issues/719"
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
