@@ -24,6 +24,13 @@
 #      USB stick. auto-install/enable delays the locale and keyboard
 #      questions until that file is loaded.
 #
+# and fills the "# QLI_ADVANCED_ENTRIES" marker, in the "Advanced options"
+# submenu, with the same entries booted with "chainloader" rather than
+# "linux"/"initrd", for debugging: they tell a problem in GRUB's loader apart
+# from one in Stubble or the kernel's EFI stub. GRUB's "initrd" doesn't apply
+# to "chainloader", so these pass the initrd as "initrd=" for the kernel's EFI
+# stub to load.
+#
 # The graphical and text installers only differ in their initrd and args, so
 # every installer entry boots install/vmlinuz (0100-stubble.hook.binary
 # removed the duplicate install/gtk/vmlinuz).
@@ -128,6 +135,7 @@ VARIANTS=(
 )
 
 ENTRIES=""
+ADVANCED_ENTRIES=""
 
 # The live system (the live installer type only), first so it's the
 # default. build.sh puts its kernel and initrd in live/; live-boot finds
@@ -153,6 +161,15 @@ menuentry '$LABEL' {
     linux /$LIVE_KERNEL $CMDLINE
     initrd /$LIVE_INITRD
 }
+
+EOF
+    )
+
+    ADVANCED_ENTRIES+=$(cat <<EOF
+
+    menuentry '$LABEL (chainloader)' {
+        chainloader /$LIVE_KERNEL $CMDLINE initrd=/$LIVE_INITRD
+    }
 
 EOF
     )
@@ -196,9 +213,18 @@ menuentry '$LABEL' {
 EOF
     )
 
+    ADVANCED_ENTRIES+=$(cat <<EOF
+
+    menuentry '$LABEL (chainloader)' {
+        chainloader /$BOOT_KERNEL $CMDLINE initrd=$INITRD
+    }
+
+EOF
+    )
 done
 
 insert_entries "# QLI_ENTRIES" "$ENTRIES" $'set default=0\n'
+insert_entries "# QLI_ADVANCED_ENTRIES" "$ADVANCED_ENTRIES"
 
 # Drop live-build's leftovers that nothing on the ISO uses:
 # - install.cfg and install_start.cfg: the stock menus the template replaces

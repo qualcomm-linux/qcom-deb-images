@@ -195,6 +195,14 @@ builds the GRUB menu:
   gets `--uefi-shell`. The shell is unsigned, so booting it likely needs
   Secure Boot disabled.
 
+  It also has a `(chainloader)` entry for each of the entries above, which
+  boots the same Stubble binary with `chainloader` rather than
+  `linux`/`initrd`, passing the initrd as `initrd=` on the command line.
+  They help tell a
+  problem in GRUB's loader apart from one in Stubble or the kernel's EFI
+  stub. On the T14s they boot the installer even when the `linux`/`initrd`
+  entries fail at ExitBootServices.
+
 The menu's title shows the kernel name, suite, installer type and build ID,
 e.g. `qcom-deb-images installer (qcom-laptops forky cdrom 123456789-1)`; the
 kernel name and build ID are left out unless `--kernel-name` and
