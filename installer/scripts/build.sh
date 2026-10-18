@@ -10,8 +10,9 @@ SUITE="trixie"
 QLI_REPO=0
 KERNEL_NAME=""
 BUILD_ID=""
+UEFI_SHELL=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live|netinst] [--suite SUITE] [--qli-repo] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live|netinst] [--suite SUITE] [--qli-repo] [--kernel-name NAME] [--build-id ID] [--uefi-shell FILE] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -40,6 +41,11 @@ while [ "$#" -gt 0 ]; do
             ;;
         --build-id)
             BUILD_ID="${2:?Missing value for --build-id}"
+            shift 2
+            ;;
+        # A UEFI shell (shellaa64.efi), for the boot menu's advanced options.
+        --uefi-shell)
+            UEFI_SHELL="$(realpath "${2:?Missing value for --uefi-shell}")"
             shift 2
             ;;
         # The kernel package, or all of its packages if it is split (like
@@ -252,6 +258,16 @@ if [ "$ARCH" = "arm64" ]; then
 # installer-config.sh.
 GRUB_CMDLINE_LINUX="\$GRUB_CMDLINE_LINUX $CUSTOM_BOOT_ARGS"
 EOF
+
+    # The UEFI shell, which the boot menu's advanced options offer when it
+    # is there. Remove one from a previous build without it: the overlays
+    # never remove files from config/includes.binary/.
+    UEFI_SHELL_DEST="$BUILD_DIR/config/includes.binary/EFI/tools/shellaa64.efi"
+    if [ -n "$UEFI_SHELL" ]; then
+        install -D -m 0644 "$UEFI_SHELL" "$UEFI_SHELL_DEST"
+    else
+        rm -f "$UEFI_SHELL_DEST"
+    fi
 fi
 
 stage "Build bootstrap and chroot"

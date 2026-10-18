@@ -72,6 +72,7 @@ jobs:
 
       # dctrl-tools: grep-aptavail lists tasksel's standard task for the pool
       # fdisk: live-build's binary_hdd needs it for the disk image
+      # curl: downloads the UEFI shell
       # bmaptool: generates the image's block map
       - name: Install live-build and dependencies
         run: |
@@ -92,6 +93,7 @@ jobs:
               debian-archive-keyring \
               dctrl-tools \
               fdisk \
+              curl \
               bmaptool
 
       # stubble (stubblify, the Stubble EFI stub and its HWID database) and
@@ -213,6 +215,16 @@ jobs:
               exit 1
           fi
 
+      # a UEFI shell for the boot menu's advanced options, pinned to a release
+      # and checked against its sha256
+      - name: Download UEFI shell
+        run: |
+          set -ux
+          curl -fsSL -o shellaa64.efi \
+              https://github.com/pbatard/UEFI-Shell/releases/download/26H2/shellaa64.efi
+          echo "ce22900f22bce4e31edc26adc7bdb7608ece852d24370a9cf4095e4a2be5aa9e  shellaa64.efi" |
+              sha256sum -c
+
       - name: Build debian-installer image
         run: |
           set -ux
@@ -225,7 +237,7 @@ jobs:
           fi
           installer/scripts/build.sh --arch arm64 --installer "${INSTALLER}" \
               --suite "${SUITE}" --kernel-name "${KERNEL}" \
-              --build-id "${BUILD_ID}" \
+              --build-id "${BUILD_ID}" --uefi-shell shellaa64.efi \
               "$@" kernel/*.deb
 
       - name: Stage installer artifacts for publishing

@@ -84,6 +84,7 @@ running as root. `SUITE` picks the Debian suite (default `trixie`), and
 | `--qli-repo` | off | add the Qualcomm Linux APT repository to the installed system, for images with a qcom kernel |
 | `--kernel-name` | none | kernel name shown in the boot menu's title, e.g. `qcom-laptops` |
 | `--build-id` | none | build ID shown in the boot menu's title; CI passes its run ID and attempt |
+| `--uefi-shell` | none | UEFI shell (`shellaa64.efi`) for the boot menu's advanced options; CI passes a pinned release |
 
 For example, to build an arm64 installer for forky with Debian's kernel,
 download the packages of the kernel that `linux-image-arm64` depends on (on
@@ -189,6 +190,10 @@ builds the GRUB menu:
   is none. Personal settings (locale, user, ...) and partitioning are
   commented out and described: edit the file on the stick and uncomment the
   answers you want, e.g. the disk to install to, for an unattended install.
+- `Advanced options ...` holds debugging tools: `UEFI Shell` boots
+  `/EFI/tools/shellaa64.efi`, which is only on the image when `build.sh`
+  gets `--uefi-shell`. The shell is unsigned, so booting it likely needs
+  Secure Boot disabled.
 
 The menu's title shows the kernel name, suite, installer type and build ID,
 e.g. `qcom-deb-images installer (qcom-laptops forky cdrom 123456789-1)`; the
@@ -292,7 +297,10 @@ for `bmaptool copy` and its `sha256sums`. `installer.yml` builds the `live`
 installer type for each kernel and suite, and the `cdrom` and `netinst` types
 only for the `debian` and `qcom-laptops` kernels, as they install the same
 system.
-It passes `--qli-repo` for the qcom kernels.
+It passes `--qli-repo` for the qcom kernels, and `--uefi-shell` with a
+pinned release of
+[pbatard/UEFI-Shell](https://github.com/pbatard/UEFI-Shell), checked
+against its sha256.
 
 The `qcom-laptops` kernel isn't in any APT repository and has no
 metapackage, so a system installed from that image keeps the kernel it was
