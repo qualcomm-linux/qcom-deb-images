@@ -1,0 +1,11 @@
+# shellcheck shell=sh disable=SC2154 # SRC: set by postinst.sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Sourced by postinst.sh. Installs the pins for the backports and Qualcomm
+# Linux sources apt-setup added; d-i has no preseed for pins.
+
+for pref in "$SRC"/apt/*.pref; do
+    [ -f "$pref" ] || continue
+    install_file "$pref" "/etc/apt/preferences.d/${pref##*/}" 0644
+done

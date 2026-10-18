@@ -6,9 +6,10 @@
 #
 # Downloads everything the kernel packages depend on to
 # <build_dir>/kernel-deps-apt/debs/, for build.sh to add to the pool.
-# base-installer installs the kernel from the pool, with no backports, so
-# the pool needs anything newer the kernel depends on: e.g. the
-# trixie-backports kernel needs linux-base from trixie-backports.
+# base-installer installs the kernel from the pool, before apt-setup adds
+# backports on the target, so the pool needs anything newer the kernel
+# depends on: e.g. the trixie-backports kernel needs linux-base from
+# trixie-backports.
 #
 # The dependencies are resolved against an empty system, so this also
 # downloads base packages (libc6, kmod etc.) that the pool already has.
@@ -34,9 +35,9 @@ cat > "$APT_DIR/sources.list" <<EOT
 deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian $SUITE main
 EOT
 
-# Only stable suites have backports. Prefer linux-base from backports, which
-# the backports kernel needs, but keep everything else at the suite's
-# versions, which the pool has.
+# Only stable suites have backports. Prefer linux-base from backports, like
+# the target does (see target-apt.sh), but keep everything else at the
+# suite's versions, which the pool has.
 if [ "$SUITE" = "trixie" ]; then
     cat >> "$APT_DIR/sources.list" <<EOT
 deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian $SUITE-backports main

@@ -216,10 +216,17 @@ jobs:
       - name: Build debian-installer image
         run: |
           set -ux
+          # the Qualcomm Linux repository gives the target the qcom kernel
+          # updates and the same QLI packages as the debos images; kernels
+          # from EFS are in no repository, so the target won't update those
+          set --
+          if [ "${KERNEL}" != debian ]; then
+              set -- --qli-repo
+          fi
           installer/scripts/build.sh --arch arm64 --installer "${INSTALLER}" \
               --suite "${SUITE}" --kernel-name "${KERNEL}" \
               --build-id "${BUILD_ID}" \
-              kernel/*.deb
+              "$@" kernel/*.deb
 
       - name: Stage installer artifacts for publishing
         run: |

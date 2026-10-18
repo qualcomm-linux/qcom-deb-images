@@ -81,6 +81,7 @@ running as root. `SUITE` picks the Debian suite (default `trixie`), and
 | `--arch` | `arm64` | target architecture, `arm64` or `amd64` |
 | `--suite` | `trixie` | Debian suite, e.g. `forky`; `make installer` sets it from `SUITE` |
 | `--installer` | `cdrom` | installer type, `cdrom`, `live` (`cdrom` plus a live system) or `netinst` (`cdrom` without the desktops in the pool) |
+| `--qli-repo` | off | add the Qualcomm Linux APT repository to the installed system, for images with a qcom kernel |
 | `--kernel-name` | none | kernel name shown in the boot menu's title, e.g. `qcom-laptops` |
 | `--build-id` | none | build ID shown in the boot menu's title; CI passes its run ID and attempt |
 
@@ -156,8 +157,8 @@ offline too; `netinst` images leave them out.
 - the kernel `.deb`(s), in place of the stock kernel, which
   `0060-prune-pool.hook.binary` drops
 - the kernel's dependencies (`scripts/lib/fetch-kernel-deps.sh`), since
-  base-installer installs the kernel from the pool, with no backports; on
-  trixie, `linux-base` comes from `trixie-backports`
+  base-installer installs the kernel before backports is set up on the
+  target; on trixie, `linux-base` comes from `trixie-backports`
 - on arm64, the firmware packages `fetch-firmware.sh` fetched, and `stubble`
   with its dependencies (`scripts/lib/fetch-stubble.sh`), from
   `trixie-backports` on trixie
@@ -217,19 +218,24 @@ The live system is untested on hardware and needs testing.
 
 The installed system gets the custom kernel, which boots it.
 
-It gets the installer's stock APT sources: no `trixie-backports` and no
-Qualcomm Linux repository, so the kernel, the firmware and `stubble` aren't
-updated through APT yet.
+`scripts/lib/target-apt.sh` sets up APT on it like the debos rootfs
+(`debos-recipes/qualcomm-linux-debian-rootfs.yaml`), through apt-setup:
+`non-free-firmware`, `trixie-backports` on trixie, and with `--qli-repo` the
+Qualcomm Linux repository, so that a qcom kernel gets updates from it. The
+pins for these are in `/qli/apt/` on the image.
 
 An install with no network gets no Debian entries in `/etc/apt/sources.list`
 at all: the installer turns the mirror off, so apt-setup writes no mirror,
-security or updates lines. Add the sources by hand, or install with a
-network, before using `apt` on the installed system.
+security, updates or backports lines (nor the `non-free-firmware`
+component, which goes on the mirror line), and the pins have nothing to
+apply to. Add the sources by hand, or install with a network, before using
+`apt` on the installed system.
 
 On arm64, `overlays/arm64/preseed/cdrom/postinst.cfg` runs
 `/qli/postinst.sh` from the image at the end of the install, which sources
 the parts in `/qli/postinst.d/` to install the files no package ships:
 
+- the APT pins, in `/etc/apt/preferences.d/`
 - the initramfs hooks from `/qli/initramfs-tools/` (see below)
 - the kernel hook from `/qli/stubble/kernel/`, which wraps each
   `/boot/vmlinuz-$VERSION` in place in Stubble, along with the DTBs Stubble
@@ -286,6 +292,7 @@ for `bmaptool copy` and its `sha256sums`. `installer.yml` builds the `live`
 installer type for each kernel and suite, and the `cdrom` and `netinst` types
 only for the `debian` and `qcom-laptops` kernels, as they install the same
 system.
+It passes `--qli-repo` for the qcom kernels.
 
 The `qcom-laptops` kernel isn't in any APT repository and has no
 metapackage, so a system installed from that image keeps the kernel it was

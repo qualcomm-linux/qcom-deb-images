@@ -7,10 +7,11 @@ set -euo pipefail
 ARCH=arm64
 INSTALLER="cdrom"
 SUITE="trixie"
+QLI_REPO=0
 KERNEL_NAME=""
 BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live|netinst] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch amd64|arm64] [--installer cdrom|live|netinst] [--suite SUITE] [--qli-repo] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -25,6 +26,12 @@ while [ "$#" -gt 0 ]; do
         --suite)
             SUITE="${2:?Missing value for --suite}"
             shift 2
+            ;;
+        # Add the Qualcomm Linux repository on the target, e.g. for a kernel
+        # from it, so that it gets updates.
+        --qli-repo)
+            QLI_REPO=1
+            shift
             ;;
         # Shown in the boot menu's title, e.g. qcom-laptops and the CI run.
         --kernel-name)
@@ -173,9 +180,9 @@ fi
 
 stage "Fetch kernel dependencies"
 
-# base-installer installs the kernel from the pool, with no backports, so
-# the pool needs anything newer the kernel depends on, e.g. linux-base from
-# trixie-backports.
+# base-installer installs the kernel from the pool before apt-setup adds
+# backports on the target, so the pool needs anything newer the kernel
+# depends on, e.g. linux-base from trixie-backports.
 "$SCRIPT_DIR/lib/fetch-kernel-deps.sh" "$BUILD_DIR" "$SUITE" "$ARCH" "${KERNEL_DEBS[@]}"
 for DEB in "$BUILD_DIR"/kernel-deps-apt/debs/*.deb; do
     [ -e "$DEB" ] || continue
@@ -302,6 +309,8 @@ if [ "${#POOL_INCLUDE[@]}" -gt 0 ]; then
 d-i pkgsel/include string ${POOL_INCLUDE[*]}
 EOF
 fi
+# And the target's APT sources and pins.
+"$SCRIPT_DIR/lib/target-apt.sh" "$BUILD_DIR" "$SUITE" "$QLI_REPO"
 
 # --module-rules leaves the modules the installer doesn't need out of
 # its initrds; --initrd-overlay adds extra files to them.
