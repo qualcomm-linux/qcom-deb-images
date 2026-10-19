@@ -130,8 +130,9 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
+      # zstd is needed by scripts/grype-db-cache.sh
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz zstd
 
       - name: Setup local APT repo
         run: |
@@ -305,13 +306,33 @@ jobs:
       # the database metadata (built date, schema) shows up in the logs; it also
       # lists the data providers, which is where the Debian Security Tracker
       # data comes from (provider "debian")
-      - name: Update Grype vulnerability database
+      #
+      # installing the database takes minutes and it's only rebuilt upstream
+      # about once a day, so it's shared through a cache on EFS; see
+      # scripts/grype-db-cache.sh
+      #
+      # only runs from the main repository's main branch (or manual runs)
+      # publish to the cache; other runs, e.g. for PRs, only read from it
+      - name: Install Grype vulnerability database
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
+          UPDATE_CACHE: >-
+            ${{ github.repository == 'qualcomm-linux/qcom-deb-images' &&
+            (github.event_name == 'workflow_dispatch' ||
+            github.ref == 'refs/heads/main') }}
         run: |
           set -ux
           "$GRYPE" --version
-          "$GRYPE" db update -v
+          # where Grype installs and looks up its database, for this and the
+          # following steps; github.workspace is the path outside of the
+          # container, so use the working directory instead
+          export GRYPE_DB_CACHE_DIR="${PWD}/.grype-db"
+          echo "GRYPE_DB_CACHE_DIR=${GRYPE_DB_CACHE_DIR}" >>"$GITHUB_ENV"
+          set --
+          if [ "$UPDATE_CACHE" != true ]; then
+              set -- --read-only
+          fi
+          scripts/grype-db-cache.sh "$@" "$GRYPE" /efs/.cache/grype-db
           "$GRYPE" db status
           "$GRYPE" db providers
 
@@ -344,6 +365,9 @@ jobs:
         shell: bash
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
+          # the database is installed by the step above, so don't let Grype
+          # check for updates and possibly download it again
+          GRYPE_DB_AUTO_UPDATE: 'false'
         run: |
           set -euxo pipefail
           shopt -s nullglob globstar
