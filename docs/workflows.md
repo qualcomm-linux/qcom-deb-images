@@ -48,3 +48,17 @@ runner and without LAVA jobs, so it is not part of the sequence above.
   deadline.
 * Keep the two hour gap between builds and don't overlap EFS maintenance.
 * Update the table above.
+
+## SBOM compliance scan
+
+`debos.yml` generates the SBOMs of each image it builds and uploads the Syft
+one as a `sbom-<prefix>` artifact. `sbom-compliance-scan.yml` then checks the
+VEX coverage of all the SBOMs of a workflow run and scans them for
+vulnerabilities with Grype, in a single job, and publishes the reports next to
+the images. It installs the Grype vulnerability database through a cache on
+EFS, see `scripts/grype-db-cache.sh`.
+
+Every workflow building images runs it after its build jobs, even when some
+builds failed. The test jobs don't wait for it, and its failures don't fail the
+build jobs; they do fail the workflow run though, so `test-pr.yml`, which only
+tests the images of successful "Build on PR" runs, skips them.
