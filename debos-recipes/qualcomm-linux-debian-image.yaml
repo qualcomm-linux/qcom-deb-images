@@ -3,6 +3,8 @@
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $profile := or .profile "default" }}
+{{- $generate_sbom := or .generate_sbom "false" }}
+{{- $sbom := printf "disk-%s-sbom" $imagetype }}
 
 # Snapshot configuration is determined by the rootfs build, not the
 # image recipe. Reject this option to avoid conflicting configurations.
@@ -273,6 +275,50 @@ actions:
       fi
       rm -f /etc/apt/sources.list.d/snapshot_*.sources
       rm -f /usr/local/bin/apt-snapshot-toggle
+
+{{- if eq $generate_sbom "true" }}
+  - action: run
+    description: Generate SBOM with Syft
+    chroot: false
+    command: |
+      set -eux
+      # remount the image filesystems read-only so that nothing can change
+      # them after the scan and the SBOM describes exactly what is shipped
+      mount -o remount,ro "${ROOTDIR}/boot/efi"
+      mount -o remount,ro "${ROOTDIR}"
+      sbom="${ARTIFACTDIR}/{{ $sbom }}"
+      build_id=$(sed -n 's/^BUILD_ID=//p' "${ROOTDIR}/etc/buildinfo")
+      SYFT_FORMAT_PRETTY=true syft \
+          --output cyclonedx-json="${sbom}.cyclonedx.json" \
+          --output spdx-json="${sbom}.spdx.json" \
+          --output syft-json="${sbom}.syft.json" \
+          --output syft-text="${sbom}.syft.txt" \
+          --output syft-table \
+          --parallelism "$(nproc)" \
+          --select-catalogers debian \
+          --source-name qualcomm-linux-debian-image \
+          ${build_id:+--source-version "${build_id}"} \
+          --verbose scan "${ROOTDIR}"
+      # debos runs as root, so leave the SBOM to whoever owns the directory
+      # it was written to rather than to root; a build directory usually
+      # belongs to the user who started the build.
+      chown --reference="${ARTIFACTDIR}" "${sbom}".* 2>/dev/null || true
+
+  # summarize on the host: inside the fakemachine, reading syft.json back
+  # through the 9p artifact mount right after syft wrote it returned an
+  # empty file
+  - action: run
+    description: Summarize SBOM licenses
+    postprocess: true
+    command: |
+      set -eux
+      sbom="${ARTIFACTDIR}/{{ $sbom }}"
+      "${RECIPEDIR}/../scripts/syft-license-summary.py" \
+          "${sbom}.syft.json" \
+          >"${sbom}.syft-license-summary.csv.txt"
+      chown --reference="${ARTIFACTDIR}" \
+          "${sbom}.syft-license-summary.csv.txt" 2>/dev/null || true
+{{- end }}
 
   - action: run
     description: Extract partition images
