@@ -4,10 +4,10 @@ name: SBOM Compliance Scan
 # vulnerabilities with Grype, once for all the images built by the calling
 # workflow run.
 #
-# The SBOMs come from the "sbom-<prefix>" artifacts uploaded by debos.yml, each
-# holding <prefix>/rootfs-sbom.syft.json, where <prefix> is the ARTIFACT_PREFIX
-# of the image; the reports are published next to the images, under the same
-# prefix.
+# The SBOMs come from the "<prefix>-sbom.tar.gz" artifacts uploaded by
+# debos.yml, where <prefix> is the ARTIFACT_PREFIX of the image; the reports
+# are packed into a "<prefix>-vulns.tar.gz" archive per image, which is
+# published next to the images and attached to the run as a "vulns" artifact.
 #
 # Callers can disable these checks by omitting this workflow.
 #
@@ -20,8 +20,8 @@ on:
     inputs:
       run_id:
         description: >
-          ID of the workflow run whose "sbom-<prefix>" artifacts to scan, from
-          the URL of the run
+          ID of the workflow run whose "<prefix>-sbom.tar.gz" artifacts to
+          scan, from the URL of the run
         required: true
         type: string
 
@@ -76,13 +76,13 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      # merge the artifacts into the same directory, each one brings its own
-      # <prefix>/ subdirectory
+      # the archives aren't zipped, so they are downloaded as is; merge them
+      # into the same directory
       - name: Download SBOMs
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: sbom-*
-          path: sboms
+          pattern: '*-sbom.tar.gz'
+          path: sbom-archives
           merge-multiple: true
           # in a manual run, from the requested run, which needs a token; the
           # run_id input is empty when called from another workflow
@@ -130,12 +130,20 @@ jobs:
           "$GRYPE" db status
           "$GRYPE" db providers
 
-      - name: List SBOMs
+      # unpack each archive into sboms/<prefix>/, where the reports of the
+      # image are written too
+      - name: Unpack SBOMs
         run: |
           set -ux
-          prefixes="$(find sboms -mindepth 2 -maxdepth 2 \
-                          -name rootfs-sbom.syft.json -printf '%h\n' |
-                          xargs -r -n1 basename | sort | paste -sd ' ')"
+          prefixes=""
+          for archive in sbom-archives/*-sbom.tar.gz; do
+              [ -f "${archive}" ] || continue
+              prefix="$(basename "${archive}" -sbom.tar.gz)"
+              mkdir -vp "sboms/${prefix}"
+              tar -xv --use-compress-program=pigz -f "${archive}" \
+                  -C "sboms/${prefix}"
+              prefixes="${prefixes:+${prefixes} }${prefix}"
+          done
           if [ -z "${prefixes}" ]; then
               echo "ERROR: no SBOMs were found; did any image build succeed?" >&2
               exit 1
@@ -217,16 +225,22 @@ jobs:
                   "sbom:${dir}/rootfs-sbom.syft.json"
           done
 
-      # same names as the images they describe, e.g.
-      # trixie-rootfs-vulns.grype.json.gz next to trixie-rootfs.tar.gz
-      - name: Stage vulnerability reports for publishing
+      # one archive per image, named like the images it describes, e.g.
+      # trixie-vulns.tar.gz next to trixie-rootfs.tar.gz and
+      # trixie-sbom.tar.gz, holding the Grype reports and the VEX coverage
+      # warnings; the triage report only serves the summary
+      - name: Pack vulnerability reports for publishing
         run: |
           set -ux
           mkdir -v reports
           for prefix in ${PREFIXES}; do
-              for f in "sboms/${prefix}"/rootfs-vulns.*; do
-                  pigz -c "$f" >"reports/${prefix}-${f##*/}.gz"
-              done
+              tar -cv --use-compress-program=pigz \
+                  -f "reports/${prefix}-vulns.tar.gz" \
+                  -C "sboms/${prefix}" \
+                  rootfs-vex-warnings.txt \
+                  rootfs-vulns.grype.cyclonedx.json \
+                  rootfs-vulns.grype.json \
+                  rootfs-vulns.grype.txt
           done
 
       - name: Upload vulnerability reports as private artifacts
@@ -236,6 +250,16 @@ jobs:
           # these should be the defaults; or ought to reuse BUILD_ID
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
+
+      # the archives are already compressed; overwrite the artifact of an
+      # earlier attempt when the job is re-run
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vulns
+          path: reports
+          compression-level: 0
+          overwrite: true
 
       # one section per image, in the order of the prefixes
       - name: Summarize vulnerabilities

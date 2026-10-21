@@ -51,12 +51,15 @@ runner and without LAVA jobs, so it is not part of the sequence above.
 
 ## SBOM compliance scan
 
-`debos.yml` generates the SBOMs of each image it builds and uploads the Syft
-one as a `sbom-<prefix>` artifact. `sbom-compliance-scan.yml` then checks the
-VEX coverage of all the SBOMs of a workflow run and scans them for
-vulnerabilities with Grype, in a single job, and publishes the reports next to
-the images. It installs the Grype vulnerability database through a cache on
-EFS, see `scripts/grype-db-cache.sh`.
+`debos.yml` generates the SBOMs of each image it builds and packs them, with
+the license summary, into a `<prefix>-sbom.tar.gz` archive, which is published
+next to the images and uploaded as an artifact of the same name.
+`sbom-compliance-scan.yml` then checks the VEX coverage of all the SBOMs of a
+workflow run and scans them for vulnerabilities with Grype, in a single job.
+It packs the reports and the VEX coverage warnings of each image into a
+`<prefix>-vulns.tar.gz` archive, which is published next to the images too and
+uploaded in a `vulns` artifact. It installs the Grype vulnerability database
+through a cache on EFS, see `scripts/grype-db-cache.sh`.
 
 Every workflow building images runs it after its build jobs, even when some
 builds failed. The test jobs don't wait for it, and its failures don't fail the
