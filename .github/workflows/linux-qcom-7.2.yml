@@ -61,6 +61,14 @@ jobs:
       profile: ${{ matrix.profile }}
       kernelpackages: ${{ matrix.kernelpackages }}
 
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: build
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read
+
   test:
     # only the default profile is tested for now: adding the performance and
     # debug profiles would multiply the LAVA jobs submitted by this workflow

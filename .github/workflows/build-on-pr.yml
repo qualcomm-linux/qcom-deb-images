@@ -38,3 +38,11 @@ jobs:
       variant: ${{ matrix.variant }}
       # QLI targets qcom-next; install the kernel from the QLI APT repository
       kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: build
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read

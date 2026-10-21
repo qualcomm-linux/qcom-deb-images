@@ -216,6 +216,14 @@ jobs:
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.debos-linux-deb.result != 'skipped' }}
+    needs: debos-linux-deb
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read
+
   test-linux-deb:
     if: ${{ !inputs.skip_lava_tests }}
     strategy:

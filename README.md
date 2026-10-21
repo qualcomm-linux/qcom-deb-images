@@ -36,12 +36,15 @@ builds run and why.
 
 OpenVEX data, its validation tooling, and authoring instructions live on the
 [security-tracker branch](https://github.com/qualcomm-linux/qcom-deb-images/tree/security-tracker).
-The debos workflow fetches `vex/` from that branch's HEAD and passes the
-documents to Grype. Pull requests targeting `security-tracker` validate the
-data before merging.
-The workflow also uses the tracker's `vex-check.py --coverage-only` to report
-missing binaries and outdated version pins against the image SBOM. These
-warnings appear in the job log and summary; they do not fail the build.
+The debos workflow generates an SBOM of every image; the SBOM compliance scan
+workflow then fetches `vex/` from that branch's HEAD and passes the documents
+to Grype to scan these SBOMs, once for all the images built in a workflow run.
+Pull requests targeting `security-tracker` validate the data before merging.
+The SBOM compliance scan also uses the tracker's `vex-check.py --coverage-only`
+to report missing binaries and outdated version pins against the image SBOMs.
+These warnings appear in the job log and summary; they do not fail the build.
+The SBOM compliance scan can also be run manually, to rescan the SBOMs of an
+earlier workflow run, e.g. after updating the VEX data.
 
 ## Requirements
 
