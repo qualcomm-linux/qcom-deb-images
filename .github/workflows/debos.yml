@@ -121,6 +121,22 @@ jobs:
       - name: Install debos and dependencies of the recipes and local tests
         run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
 
+      # Use the "download-syft" sub-action to install Syft and keep it
+      # updated via Dependabot.
+      - name: Install Syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      # the image recipe runs syft inside the fakemachine, which only sees
+      # the host's /usr
+      - name: Make Syft available to debos
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: |
+          set -ux
+          install -v -m755 "$SYFT" /usr/local/bin/syft
+          syft --version
+
       - name: Setup local APT repo
         run: |
           set -ux -o pipefail
@@ -196,7 +212,9 @@ jobs:
           # qemu backend also requires to set scratchsize, otherwise the
           # whole build is done from memory and the out of memory killer
           # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # only generate the SBOM for the UFS image; the SD card image only
+          # differs in sector size, so its contents are the same
+          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t generate_sbom:true --print-recipe ${DEBOS_EXTRA_ARGS}"
           make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
@@ -236,39 +254,19 @@ jobs:
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
-      - name: Unpack rootfs to generate SBOM
-        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
-
-      # Use the "download-syft" sub-action to install Syft and keep it
-      # updated via Dependabot.
-      - name: Install Syft
-        id: syft
-        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-
-      - name: Generate SBOMs with Syft
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
+      - name: Move SBOMs from the image build
         run: |
           set -ux
-          "$SYFT" --version
-          SYFT_FORMAT_PRETTY=true "$SYFT" \
-              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
-              -o spdx-json=rootfs-sbom.spdx.json \
-              -o syft-json=rootfs-sbom.syft.json \
-              -o syft-text=rootfs-sbom.syft.txt \
-              -o syft-table \
-              --parallelism `nproc` \
-              --select-catalogers debian \
-              --source-name qualcomm-linux-debian-rootfs \
-              --source-version "${BUILD_ID}" \
-              -v \
-              scan rootfs
-
-      - name: Generate license summary from Syft report
-        run: |
-          set -ux
-          scripts/syft-license-summary.py rootfs-sbom.syft.json |
-              tee rootfs-sbom.syft-license-summary.csv.txt
+          # keep the rootfs-sbom.* names used by the steps below and by the
+          # published artifacts
+          for ext in cyclonedx.json spdx.json syft.json syft.txt \
+                  syft-license-summary.csv.txt; do
+              if [ ! -s "disk-ufs-sbom.${ext}" ]; then
+                  echo "::error::disk-ufs-sbom.${ext} is missing or empty"
+                  exit 1
+              fi
+              mv -v "disk-ufs-sbom.${ext}" "rootfs-sbom.${ext}"
+          done
 
       # one archive per image, named like the images it describes, e.g.
       # trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the SBOMs in
