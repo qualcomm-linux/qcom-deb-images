@@ -69,3 +69,45 @@ tests the images of successful "Build on PR" runs, skips them.
 It can also be run manually with the ID of an earlier workflow run, to rescan
 the SBOMs of that run, e.g. after updating the VEX data; the reports are then
 published under the manual run.
+
+### Latest compliance data
+
+The SBOMs and vulnerability reports of the most recent build of each image are
+also published at a static location of the S3 bucket, for tooling to fetch them
+regularly: `qualcomm-linux/qcom-deb-images/latest/<channel>/<prefix>/`.
+
+`<prefix>` is the prefix of the image's artifacts, `<suite>[-<variant>][-<profile>]`
+(e.g. `trixie`, `trixie-xfce-debug`), and `<channel>` is passed to
+`sbom-compliance-scan.yml` by the workflow building the image:
+
+* `debian-qli`: the QLI images, from `build.yml`
+* `debian-baseline`: the vanilla Debian images, from `build-debian.yml`
+
+The other workflows don't publish their data there.
+
+Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
+`<prefix>-vulns.tar.gz` archives, each compressed on its own with gzip:
+
+* `rootfs-sbom.cyclonedx.json.gz`, `rootfs-sbom.spdx.json.gz`,
+  `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
+* `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
+* `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
+  `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports
+* `rootfs-vex-warnings.txt.gz`: the VEX coverage warnings
+
+along with an uncompressed `manifest.json` giving the build the data describes
+(`build.id`, `build.run_url`, `build.artifacts_url` where its images are), the
+scan that produced the reports (`scan.run_url`, `scan.date`, the Grype version
+and database build date) and the SHA-256 of every file. S3 has no symlinks, so
+the archives aren't copied there: `archives.sbom.url` and `archives.vulns.url`
+point at them in the directories of the build and scan runs, with their
+SHA-256 too. The files are overwritten in place, and the manifest last, so
+tooling should check the files against the manifest and retry on a mismatch.
+See `scripts/compliance-manifest.py`.
+
+This data is only published for the main repository, by runs of its `main`
+branch or manual runs, like the Grype database cache. Images whose build failed
+keep the data of their last successful build, and images which are no longer
+built keep their last data too, as nothing is ever deleted. A manual rescan only
+publishes when given a channel; mind that rescanning an older run replaces the
+data of newer builds.

@@ -14,8 +14,21 @@ name: SBOM Compliance Scan
 # Manual runs scan the SBOMs of an earlier workflow run instead, e.g. to apply
 # updated VEX statements or vulnerability data; the reports are then published
 # under the manual run.
+#
+# When given a channel, the SBOMs and reports of every image are also published
+# as the latest compliance data of that image, at a static location:
+# latest/<channel>/<prefix>/, next to the per-run directories. This only
+# happens for the main repository, from its main branch or from manual runs,
+# as for the Grype database cache below; see docs/workflows.md.
 on:
   workflow_call:
+    inputs:
+      channel:
+        description: >
+          Name of the channel to publish the latest compliance data of the
+          images to, e.g. debian-qli; empty to not publish it
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       run_id:
@@ -24,6 +37,14 @@ on:
           scan, from the URL of the run
         required: true
         type: string
+      channel:
+        description: >
+          Name of the channel to publish the latest compliance data of the
+          images to, e.g. debian-qli for a run of build.yml; leave empty to
+          not publish it
+        required: false
+        type: string
+        default: ''
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to
@@ -244,6 +265,7 @@ jobs:
           done
 
       - name: Upload vulnerability reports as private artifacts
+        id: upload_reports
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         with:
           path: reports
@@ -290,3 +312,105 @@ jobs:
                   } >>"$GITHUB_STEP_SUMMARY"
               fi
           done
+
+      # publish the compliance data of each image under a static location,
+      # latest/<channel>/<prefix>/, for tooling to fetch it regularly; images
+      # whose build failed in this run keep the data of their last build
+      #
+      # that's each file of the <prefix>-sbom.tar.gz and <prefix>-vulns.tar.gz
+      # archives, compressed on its own, so that tooling can fetch only the
+      # ones it needs, and a manifest.json listing them with their checksums
+      # and the build and scan they come from. S3 has no symlinks, so rather
+      # than being copied there, the archives are pointed at by the manifest,
+      # in the build and scan run directories; see
+      # scripts/compliance-manifest.py
+      - name: Stage latest compliance data for publishing
+        id: stage_latest
+        if: >-
+          inputs.channel != '' &&
+          github.repository == 'qualcomm-linux/qcom-deb-images' &&
+          (github.event_name == 'workflow_dispatch' ||
+          github.ref == 'refs/heads/main')
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          SCAN_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          REPORTS_URL: ${{ steps.upload_reports.outputs.url }}
+        run: |
+          set -ux
+          # the channel and prefixes become S3 paths
+          valid_name() {
+              case "$1" in
+                  ""|.*|*[!A-Za-z0-9._-]*) return 1 ;;
+              esac
+          }
+          if ! valid_name "${CHANNEL}"; then
+              echo "ERROR: invalid channel name: ${CHANNEL}" >&2
+              exit 1
+          fi
+          # the per-run directories are siblings of the one of this run
+          artifacts_base_url="${REPORTS_URL%/}"
+          artifacts_base_url="${artifacts_base_url%/*}/"
+          mkdir -v latest latest-manifests
+          published=""
+          for prefix in ${PREFIXES}; do
+              dir="sboms/${prefix}"
+              if ! valid_name "${prefix}"; then
+                  echo "::warning::not publishing ${prefix}: invalid name"
+                  continue
+              fi
+              mkdir -v "latest/${prefix}"
+              for archive in \
+                  "sbom-archives/${prefix}-sbom.tar.gz" \
+                  "reports/${prefix}-vulns.tar.gz"; do
+                  for f in $(tar -t --use-compress-program=pigz \
+                                 -f "${archive}"); do
+                      case "${f}" in
+                          .*|*/*)
+                              echo "ERROR: unexpected file in ${archive}: ${f}" >&2
+                              exit 1
+                              ;;
+                      esac
+                      pigz -c "${dir}/${f}" >"latest/${prefix}/${f}.gz"
+                  done
+              done
+              mkdir -v "latest-manifests/${prefix}"
+              scripts/compliance-manifest.py \
+                  --channel "${CHANNEL}" \
+                  --image "${prefix}" \
+                  --sbom "${dir}/rootfs-sbom.syft.json" \
+                  --grype "${dir}/rootfs-vulns.grype.json" \
+                  --repository-url "${REPOSITORY_URL}" \
+                  --scan-run-url "${SCAN_RUN_URL}" \
+                  --artifacts-base-url "${artifacts_base_url}" \
+                  --reports-url "${REPORTS_URL}" \
+                  --build-archive sbom "sbom-archives/${prefix}-sbom.tar.gz" \
+                  --scan-archive vulns "reports/${prefix}-vulns.tar.gz" \
+                  "latest/${prefix}" \
+                  >"latest-manifests/${prefix}/manifest.json"
+              cat "latest-manifests/${prefix}/manifest.json"
+              echo "publishing ${prefix} to ${artifacts_base_url}latest/${CHANNEL}/${prefix}/manifest.json"
+              published="${published:+${published} }${prefix}"
+          done
+          echo "published=${published}" >>"$GITHUB_OUTPUT"
+
+      # aws s3 cp overwrites the files of the previous build but deletes
+      # nothing, and isn't atomic; the manifests are uploaded last, so that
+      # they only ever describe files which are complete, and switch to the
+      # archives of the new build at once
+      - name: Upload latest compliance data
+        if: steps.stage_latest.outputs.published != ''
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        with:
+          path: latest
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/latest/${{ inputs.channel }}/
+
+      - name: Upload latest compliance data manifests
+        if: steps.stage_latest.outputs.published != ''
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        with:
+          path: latest-manifests
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/latest/${{ inputs.channel }}/
+

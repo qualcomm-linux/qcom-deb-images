@@ -45,6 +45,9 @@ to report missing binaries and outdated version pins against the image SBOMs.
 These warnings appear in the job log and summary; they do not fail the build.
 The SBOM compliance scan can also be run manually, to rescan the SBOMs of an
 earlier workflow run, e.g. after updating the VEX data.
+The SBOMs and vulnerability reports of the latest build of each image are also
+published at a static location, see
+[docs/workflows.md](docs/workflows.md#latest-compliance-data).
 
 ## Requirements
 
