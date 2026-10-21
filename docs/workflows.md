@@ -62,3 +62,7 @@ Every workflow building images runs it after its build jobs, even when some
 builds failed. The test jobs don't wait for it, and its failures don't fail the
 build jobs; they do fail the workflow run though, so `test-pr.yml`, which only
 tests the images of successful "Build on PR" runs, skips them.
+
+It can also be run manually with the ID of an earlier workflow run, to rescan
+the SBOMs of that run, e.g. after updating the VEX data; the reports are then
+published under the manual run.

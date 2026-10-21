@@ -20,6 +20,7 @@ jobs:
       github.ref == 'refs/heads/main')
     uses: $/.github/workflows/linux.yml
     permissions:
+      actions: read
       checks: write
       contents: read
       packages: read

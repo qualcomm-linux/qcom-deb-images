@@ -66,6 +66,7 @@ jobs:
     needs: build
     uses: $/.github/workflows/sbom-compliance-scan.yml
     permissions:
+      actions: read
       contents: read
 
   test:

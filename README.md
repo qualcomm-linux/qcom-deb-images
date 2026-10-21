@@ -43,6 +43,8 @@ Pull requests targeting `security-tracker` validate the data before merging.
 The SBOM compliance scan also uses the tracker's `vex-check.py --coverage-only`
 to report missing binaries and outdated version pins against the image SBOMs.
 These warnings appear in the job log and summary; they do not fail the build.
+The SBOM compliance scan can also be run manually, to rescan the SBOMs of an
+earlier workflow run, e.g. after updating the VEX data.
 
 ## Requirements
 

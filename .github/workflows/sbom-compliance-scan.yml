@@ -10,8 +10,20 @@ name: SBOM Compliance Scan
 # prefix.
 #
 # Callers can disable these checks by omitting this workflow.
+#
+# Manual runs scan the SBOMs of an earlier workflow run instead, e.g. to apply
+# updated VEX statements or vulnerability data; the reports are then published
+# under the manual run.
 on:
   workflow_call:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: >
+          ID of the workflow run whose "sbom-<prefix>" artifacts to scan, from
+          the URL of the run
+        required: true
+        type: string
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to
@@ -22,6 +34,7 @@ jobs:
   sbom-compliance-scan:
     name: Vulnerability scanning
     permissions:
+      actions: read # actions/download-artifact, from another run
       contents: read # actions/checkout
     # unlike the image builds, this needs no privileges; a self-hosted runner
     # is still needed for EFS and for the credentials of the S3 bucket
@@ -71,6 +84,10 @@ jobs:
           pattern: sbom-*
           path: sboms
           merge-multiple: true
+          # in a manual run, from the requested run, which needs a token; the
+          # run_id input is empty when called from another workflow
+          run-id: ${{ inputs.run_id || github.run_id }}
+          github-token: ${{ inputs.run_id && github.token || '' }}
 
       # Use the "download-grype" sub-action to install Grype and keep it
       # updated via Dependabot.
