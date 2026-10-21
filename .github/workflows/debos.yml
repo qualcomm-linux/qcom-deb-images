@@ -267,9 +267,8 @@ jobs:
       - name: Generate license summary from Syft report
         run: |
           set -ux
-          scripts/syft-license-summary.py \
-              --rootfs rootfs rootfs-sbom.syft.json |
-                  tee rootfs-sbom.syft-license-summary.csv.txt
+          scripts/syft-license-summary.py rootfs-sbom.syft.json |
+              tee rootfs-sbom.syft-license-summary.csv.txt
 
       # one archive per image, named like the images it describes, e.g.
       # trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the SBOMs in
