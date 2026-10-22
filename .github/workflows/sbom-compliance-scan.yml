@@ -4,26 +4,47 @@ name: SBOM Compliance Scan
 # vulnerabilities with Grype, once for all the images built by the calling
 # workflow run.
 #
-# The SBOMs come from the "sbom-<prefix>" artifacts uploaded by debos.yml, each
-# holding <prefix>/rootfs-sbom.syft.json, where <prefix> is the ARTIFACT_PREFIX
-# of the image; the reports are published next to the images, under the same
-# prefix.
+# The SBOMs come from the "<prefix>-sbom.tar.gz" artifacts uploaded by
+# debos.yml, where <prefix> is the ARTIFACT_PREFIX of the image; the reports
+# are packed into a "<prefix>-vulns.tar.gz" archive per image, which is
+# published next to the images and attached to the run as a "vulns" artifact.
 #
 # Callers can disable these checks by omitting this workflow.
 #
 # Manual runs scan the SBOMs of an earlier workflow run instead, e.g. to apply
 # updated VEX statements or vulnerability data; the reports are then published
 # under the manual run.
+#
+# When given a channel, the SBOMs and reports of every image are also published
+# as the latest compliance data of that image, at a static location:
+# latest/<channel>/<prefix>/, next to the per-run directories. This only
+# happens for the main repository, from its main branch or from manual runs,
+# as for the Grype database cache below; see docs/workflows.md.
 on:
   workflow_call:
+    inputs:
+      channel:
+        description: >
+          Name of the channel to publish the latest compliance data of the
+          images to, e.g. debian-qli; empty to not publish it
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       run_id:
         description: >
-          ID of the workflow run whose "sbom-<prefix>" artifacts to scan, from
-          the URL of the run
+          ID of the workflow run whose "<prefix>-sbom.tar.gz" artifacts to
+          scan, from the URL of the run
         required: true
         type: string
+      channel:
+        description: >
+          Name of the channel to publish the latest compliance data of the
+          images to, e.g. debian-qli for a run of build.yml; leave empty to
+          not publish it
+        required: false
+        type: string
+        default: ''
 
 # grant nothing by default; every job below declares the scopes it needs. these
 # are also capped by the calling job's permissions: block, so callers have to
@@ -76,13 +97,13 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      # merge the artifacts into the same directory, each one brings its own
-      # <prefix>/ subdirectory
+      # the archives aren't zipped, so they are downloaded as is; merge them
+      # into the same directory
       - name: Download SBOMs
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: sbom-*
-          path: sboms
+          pattern: '*-sbom.tar.gz'
+          path: sbom-archives
           merge-multiple: true
           # in a manual run, from the requested run, which needs a token; the
           # run_id input is empty when called from another workflow
@@ -130,12 +151,20 @@ jobs:
           "$GRYPE" db status
           "$GRYPE" db providers
 
-      - name: List SBOMs
+      # unpack each archive into sboms/<prefix>/, where the reports of the
+      # image are written too
+      - name: Unpack SBOMs
         run: |
           set -ux
-          prefixes="$(find sboms -mindepth 2 -maxdepth 2 \
-                          -name rootfs-sbom.syft.json -printf '%h\n' |
-                          xargs -r -n1 basename | sort | paste -sd ' ')"
+          prefixes=""
+          for archive in sbom-archives/*-sbom.tar.gz; do
+              [ -f "${archive}" ] || continue
+              prefix="$(basename "${archive}" -sbom.tar.gz)"
+              mkdir -vp "sboms/${prefix}"
+              tar -xv --use-compress-program=pigz -f "${archive}" \
+                  -C "sboms/${prefix}"
+              prefixes="${prefixes:+${prefixes} }${prefix}"
+          done
           if [ -z "${prefixes}" ]; then
               echo "ERROR: no SBOMs were found; did any image build succeed?" >&2
               exit 1
@@ -217,25 +246,42 @@ jobs:
                   "sbom:${dir}/rootfs-sbom.syft.json"
           done
 
-      # same names as the images they describe, e.g.
-      # trixie-rootfs-vulns.grype.json.gz next to trixie-rootfs.tar.gz
-      - name: Stage vulnerability reports for publishing
+      # one archive per image, named like the images it describes, e.g.
+      # trixie-vulns.tar.gz next to trixie-rootfs.tar.gz and
+      # trixie-sbom.tar.gz, holding the Grype reports and the VEX coverage
+      # warnings; the triage report only serves the summary
+      - name: Pack vulnerability reports for publishing
         run: |
           set -ux
           mkdir -v reports
           for prefix in ${PREFIXES}; do
-              for f in "sboms/${prefix}"/rootfs-vulns.*; do
-                  pigz -c "$f" >"reports/${prefix}-${f##*/}.gz"
-              done
+              tar -cv --use-compress-program=pigz \
+                  -f "reports/${prefix}-vulns.tar.gz" \
+                  -C "sboms/${prefix}" \
+                  rootfs-vex-warnings.txt \
+                  rootfs-vulns.grype.cyclonedx.json \
+                  rootfs-vulns.grype.json \
+                  rootfs-vulns.grype.txt
           done
 
       - name: Upload vulnerability reports as private artifacts
+        id: upload_reports
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
         with:
           path: reports
           # these should be the defaults; or ought to reuse BUILD_ID
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
+
+      # the archives are already compressed; overwrite the artifact of an
+      # earlier attempt when the job is re-run
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vulns
+          path: reports
+          compression-level: 0
+          overwrite: true
 
       # one section per image, in the order of the prefixes
       - name: Summarize vulnerabilities
@@ -266,3 +312,118 @@ jobs:
                   } >>"$GITHUB_STEP_SUMMARY"
               fi
           done
+
+      # publish the compliance data of each image under a static location,
+      # latest/<channel>/<prefix>/, for tooling to fetch it regularly; images
+      # whose build failed in this run keep the data of their last build
+      #
+      # that's each file of the <prefix>-sbom.tar.gz and <prefix>-vulns.tar.gz
+      # archives, compressed on its own, so that tooling can fetch only the
+      # ones it needs, and a manifest.json listing them with their checksums
+      # and the build and scan they come from. S3 has no symlinks, so rather
+      # than being copied there, the archives are pointed at by the manifest,
+      # in the build and scan run directories; see
+      # scripts/compliance-manifest.py
+      - name: Stage latest compliance data for publishing
+        id: stage_latest
+        if: >-
+          inputs.channel != '' &&
+          github.repository == 'qualcomm-linux/qcom-deb-images' &&
+          (github.event_name == 'workflow_dispatch' ||
+          github.ref == 'refs/heads/main')
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          SCAN_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          REPORTS_URL: ${{ steps.upload_reports.outputs.url }}
+        run: |
+          set -ux
+          # the channel and prefixes become S3 paths
+          valid_name() {
+              case "$1" in
+                  ""|.*|*[!A-Za-z0-9._-]*) return 1 ;;
+              esac
+          }
+          if ! valid_name "${CHANNEL}"; then
+              echo "ERROR: invalid channel name: ${CHANNEL}" >&2
+              exit 1
+          fi
+          # the per-run directories are siblings of the one of this run
+          artifacts_base_url="${REPORTS_URL%/}"
+          artifacts_base_url="${artifacts_base_url%/*}/"
+          mkdir -v latest latest-manifests
+          published=""
+          for prefix in ${PREFIXES}; do
+              dir="sboms/${prefix}"
+              if ! valid_name "${prefix}"; then
+                  echo "::warning::not publishing ${prefix}: invalid name"
+                  continue
+              fi
+              mkdir -v "latest/${prefix}"
+              for archive in \
+                  "sbom-archives/${prefix}-sbom.tar.gz" \
+                  "reports/${prefix}-vulns.tar.gz"; do
+                  for f in $(tar -t --use-compress-program=pigz \
+                                 -f "${archive}"); do
+                      case "${f}" in
+                          .*|*/*)
+                              echo "ERROR: unexpected file in ${archive}: ${f}" >&2
+                              exit 1
+                              ;;
+                      esac
+                      pigz -c "${dir}/${f}" >"latest/${prefix}/${f}.gz"
+                  done
+              done
+              mkdir -v "latest-manifests/${prefix}"
+              scripts/compliance-manifest.py \
+                  --channel "${CHANNEL}" \
+                  --image "${prefix}" \
+                  --sbom "${dir}/rootfs-sbom.syft.json" \
+                  --grype "${dir}/rootfs-vulns.grype.json" \
+                  --repository-url "${REPOSITORY_URL}" \
+                  --scan-run-url "${SCAN_RUN_URL}" \
+                  --artifacts-base-url "${artifacts_base_url}" \
+                  --reports-url "${REPORTS_URL}" \
+                  --build-archive sbom "sbom-archives/${prefix}-sbom.tar.gz" \
+                  --scan-archive vulns "reports/${prefix}-vulns.tar.gz" \
+                  "latest/${prefix}" \
+                  >"latest-manifests/${prefix}/manifest.json"
+              cat "latest-manifests/${prefix}/manifest.json"
+              echo "publishing ${prefix} to ${artifacts_base_url}latest/${CHANNEL}/${prefix}/manifest.json"
+              published="${published:+${published} }${prefix}"
+          done
+          echo "published=${published}" >>"$GITHUB_OUTPUT"
+
+      # aws s3 cp overwrites the files of the previous build but deletes
+      # nothing, and isn't atomic; the manifests are uploaded last, so that
+      # they only ever describe files which are complete, and switch to the
+      # archives of the new build at once
+      #
+      # nothing deletes the data of images which are no longer built either;
+      # rather, every object is tagged for the retention policy of the bucket,
+      # and as overwriting an object creates a new one, the data of the images
+      # still being built never expires, while the data of the others does
+      - name: Upload latest compliance data
+        if: steps.stage_latest.outputs.published != ''
+        uses: qualcomm-linux/upload-private-artifact-action@3d4dd0fac6e01a66d2df1502e4189676202c8ae3 # aws-v5
+        with:
+          path: latest
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/latest/${{ inputs.channel }}/
+          # objects expire 30 days after their last upload, see above
+          object_tag: retention=30d
+          build_type: buildType=LATEST
+          build_branch: branch=${{ github.ref_name }}
+
+      - name: Upload latest compliance data manifests
+        if: steps.stage_latest.outputs.published != ''
+        uses: qualcomm-linux/upload-private-artifact-action@3d4dd0fac6e01a66d2df1502e4189676202c8ae3 # aws-v5
+        with:
+          path: latest-manifests
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/latest/${{ inputs.channel }}/
+          # objects expire 30 days after their last upload, see above
+          object_tag: retention=30d
+          build_type: buildType=LATEST
+          build_branch: branch=${{ github.ref_name }}
+

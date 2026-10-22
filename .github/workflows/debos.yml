@@ -271,14 +271,15 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
-      - name: Stage SBOMs for publishing
+      # one archive per image, named like the images it describes, e.g.
+      # trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the SBOMs in
+      # all formats and the license summary
+      - name: Pack SBOMs for publishing
         run: |
           set -ux
-          dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.*; do
-              pigz -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
-          done
+          tar -cv --use-compress-program=pigz \
+              -f "sboms/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
 
       - name: Upload SBOMs as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
@@ -291,19 +292,16 @@ jobs:
 
       # the VEX coverage check and the vulnerability scan run once for all the
       # images of the calling workflow run, in sbom-compliance-scan.yml, from
-      # the SBOM of each image; overwrite the artifact of an earlier attempt
-      # when the job is re-run
-      - name: Stage SBOM for sbom-compliance-scan.yml
-        run: |
-          set -ux
-          mkdir -vp "sbom/${ARTIFACT_PREFIX}"
-          cp -av rootfs-sbom.syft.json "sbom/${ARTIFACT_PREFIX}/"
-
-      - name: Upload SBOM for sbom-compliance-scan.yml
+      # the SBOM archive of each image; it's uploaded as is rather than zipped,
+      # so the artifact is named after the file. overwrite the artifact of an
+      # earlier attempt when the job is re-run, which looks it up by name, so
+      # give the file name as name as well
+      - name: Upload SBOMs for sbom-compliance-scan.yml
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: sbom-${{ env.ARTIFACT_PREFIX }}
-          path: sbom
+          name: ${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
+          path: sboms/${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
+          archive: false
           overwrite: true
 
       - name: "Print output"

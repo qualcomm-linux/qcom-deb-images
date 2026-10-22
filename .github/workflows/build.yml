@@ -88,6 +88,9 @@ jobs:
     permissions:
       actions: read
       contents: read
+    with:
+      # latest compliance data under latest/debian-qli/
+      channel: debian-qli
 
   test:
     # only the default profile and the console variant are tested for now:
