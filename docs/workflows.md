@@ -107,7 +107,10 @@ See `scripts/compliance-manifest.py`.
 
 This data is only published for the main repository, by runs of its `main`
 branch or manual runs, like the Grype database cache. Images whose build failed
-keep the data of their last successful build, and images which are no longer
-built keep their last data too, as nothing is ever deleted. A manual rescan only
-publishes when given a channel; mind that rescanning an older run replaces the
-data of newer builds.
+keep the data of their last successful build. Nothing is deleted, but the
+objects are tagged with `retention=30d` for the retention policy of the S3
+bucket: the data of an image which is no longer built expires 30 days after it
+was last published, while the data of the others is refreshed by every build.
+The archives the manifests point at are published under the directories of the
+runs, which may expire sooner. A manual rescan only publishes when given a
+channel; mind that rescanning an older run replaces the data of newer builds.
