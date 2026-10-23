@@ -127,7 +127,9 @@ jobs:
 
   comment-on-pr:
     name: "Comment on PR"
-    needs: [retrieve-build-url, test]
+    # publish-test-results decides whether the tests passed, after known
+    # failures are applied, so wait for it to give the verdict
+    needs: [retrieve-build-url, test, publish-test-results]
     if: always() && needs.test.outputs.summary_id != ''
     runs-on: ubuntu-latest
     permissions:
@@ -152,9 +154,21 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # same rule as the internal CI trigger in build.yml: the Boot and
+          # Pre-merge jobs use continue-on-error, so test alone succeeds even
+          # when they fail, and publish-test-results alone could pass on
+          # partial results
+          PASSED: >-
+            ${{ needs.test.result == 'success' &&
+                needs.publish-test-results.result == 'success' }}
         run: |
           set -euo pipefail
-          echo "## Test results for commit ${HEAD_SHA}" > pr-comment.txt
+          if [ "${PASSED}" = true ]; then
+              verdict="✅ Tests passed"
+          else
+              verdict="❌ Tests failed"
+          fi
+          echo "## ${verdict} for commit ${HEAD_SHA}" > pr-comment.txt
           echo "" >> pr-comment.txt
           echo "[Workflow run](${RUN_URL})" >> pr-comment.txt
           echo "" >> pr-comment.txt
