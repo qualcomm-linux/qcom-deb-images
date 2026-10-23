@@ -14,6 +14,13 @@ on:
           applies no overlay.
         type: string
         default: 'none'
+      workarounds:
+        description: >
+          Comma-separated list of temporary workarounds to apply, each the
+          name of a subdirectory of debos-recipes/workarounds/; "none" or
+          unset applies no workaround.
+        type: string
+        default: 'none'
       kernelpackages:
         description: >
           Comma-separated list of kernel packages to install from APT
@@ -65,6 +72,7 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
+  WORKAROUNDS: ${{ inputs.workarounds }}
   DEBOS_EXTRA_ARGS: >-
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
@@ -183,6 +191,7 @@ jobs:
               -t extract_dbg_vmlinux:true \
               -t kernelpackages:"$kernel_packages" \
               -t "overlays:$OVERLAYS" \
+              -t "workarounds:$WORKAROUNDS" \
               ${DEBOS_EXTRA_ARGS} \
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
