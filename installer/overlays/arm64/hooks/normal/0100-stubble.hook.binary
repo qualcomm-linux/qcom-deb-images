@@ -1,0 +1,147 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso.
+# Uses the DTBs that build.sh extracts from the kernel .deb into config/dtbs/,
+# the AArch64 Stubble stub it extracts from stubble:arm64 into config/, and
+# stubblify and the HWID database from the build host's stubble package.
+#
+# Wraps the installer kernel (install/vmlinuz) in place in a Stubble EFI stub
+# bundling every DTB that has a Stubble HWID entry, selected automatically at
+# boot via HWID matching. For the live installer type (when
+# live/filesystem.squashfs exists), also wraps the live system's kernel,
+# which build.sh puts in live/ (lb doesn't, with --linux-packages none), in
+# the same stub. 0110-grub-menu.hook.binary adds the GRUB entries that boot
+# them.
+#
+# The graphical and text installers only differ in their initrd and args:
+# replace-di-kernel.sh puts the same kernel in install/vmlinuz and
+# install/gtk/vmlinuz. So only install/vmlinuz is wrapped, and the duplicate
+# install/gtk/vmlinuz is removed.
+set -euo pipefail
+
+DTB_SRC_DIR="../config/dtbs"
+HWIDS="/usr/share/stubble/hwids"
+# Extracted by build.sh from stubble:arm64; the host package's stubble.efi
+# matches the build host's architecture, not the target's.
+STUB="../config/stubble-aa64.efi"
+STUBBLIFY="/usr/bin/stubblify"
+FINDDTBS="/usr/libexec/stubble/finddtbs.py"
+
+die() {
+    echo "0100-stubble: $*" >&2
+    exit 1
+}
+
+[ -d "$DTB_SRC_DIR" ] || die "$DTB_SRC_DIR not found (build.sh extracts it from the kernel .deb)"
+for f in "$STUB" "$STUBBLIFY" "$FINDDTBS"; do
+    [ -e "$f" ] || die "$f not found (see docs/installer.md)"
+done
+[ -d "$HWIDS" ] || die "$HWIDS not found (see docs/installer.md)"
+
+python3 - "$STUB" <<'PY'
+import pefile
+import sys
+
+pe = pefile.PE(sys.argv[1], fast_load=True)
+
+if pe.FILE_HEADER.Machine != 0xAA64:
+    raise SystemExit(f"0100-stubble: {sys.argv[1]} is not AArch64")
+PY
+
+# Only bundle DTBs whose root compatible has a Stubble HWID entry; the rest
+# could never be selected.
+mapfile -t STUBBLE_DTBS < <("$FINDDTBS" "$DTB_SRC_DIR" "$HWIDS" | sort)
+[ "${#STUBBLE_DTBS[@]}" -gt 0 ] || die "no DTBs in $DTB_SRC_DIR match $HWIDS"
+
+echo "Stubble DTBs:"
+printf '  %s\n' "${STUBBLE_DTBS[@]##*/}"
+
+BOOT_KERNEL="install/vmlinuz"
+GTK_KERNEL="install/gtk/vmlinuz"
+[ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
+if [ -f "$GTK_KERNEL" ] && ! cmp -s "$GTK_KERNEL" "$BOOT_KERNEL"; then
+    die "$GTK_KERNEL differs from $BOOT_KERNEL, so can't be dropped"
+fi
+
+# --- Stubble multi-DTB EFI stub, shared by every kernel ---
+DTB_ARGS=()
+for dtb in "${STUBBLE_DTBS[@]}"; do
+    DTB_ARGS+=("--devicetree-auto=$dtb")
+done
+
+STUBBLE_OUTPUT=""
+STUBBLE_KERNEL=""
+trap 'rm -f "$STUBBLE_OUTPUT" "$STUBBLE_KERNEL"' EXIT
+
+# Wraps the given kernel in place in the Stubble EFI stub. It's built to a
+# temporary file, then moved over the kernel once checked.
+#
+# Stubble embeds the kernel as is, so it must be a PE image. A
+# CONFIG_EFI_ZBOOT kernel is one and stays compressed. A plain gzipped Image
+# (e.g. Debian's linux-image-arm64) isn't, so embed the unpacked Image
+# instead: with CONFIG_EFI_STUB that's a PE image too.
+#
+# TODO: the Stubble entries with a gzipped (non-ZBOOT) kernel are untested
+# on hardware and need testing. If Stubble turns out to unpack a gzipped
+# Image itself, this unpacking can go.
+stubble_wrap() {
+    local kernel="$1"
+    local linux="$1"
+
+    echo "Stubble: /$kernel"
+
+    STUBBLE_OUTPUT=$(mktemp)
+    if gzip -t "$kernel" 2>/dev/null; then
+        STUBBLE_KERNEL=$(mktemp)
+        gzip -dc "$kernel" > "$STUBBLE_KERNEL"
+        linux="$STUBBLE_KERNEL"
+    fi
+
+    "$STUBBLIFY" build \
+        --efi-arch=aa64 \
+        --linux="$linux" \
+        --stub="$STUB" \
+        --hwids="$HWIDS" \
+        "${DTB_ARGS[@]}" \
+        --output="$STUBBLE_OUTPUT"
+
+    python3 - "$STUBBLE_OUTPUT" <<'PY'
+import pefile
+import sys
+
+pe = pefile.PE(sys.argv[1], fast_load=True)
+
+if pe.FILE_HEADER.Machine != 0xAA64:
+    raise SystemExit("Generated Stubble kernel is not AArch64")
+PY
+
+    # mktemp creates it 0600; keep the kernel's mode.
+    chmod --reference="$kernel" "$STUBBLE_OUTPUT"
+    mv "$STUBBLE_OUTPUT" "$kernel"
+    rm -f "$STUBBLE_KERNEL"
+    STUBBLE_OUTPUT=""
+    STUBBLE_KERNEL=""
+}
+
+stubble_wrap "$BOOT_KERNEL"
+
+# The live system's kernel (the live installer type only). build.sh puts it
+# in live/.
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    if [ "${#LIVE_KERNELS[@]}" -ne 1 ] || [ ! -f "${LIVE_KERNELS[0]}" ]; then
+        die "expected exactly one live/vmlinuz-*, found: ${LIVE_KERNELS[*]}"
+    fi
+
+    stubble_wrap "${LIVE_KERNELS[0]}"
+fi
+
+# Only live-build's install.cfg (replaced by 0110-grub-menu.hook.binary's
+# menu) boots it now.
+rm -f "$GTK_KERNEL"
+
+echo "0100-stubble: done"

@@ -1,0 +1,159 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb installer has filled the pool and
+# generated its indices, and before binary_checksums and binary_iso.
+#
+# Removes the packages the installer doesn't need from the ISO's package
+# pool, which shrinks the ISO, then regenerates the Packages indices and
+# each dists/*/Release, which lists their hashes.
+set -euo pipefail
+
+if ! command -v apt-ftparchive >/dev/null 2>&1; then
+    echo "0060-prune-pool: apt-ftparchive not found (install apt-utils)" >&2
+    exit 1
+fi
+
+REMOVED=()
+shopt -s nullglob
+
+# Adds the pool-udeb/ files of the given udeb packages, if on the ISO.
+remove_udebs() {
+    local pkg f
+
+    for pkg in "$@"; do
+        for f in pool-udeb/*/*/*/"${pkg}"_*.udeb; do
+            REMOVED+=("$f")
+        done
+    done
+}
+
+# The stock kernel module udebs (pool-udeb/*/l/linux*/, ~71 MB): lb
+# installer adds them regardless of --linux-packages none, but the installer
+# boots the custom kernel from replace-di-kernel.sh, which can't load them.
+for f in pool-udeb/*/l/linux/*.udeb pool-udeb/*/l/linux-signed-*/*.udeb; do
+    REMOVED+=("$f")
+done
+
+# The stock kernel debs (linux-image-*, and Debian's split linux-base-*,
+# linux-binary-*, linux-modules-*): build.sh adds the custom kernel to the
+# pool and preseeds base-installer to install it on the target. The debs
+# build.sh added are listed in config/kernel-debs.list and stay, since the
+# stock kernel can share their pool directory.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KERNEL_DEBS_LIST="$HOOK_DIR/../../kernel-debs.list"
+for f in pool/*/l/linux/*.deb pool/*/l/linux-signed-*/*.deb; do
+    case "${f##*/}" in
+        linux-image-* | linux-base-[0-9]* | linux-binary-* | linux-modules-*) ;;
+        *) continue ;;
+    esac
+    if [ -f "$KERNEL_DEBS_LIST" ] && grep -qxF "${f##*/}" "$KERNEL_DEBS_LIST"; then
+        continue
+    fi
+    REMOVED+=("$f")
+done
+
+# The speech synthesis udebs (espeakup, ~10 MB with its voices): the boot
+# menu has no speech synthesis entry (see 0110-grub-menu.hook.binary).
+# alsa-utils-udeb and libasound2-udeb go too, as only espeakup-udeb depends
+# on them. The fonts stay: the graphical installer uses them.
+remove_udebs \
+    espeakup-udeb \
+    espeak-ng-data-udeb \
+    espeak-data-udeb \
+    alsa-utils-udeb \
+    libasound2-udeb
+
+# The udebs for hardware the ISO doesn't target (UEFI laptops):
+# depthcharge-tools-installer and partman-cros (ChromeOS bootloader),
+# flash-kernel-installer (U-Boot and other non-UEFI boards), pcmciautils-udeb
+# (PCMCIA) and console-keymaps-* (keyboards of old non-PC machines).
+remove_udebs \
+    depthcharge-tools-installer \
+    partman-cros \
+    flash-kernel-installer \
+    pcmciautils-udeb \
+    console-keymaps-acorn \
+    console-keymaps-amiga \
+    console-keymaps-atari \
+    console-keymaps-dec \
+    console-keymaps-mac \
+    console-keymaps-sun
+
+# The debugging udebs (strace, screen): the installer doesn't need them.
+# pciutils-udeb stays: disk-detect and ethdetect depend on it.
+remove_udebs \
+    strace-udeb \
+    screen-udeb
+
+[ "${#REMOVED[@]}" -gt 0 ] || exit 0
+
+echo "Removing from the pool:"
+printf '  %s\n' "${REMOVED[@]##*/}"
+
+rm -f "${REMOVED[@]}"
+# Once each: a directory holding several of them is gone after the first.
+mapfile -t REMOVED_DIRS < <(printf '%s\n' "${REMOVED[@]%/*}" | sort -u)
+rmdir --ignore-fail-on-non-empty "${REMOVED_DIRS[@]}"
+
+# Regenerate an index the same way lb installer does.
+regenerate_packages() {
+    local pool_dir="$1" index_dir="$2"
+
+    [ -d "$index_dir" ] || return 0
+
+    echo "Regenerating $index_dir/Packages"
+    apt-ftparchive packages "$pool_dir" > "$index_dir/Packages"
+    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+        touch -d "@$SOURCE_DATE_EPOCH" "$index_dir/Packages"
+    fi
+    gzip -9 -n -c "$index_dir/Packages" > "$index_dir/Packages.gz"
+}
+
+for dist_dir in dists/*/; do
+    dist_dir="${dist_dir%/}"
+    release="$dist_dir/Release"
+
+    [ -f "$release" ] || continue
+    # e.g. a stable -> trixie symlink
+    [ -L "$dist_dir" ] && continue
+
+    for index_dir in "$dist_dir"/*/binary-*; do
+        component=$(basename "$(dirname "$index_dir")")
+        regenerate_packages "pool/$component" "$index_dir"
+    done
+
+    for index_dir in "$dist_dir"/*/debian-installer/binary-*; do
+        component=$(basename "$(dirname "$(dirname "$index_dir")")")
+        regenerate_packages "pool-udeb/$component" "$index_dir"
+    done
+
+    # Keep lb installer's header fields, and write the new Release
+    # outside the dist so it doesn't hash itself.
+    field() {
+        sed -n "s/^$1: //p" "$release"
+    }
+
+    echo "Regenerating $release"
+    new_release=$(mktemp)
+    apt-ftparchive \
+        -o APT::FTPArchive::Release::Origin="$(field Origin)" \
+        -o APT::FTPArchive::Release::Label="$(field Label)" \
+        -o APT::FTPArchive::Release::Suite="$(field Suite)" \
+        -o APT::FTPArchive::Release::Version="$(field Version)" \
+        -o APT::FTPArchive::Release::Codename="$(field Codename)" \
+        -o APT::FTPArchive::Release::Date="$(field Date)" \
+        -o APT::FTPArchive::Release::Architectures="$(field Architectures)" \
+        -o APT::FTPArchive::Release::Components="$(field Components)" \
+        -o APT::FTPArchive::Release::Description="$(field Description)" \
+        release "$dist_dir" > "$new_release"
+    rm -f "$release"
+    mv "$new_release" "$release"
+    chmod 0644 "$release"
+    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+        touch -d "@$SOURCE_DATE_EPOCH" "$release"
+    fi
+done

@@ -1,0 +1,84 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# /etc/grub.d/09_qcom-stubble
+#
+# Installed by postinst.d/20-stubble from the installer ISO. Adds GRUB
+# entries for the kernels /etc/kernel/postinst.d/zz-qcom-stubble wrapped
+# in Stubble, laid out like 10_linux's: the newest kernel as the default,
+# then an "Advanced options" submenu with every kernel, newest first, and
+# their recovery modes. They replace 10_linux's entries, which have no
+# DTB and so can't boot these laptops; postinst.d/20-stubble diverts
+# 10_linux out of /etc/grub.d. Same root= logic as 10_linux, minus LVM, btrfs and
+# ZFS, which the installer doesn't set up for these laptops, and the
+# entries don't search for /boot (see entry()).
+set -e
+
+# grub-mkconfig_lib uses these, as in 10_linux.
+# shellcheck disable=SC2034
+prefix=/usr
+# shellcheck disable=SC2034
+exec_prefix=/usr
+datarootdir=/usr/share
+
+# shellcheck source=/dev/null
+. "$datarootdir/grub/grub-mkconfig_lib"
+
+OS=${GRUB_DISTRIBUTOR:-Debian}
+case "$OS" in
+    Debian) OS="$OS GNU/Linux" ;;
+esac
+
+if [ -n "${GRUB_DEVICE_UUID:-}" ] &&
+    [ "${GRUB_DISABLE_LINUX_UUID:-}" != true ] &&
+    [ -e "/dev/disk/by-uuid/$GRUB_DEVICE_UUID" ]; then
+    ROOT_DEVICE=UUID=$GRUB_DEVICE_UUID
+else
+    ROOT_DEVICE=$GRUB_DEVICE
+fi
+
+# entry <title> <image> <initrd> <args> [<indent>]
+#
+# GRUB_DISABLE_UUID=true drops the "search --fs-uuid" for /boot and keeps
+# the "set root='hdX,gptY'" from grub-probe. "search" probes every
+# firmware block device, and on the T14s that hangs. The cost is relying
+# on GRUB's disk numbering, so run update-grub after adding or removing
+# disks.
+entry() {
+    echo "${5:-}menuentry '$1' {"
+    GRUB_DISABLE_UUID=true prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" |
+        sed "s/^/${5:-}\t/"
+    echo "${5:-}	linux $(make_system_path_relative_to_its_root "$2") root=$ROOT_DEVICE ro $4"
+    echo "${5:-}	initrd $(make_system_path_relative_to_its_root "$3")"
+    echo "${5:-}}"
+}
+
+first=true
+for image in $(for f in /boot/vmlinuz-*; do
+    [ -f "$f" ] && echo "$f"
+done | version_sort -r); do
+    version=${image#/boot/vmlinuz-}
+    initrd=/boot/initrd.img-$version
+    if [ ! -f "$initrd" ]; then
+        echo "09_qcom-stubble: no $initrd, skipping $image" >&2
+        continue
+    fi
+
+    echo "Found Stubble kernel: $image" >&2
+    args="${GRUB_CMDLINE_LINUX:-} ${GRUB_CMDLINE_LINUX_DEFAULT:-}"
+    if [ "$first" = true ]; then
+        entry "$OS" "$image" "$initrd" "$args"
+        echo "submenu 'Advanced options for $OS' {"
+        first=false
+    fi
+    entry "$OS, with Linux $version" "$image" "$initrd" "$args" "	"
+    if [ "${GRUB_DISABLE_RECOVERY:-}" != true ]; then
+        entry "$OS, with Linux $version (recovery mode)" "$image" "$initrd" \
+            "single ${GRUB_CMDLINE_LINUX:-}" "	"
+    fi
+done
+
+if [ "$first" = false ]; then
+    echo "}"
+fi

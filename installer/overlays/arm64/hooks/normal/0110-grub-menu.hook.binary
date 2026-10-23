@@ -1,0 +1,238 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso,
+# and after 0100-stubble.hook.binary has wrapped the kernels in Stubble.
+#
+# Fills the "# QLI_ENTRIES" marker in the generated grub.cfg (from the
+# template in overlays/arm64/bootloaders/grub-pc/grub.cfg) with GRUB menu
+# entries for both Debian Installer kernels and, for the live installer type,
+# the live system:
+#
+#   0. "Live system (Xfce)" - only when live/filesystem.squashfs exists,
+#      then the default. Boots the live system's kernel and initrd, which
+#      build.sh puts in live/.
+#   1. "Graphical installer" - the installer kernel (install/vmlinuz),
+#      booting the graphical installer. The default without a live system.
+#   2. "Text installer" - the same kernel, text installer.
+#   3. "Automated install" - the graphical installer at critical
+#      priority, preseeded from automated-install-preseed.cfg at the root of
+#      the image (overlays/arm64/includes.binary/), which users edit on the
+#      USB stick. auto-install/enable delays the locale and keyboard
+#      questions until that file is loaded.
+#
+# and fills the "# QLI_ADVANCED_ENTRIES" marker, in the "Advanced options"
+# submenu, with the same entries booted with "chainloader" rather than
+# "linux"/"initrd", for debugging: they tell a problem in GRUB's loader apart
+# from one in Stubble or the kernel's EFI stub. GRUB's "initrd" doesn't apply
+# to "chainloader", so these pass the initrd as "initrd=" for the kernel's EFI
+# stub to load.
+#
+# The graphical and text installers only differ in their initrd and args, so
+# every installer entry boots install/vmlinuz (0100-stubble.hook.binary
+# removed the duplicate install/gtk/vmlinuz).
+#
+# Finally, removes live-build's unused install.cfg, install_start.cfg and
+# root efi.img.
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HOOK_DIR/../../installer-config.sh"
+
+GRUB_CFG="boot/grub/grub.cfg"
+INSTALL_CFG="boot/grub/install.cfg"
+
+die() {
+    echo "0110-grub-menu: $*" >&2
+    exit 1
+}
+
+[ -f "$GRUB_CFG" ] || die "$GRUB_CFG not found"
+[ -f "$INSTALL_CFG" ] || die "$INSTALL_CFG not found"
+
+# Extract the kernel/initrd/args for a given installer kernel path from
+# live-build's install.cfg (still generated, but no longer sourced by the
+# menu, and removed at the end). Taking the first match selects the plain
+# installer entry over the Expert/Automated/Rescue/dark-theme/
+# speech-synthesis variants.
+extract_boot_info() {
+    local kernel_path="$1"
+    eval "$(python3 - "$INSTALL_CFG" "$kernel_path" <<'PY'
+import pathlib
+import re
+import sys
+
+install_cfg, kernel_path = sys.argv[1:3]
+
+config = pathlib.Path(install_cfg).read_text()
+
+kernel_re = re.escape(kernel_path)
+linux_match = re.search(
+    rf"^\s*linux\s+{kernel_re}\s+(.*)$", config, re.MULTILINE
+)
+if not linux_match:
+    raise SystemExit(f"Could not find a linux command for {kernel_path}")
+
+args = linux_match.group(1).strip()
+
+initrd_match = re.search(r"^\s*initrd\s+(.+)$", config[linux_match.end():], re.MULTILINE)
+if not initrd_match:
+    raise SystemExit(f"Could not find an initrd command for {kernel_path}")
+
+initrd = initrd_match.group(1).strip()
+
+args = re.sub(r"(?<!\S)(quiet|splash|boot=live|components|findiso=\S+)(?!\S)", "", args)
+args = " ".join(args.split())
+
+print(f"KERNEL={kernel_path!r}")
+print(f"INITRD={initrd!r}")
+print(f"BASE_ARGS={args!r}")
+PY
+    )"
+}
+
+# Replace a marker line (e.g. "# QLI_ENTRIES") in grub.cfg with the entries,
+# prefixed with prefix (e.g. "set default=0" to make the first one the
+# default).
+insert_entries() {
+    local marker="$1" entries="$2" prefix="${3:-}"
+    python3 - "$GRUB_CFG" "$marker" "$prefix$entries" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+marker, entries = sys.argv[2:4]
+
+config, count = re.subn(
+    rf"^{re.escape(marker)}$", lambda _: entries,
+    path.read_text(), count=1, flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit(
+        f"0110-grub-menu: no '{marker}' marker in {path} "
+        "(grub-pc template overlay not applied?)"
+    )
+path.write_text(config)
+PY
+}
+
+BOOT_KERNEL="install/vmlinuz"
+[ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
+
+# variant records: id:install_cfg_kernel:label:extra_args (in menu order).
+# install_cfg_kernel is the kernel path install.cfg uses for that installer,
+# to look up its initrd and args; every entry boots install/vmlinuz.
+# extra_args are appended to the entry's kernel command line.
+VARIANTS=(
+    "gtk:/install/gtk/vmlinuz:Graphical installer:"
+    "text:/install/vmlinuz:Text installer:"
+    "auto:/install/gtk/vmlinuz:Automated install:auto-install/enable=true priority=critical preseed/file=/cdrom/automated-install-preseed.cfg"
+)
+
+ENTRIES=""
+ADVANCED_ENTRIES=""
+
+# The live system (the live installer type only), first so it's the
+# default. build.sh puts its kernel and initrd in live/; live-boot finds
+# live/filesystem.squashfs on the stick by itself. 0100-stubble.hook.binary
+# checked there's exactly one live kernel.
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    LIVE_KERNEL="${LIVE_KERNELS[0]}"
+    LIVE_INITRD="live/initrd.img-${LIVE_KERNEL#live/vmlinuz-}"
+    [ -f "$LIVE_INITRD" ] || die "$LIVE_INITRD not found"
+
+    LABEL="Live system (Xfce)"
+    CMDLINE="boot=live components $CUSTOM_BOOT_ARGS"
+
+    echo "Variant: live"
+    echo "  Kernel:  /$LIVE_KERNEL"
+    echo "  Initrd:  /$LIVE_INITRD"
+    echo "  Args:    $CMDLINE"
+
+    ENTRIES+=$(cat <<EOF
+
+menuentry '$LABEL' {
+    linux /$LIVE_KERNEL $CMDLINE
+    initrd /$LIVE_INITRD
+}
+
+EOF
+    )
+
+    ADVANCED_ENTRIES+=$(cat <<EOF
+
+    menuentry '$LABEL (chainloader)' {
+        chainloader /$LIVE_KERNEL $CMDLINE initrd=/$LIVE_INITRD
+    }
+
+EOF
+    )
+fi
+
+for variant in "${VARIANTS[@]}"; do
+    IFS=':' read -r VARIANT_ID INSTALL_CFG_KERNEL LABEL EXTRA_ARGS <<< "$variant"
+
+    extract_boot_info "$INSTALL_CFG_KERNEL"
+
+    # d-i's grub-installer copies the args after "---" (bar its own, e.g.
+    # preseed/file=) into the target's GRUB_CMDLINE_LINUX_DEFAULT, but the
+    # target gets CUSTOM_BOOT_ARGS from custom-boot-args.cfg already, so put
+    # them before "---" or they'd be there twice.
+    case " $BASE_ARGS " in
+        *" --- "*)
+            CMDLINE="${BASE_ARGS%%---*} $CUSTOM_BOOT_ARGS ---${BASE_ARGS#*---}"
+            ;;
+        *)
+            CMDLINE="$BASE_ARGS $CUSTOM_BOOT_ARGS"
+            ;;
+    esac
+    CMDLINE="$(echo "$CMDLINE $EXTRA_ARGS" | tr -s ' ')"
+
+    echo "Variant: $VARIANT_ID"
+    echo "  Kernel:  /$BOOT_KERNEL"
+    echo "  Initrd:  $INITRD"
+    echo "  Args:    $CMDLINE"
+
+    # No "search" for the stick: GRUB found grub.cfg on it through
+    # /.disk/info, so $root is already the stick and the paths resolve
+    # there, as in the other live-build entries. "search" probes every
+    # firmware block device, and on the T14s that hangs.
+    ENTRIES+=$(cat <<EOF
+
+menuentry '$LABEL' {
+    linux /$BOOT_KERNEL $CMDLINE
+    initrd $INITRD
+}
+
+EOF
+    )
+
+    ADVANCED_ENTRIES+=$(cat <<EOF
+
+    menuentry '$LABEL (chainloader)' {
+        chainloader /$BOOT_KERNEL $CMDLINE initrd=$INITRD
+    }
+
+EOF
+    )
+done
+
+insert_entries "# QLI_ENTRIES" "$ENTRIES" $'set default=0\n'
+insert_entries "# QLI_ADVANCED_ENTRIES" "$ADVANCED_ENTRIES"
+
+# Drop live-build's leftovers that nothing on the ISO uses:
+# - install.cfg and install_start.cfg: the stock menus the template replaces
+#   (install.cfg was only needed above, for extract_boot_info), which still
+#   reference the removed install/gtk/vmlinuz
+# - efi.img: binary_grub-efi's intermediate image (plain grub-mkimage
+#   bootaa64.efi), copied to the root along with the rest of its temp dir;
+#   the ISO boots boot/grub/efi.img
+rm -f "$INSTALL_CFG" boot/grub/install_start.cfg efi.img
+
+echo "0110-grub-menu: done"

@@ -1,0 +1,25 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build chroot-stage hook (config/hooks/normal/*.chroot).
+#
+# Runs inside the live chroot after the package lists and includes.chroot
+# are installed, and before build.sh copies the kernel and initrd out of
+# chroot/boot.
+#
+# Creates the initrd for each installed kernel that doesn't have one. The
+# custom kernel comes from packages.chroot and doesn't depend on
+# initramfs-tools, so apt may configure it before initramfs-tools is
+# installed; its postinst then finds no /etc/kernel/postinst.d hook, and
+# the later initramfs-tools trigger only updates initrds that exist.
+set -euo pipefail
+
+shopt -s nullglob
+
+for kernel in /boot/vmlinuz-*; do
+    kver="${kernel#/boot/vmlinuz-}"
+    if [ ! -e "/boot/initrd.img-$kver" ]; then
+        update-initramfs -c -k "$kver"
+    fi
+done

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  live-build's binary_bootloader_splash renders this to boot/grub/splash.png.
+  Nothing displays it: the theme draws live-theme/bg.png instead. It is
+  still needed because live-build's theme.cfg only enables
+  live-theme/theme.txt when splash.png exists, and without our own SVG
+  live-build renders its fallback splash and blanks the theme's title-text.
+  Keep it a solid fill in the theme's desktop-color.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#111827"/>
+</svg>

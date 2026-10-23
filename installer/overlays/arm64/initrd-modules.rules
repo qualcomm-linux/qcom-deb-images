@@ -1,0 +1,49 @@
+# Kernel modules to leave out of the installer initrds, for
+# scripts/lib/trim-modules.sh: one glob per line, relative to
+# lib/modules/$KVER/kernel/ ("*" also matches "/"). A plain glob drops,
+# "!" keeps again, the last match wins. Whatever a kept module depends on is
+# kept anyway, e.g. drm.ko for msm.
+
+# Audio, cameras, video codecs: the installer doesn't use them.
+sound/*
+drivers/media/*
+
+# Display: only the Qualcomm GPU/display driver and the panels and bridges
+# its boards use.
+drivers/gpu/*
+!drivers/gpu/drm/msm/*
+!drivers/gpu/drm/panel/*
+!drivers/gpu/drm/bridge/*
+
+# Wifi: only Qualcomm Atheros (ath10k/ath11k/ath12k).
+drivers/net/wireless/*
+!drivers/net/wireless/ath/*
+
+# HACK: Realtek USB wifi adapters (rtl8xxxu), e.g. the Edimax N150, as
+# a fallback for testing.
+!drivers/net/wireless/realtek/rtl8xxxu/*
+
+# Wired: only the NICs Qualcomm boards use. USB network adapters
+# (drivers/net/usb) stay.
+drivers/net/ethernet/*
+!drivers/net/ethernet/stmicro/*
+!drivers/net/ethernet/qualcomm/*
+!drivers/net/ethernet/realtek/*
+
+# Nothing the installer needs.
+net/bluetooth/*
+drivers/bluetooth/*
+net/nfc/*
+drivers/nfc/*
+drivers/net/can/*
+net/can/*
+drivers/net/dsa/*
+net/dsa/*
+drivers/staging/*
+drivers/iio/*
+drivers/hwtracing/*
+drivers/greybus/*
+drivers/fpga/*
+drivers/xen/*
+drivers/gnss/*
+drivers/perf/*
