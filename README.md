@@ -167,6 +167,10 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `multimedia` without `westonsession`), fails at render time.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
+- `workarounds`: a `,`-separated list of temporary workarounds to apply from
+  `debos-recipes/workarounds/`; defaults to `none`. Logged to `/etc/buildinfo`
+  as `WORKAROUNDS=<list>` when set. See
+  [docs/workarounds.md](docs/workarounds.md) for the workarounds policy.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
   apt; defaults to `linux-image-qcom-next,linux-headers-qcom-next`. Set it to
   `linux-image-arm64` to install the kernel from Debian, or to `none` when you
@@ -219,6 +223,10 @@ Here are some example invocations:
 ```bash
 # build the root filesystem with Xfce
 debos -t variant:xfce debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
+# build the root filesystem with temporary workarounds applied
+# (see debos-recipes/workarounds/ for available workarounds)
+debos -t workarounds:<topic>,<topic> debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2

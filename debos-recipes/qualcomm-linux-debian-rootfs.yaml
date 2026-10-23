@@ -7,6 +7,7 @@
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
 {{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
 {{- $overlays := or .overlays "none" }}
+{{- $workarounds := or .workarounds "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
@@ -181,6 +182,9 @@ actions:
       echo "VARIANT_ID={{$variant}}" >>/etc/buildinfo
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
+{{- end }}
+{{- if ne $workarounds "none" }}
+      echo "WORKAROUNDS={{$workarounds}}" >>/etc/buildinfo
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
@@ -794,6 +798,19 @@ actions:
               2>/dev/null || true
       fi
       rm -rf "$workdir"
+{{- end }}
+
+  # temporary workarounds, applied once all packages are installed so they
+  # can override package and configuration state; see docs/workarounds.md
+{{- if ne $workarounds "none" }}
+{{- range $workaround := split "," $workarounds }}
+  - action: recipe
+    description: Apply workaround {{$workaround}}
+    recipe: workarounds/{{$workaround}}/recipe.yaml
+    variables:
+      suite: {{ $suite }}
+      variant: {{ $variant }}
+{{- end }}
 {{- end }}
 
   # systemd recommends systemd-tpm, but it isn't used; on Snapdragon
