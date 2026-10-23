@@ -109,6 +109,22 @@ jobs:
       commit: ${{ github.event.workflow_run.head_sha }}
       head_repository: ${{ github.event.workflow_run.head_repository.full_name }}
 
+  publish-test-results:
+    if: always() && needs.test.result != 'skipped'
+    needs: test
+    uses: $/.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+    with:
+      commit: ${{ github.event.workflow_run.head_sha }}
+      event_name: ${{ github.event.workflow_run.event }}
+      build_id: ${{ github.event.workflow_run.id }}
+
   comment-on-pr:
     name: "Comment on PR"
     needs: [retrieve-build-url, test]
@@ -159,19 +175,3 @@ jobs:
           header: test-results
           hide_and_recreate: true
           hide_classify: OUTDATED
-
-  publish-test-results:
-    if: always() && needs.test.result != 'skipped'
-    needs: test
-    uses: $/.github/workflows/publish-results.yml
-    permissions:
-      checks: write
-      contents: read
-      packages: read
-      pull-requests: write
-    secrets:
-      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
-    with:
-      commit: ${{ github.event.workflow_run.head_sha }}
-      event_name: ${{ github.event.workflow_run.event }}
-      build_id: ${{ github.event.workflow_run.id }}
