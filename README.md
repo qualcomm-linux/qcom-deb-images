@@ -337,8 +337,7 @@ build on any other name:
   `debian` user. Everything else is left for the user to install with APT.
 - `console`: the default; no graphical environment is installed.
 - `xfce`: an Xfce desktop environment.
-- `gnome`: a GNOME desktop environment. Only supported on `trixie` for
-  now; see [issue #416](https://github.com/qualcomm-linux/qcom-deb-images/issues/416).
+- `gnome`: a GNOME desktop environment.
 - `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
