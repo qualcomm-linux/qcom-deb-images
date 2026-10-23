@@ -9,7 +9,8 @@
 # loader, device trees of these machines, and boot firmware signatures (CHID).
 #
 # depends: stubble (for the finddtbs.py script, the stubblify command, and
-# the machine id database)
+# the machine id database, and its stub as a fallback), systemd-boot-efi
+# (for the preferred systemd-stub)
 
 # This hook will wrap an image that was just installed to /boot with a DTB
 # loader in front.
@@ -21,6 +22,9 @@
 # initrd and an editable command line.
 
 set -e
+
+# The device trees and hardware IDs only cover Snapdragon laptops
+[ "$(dpkg --print-architecture)" = "arm64" ] || exit 0
 
 # /etc/kernel/postinst.d/ hooks are called with these args:
 #     KERNEL-VERSION [KERNEL-IMAGE]
@@ -59,6 +63,15 @@ if [ ! -x "$FINDDTBS" ]; then
     fatal_w "$FINDDTBS not found; install stubble"
 fi
 
+# Prefer the systemd-stub, fall back to the stubble one
+STUB=/usr/lib/systemd/boot/efi/linuxaa64.efi.stub
+if [ ! -f "$STUB" ]; then
+    STUB=/usr/lib/stubble/stubble.efi
+fi
+if [ ! -f "$STUB" ]; then
+    fatal_w "No stub found; install systemd-boot-efi or stubble"
+fi
+
 DTB_DIR="/usr/lib/linux-image-${KERNEL_VERSION}"
 if [ ! -d "$DTB_DIR" ]; then
     fatal_w "$DTB_DIR does not exist"
@@ -85,6 +98,7 @@ KERNEL_TMP="$KERNEL_IMAGE.stubble.tmp"
 trap 'rm -f "$KERNEL_TMP"' EXIT HUP INT TERM
 
 stubblify build \
+    --stub="$STUB" \
     --linux="$KERNEL_IMAGE" \
     --uname="$KERNEL_VERSION" \
     --os-release= \
