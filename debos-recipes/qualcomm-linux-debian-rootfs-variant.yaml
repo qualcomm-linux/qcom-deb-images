@@ -69,20 +69,20 @@ actions:
 
 {{- if eq $variant "gnome" }}
 # The following list of package is a manual selection from the gnome-core
-# metapackage from trixie with some pruning. The list of packages is longer in
-# forky, and needs to be revisited. Err out in the meantime.
+# metapackage with some pruning; some apps were replaced after trixie, so these
+# differ between trixie and later suites. The list for suites after trixie is an
+# initial one to allow building on forky, and needs to be revisited.
 # See: https://github.com/qualcomm-linux/qcom-deb-images/issues/416
-{{- if ne $suite "trixie" }}
-{{- fail (printf "gnome is only supported on trixie for now (see issue #416), got suite %q" $suite) }}
-{{- end }}
   - action: apt
     description: Install GNOME desktop
     recommends: false
     packages:
       - plymouth-label- # we probably don't need a boot splash
-      # from gnome-core (meta-gnome3 source package in trixie)
+      # from gnome-core (meta-gnome3 source package)
       # removing gnome-snapshot that would bring gstreamer1.0-plugins-bad
       # removing gnome-connections that would bring libfreerdp3 -> libavcodec61 -> libx265
+      # after trixie, removing showtime that would bring gir1.2-gst-plugins-bad-1.0
+      # and the gst-*-thumbnailers, as we don't want gstreamer plugins-bad
       - gdm3
       - gnome-backgrounds
       - gnome-bluetooth-sendto
@@ -100,29 +100,40 @@ actions:
       - glib-networking
       - gsettings-desktop-schemas
       - baobab
-      - evince
       - gnome-calculator
       - gnome-calendar
       - gnome-characters
       - gnome-clocks
-      - gnome-terminal
       - gnome-contacts
       - gnome-disk-utility
       - gnome-font-viewer
       - gnome-logs
       - gnome-maps
       - gnome-software
-      - gnome-system-monitor
       - gnome-text-editor
       - gnome-weather
       - nautilus
       - simple-scan
-      - totem
       - yelp
+{{- if eq $suite "trixie" }}
+      - evince
+      - gnome-system-monitor
+      - gnome-terminal
+      - totem
+{{- else }}
+      - loupe
+      - papers
+      - ptyxis
+      - resources
+{{- end }}
       # Additional core dependencies from gnome-core
       - cups
       - evolution-data-server
+{{- if eq $suite "trixie" }}
       - fonts-cantarell
+{{- else }}
+      - fonts-adwaita
+{{- end }}
       - gstreamer1.0-packagekit
       - gstreamer1.0-plugins-base
       - gstreamer1.0-plugins-good
@@ -136,6 +147,10 @@ actions:
       - system-config-printer-common
       - system-config-printer-udev
       - zenity
+{{- if ne $suite "trixie" }}
+      - ibus
+      - ibus-gtk4
+{{- end }}
 {{- end }}
 
 {{- if has $variant (list "xfce" "gnome") }}
