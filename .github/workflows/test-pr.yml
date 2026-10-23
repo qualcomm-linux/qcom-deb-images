@@ -135,9 +135,12 @@ jobs:
       - name: Prepare PR comment
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           echo "## Test results for commit ${HEAD_SHA}" > pr-comment.txt
+          echo "" >> pr-comment.txt
+          echo "[Workflow run](${RUN_URL})" >> pr-comment.txt
           echo "" >> pr-comment.txt
           find summary -type f -exec cat {} + >> pr-comment.txt
           cat pr-comment.txt
