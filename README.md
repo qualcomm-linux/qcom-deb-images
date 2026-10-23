@@ -269,13 +269,6 @@ Here is the list of supported overlays:
     <dd>
         Special value to disable all overlays; this is the default.
     </dd>
-    <dt>dtb-loader</dt>
-    <dd>
-      kernel-install hook to wrap the EFI kernel image installed in the
-      ESP with systemd-stub based DTB loader, device trees for these
-      machines, and boot firmware signatures (CHID). Selecting this
-      overlay also installs the <tt>stubble</tt> package the hook needs.
-    </dd>
 </dl>
 
 #### Supported profiles
@@ -370,7 +363,7 @@ workflow submits.
 
 ### Flash the image
 
-The `disk-sdcard.img` disk image can simply be written to an external boot media such as a SD card or an USB stick, albeit most Qualcomm platforms boot from internal storage by default. With an external boot media, the platform will use its boot firmware from internal storage (eMMC, UFS or SPINOR) and perform an EFI boot from that media. This image should even be suitable for Snapdragon Windows on Arm systems, if it was built with the dtb-loader overlay.
+The `disk-sdcard.img` disk image can simply be written to an external boot media such as a SD card or an USB stick, albeit most Qualcomm platforms boot from internal storage by default. With an external boot media, the platform will use its boot firmware from internal storage (eMMC, UFS or SPINOR) and perform an EFI boot from that media. This image should even be suitable for Snapdragon Windows on Arm systems, if it was built with the dtb-loader workaround (`-t workarounds:dtb-loader`).
 
 For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
 
