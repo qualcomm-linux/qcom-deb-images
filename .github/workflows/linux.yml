@@ -50,6 +50,13 @@ on:
         required: false
         type: string
         default: ''
+      variant:
+        description: >
+          Image variant to build and test (e.g. console, gnome); see the
+          variant input of debos.yml
+        required: false
+        type: string
+        default: console
       lava_report_test_results_externally:
         description: >
           Report LAVA results as a check run on the commit and a comment on
@@ -97,6 +104,10 @@ on:
         description: >
           JSON array of Debian suites to build images for and test
           (empty = trixie and forky)
+        required: false
+        type: string
+      variant:
+        description: 'Image variant to build and test (default: console)'
         required: false
         type: string
 
@@ -211,6 +222,7 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      variant: ${{ inputs.variant || 'console' }}
       overlays: ${{ inputs.overlays || 'none' }}
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
@@ -242,6 +254,7 @@ jobs:
     with:
       url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: ${{ inputs.variant || 'console' }}
       # the boards tested come from .github/lava-boards.yml, keyed by kernel
       kernel: ${{ inputs.kernel_name || 'mainline' }}
 
