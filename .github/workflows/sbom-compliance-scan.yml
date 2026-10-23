@@ -405,7 +405,7 @@ jobs:
       # still being built never expires, while the data of the others does
       - name: Upload latest compliance data
         if: steps.stage_latest.outputs.published != ''
-        uses: qualcomm-linux/upload-private-artifact-action@3d4dd0fac6e01a66d2df1502e4189676202c8ae3 # aws-v5
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v5
         with:
           path: latest
           s3_bucket: qcom-prd-gh-artifacts
@@ -417,7 +417,7 @@ jobs:
 
       - name: Upload latest compliance data manifests
         if: steps.stage_latest.outputs.published != ''
-        uses: qualcomm-linux/upload-private-artifact-action@3d4dd0fac6e01a66d2df1502e4189676202c8ae3 # aws-v5
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v5
         with:
           path: latest-manifests
           s3_bucket: qcom-prd-gh-artifacts
