@@ -277,17 +277,35 @@ actions:
       rm -f /usr/local/bin/apt-snapshot-toggle
 
 {{- if eq $generate_sbom "true" }}
+  # remount the image filesystems read-only so that nothing can change
+  # them after the scan and the SBOM describes exactly what is shipped
+  # TODO: is this really needed ?
   - action: run
-    description: Generate SBOM with Syft
+    description: Remount image filesystems read-only
     chroot: false
     command: |
       set -eux
-      # remount the image filesystems read-only so that nothing can change
-      # them after the scan and the SBOM describes exactly what is shipped
       mount -o remount,ro "${ROOTDIR}/boot/efi"
       mount -o remount,ro "${ROOTDIR}"
+
+  # syft takes ~7m in a qemu fakemachine but ~7s on the host, so pack the
+  # image contents and scan the tarball in a postprocess step instead; the
+  # temporary tarball is left behind in the artifact directory
+  # TODO: does the tarball contain everything in the image ?
+  - action: pack
+    description: Generate intermediate tarball for SBOM generation
+    file: {{ $sbom }}.tar
+    compression: none
+
+  - action: run
+    description: Generate SBOM with Syft
+    postprocess: true
+    command: |
+      set -eux
       sbom="${ARTIFACTDIR}/{{ $sbom }}"
-      build_id=$(sed -n 's/^BUILD_ID=//p' "${ROOTDIR}/etc/buildinfo")
+      # TODO: read $buildid earlier ? also what does syft do if it is unset ?
+      build_id=$(tar -xOf "${sbom}.tar" ./etc/buildinfo |
+          sed -n 's/^BUILD_ID=//p')
       SYFT_FORMAT_PRETTY=true syft \
           --output cyclonedx-json="${sbom}.cyclonedx.json" \
           --output spdx-json="${sbom}.spdx.json" \
@@ -298,11 +316,9 @@ actions:
           --select-catalogers debian \
           --source-name qualcomm-linux-debian-image \
           ${build_id:+--source-version "${build_id}"} \
-          --verbose scan "${ROOTDIR}"
-      # debos runs as root, so leave the SBOM to whoever owns the directory
-      # it was written to rather than to root; a build directory usually
-      # belongs to the user who started the build.
-      chown --reference="${ARTIFACTDIR}" "${sbom}".* 2>/dev/null || true
+          --verbose scan "file:${sbom}.tar"
+
+      # TODO: should we clean up intermediate tarball ?
 {{- end }}
 
   - action: run
