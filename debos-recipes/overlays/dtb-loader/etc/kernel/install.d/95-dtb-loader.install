@@ -9,7 +9,8 @@
 # loader, device trees of these machines, and boot firmware signatures (CHID).
 #
 # depends: stubble (for the finddtbs.py script, the stubblify command, and
-# the machine id database)
+# the machine id database, and its stub as a fallback), systemd-boot-efi
+# (for the preferred systemd-stub)
 
 # This hook will wrap kernel images installed in the ESP with `systemd-stub`,
 # embedding the device trees from this kernel for the machines in the hardware
@@ -23,6 +24,9 @@
 # boot loader entry, a host-generated initrd and an editable command line.
 
 set -e
+
+# The device trees and hardware IDs only cover Snapdragon laptops
+[ "$(dpkg --print-architecture)" = "arm64" ] || exit 0
 
 # kernel-install calls with these args:
 #     add KERNEL-VERSION $BOOT/ENTRY-TOKEN/KERNEL-VERSION/ KERNEL-IMAGE \
@@ -79,6 +83,15 @@ if [ ! -x "$FINDDTBS" ]; then
     fatal_w "$FINDDTBS not found; install stubble"
 fi
 
+# Prefer the systemd-stub, fall back to the stubble one
+STUB=/usr/lib/systemd/boot/efi/linuxaa64.efi.stub
+if [ ! -f "$STUB" ]; then
+    STUB=/usr/lib/stubble/stubble.efi
+fi
+if [ ! -f "$STUB" ]; then
+    fatal_w "No stub found; install systemd-boot-efi or stubble"
+fi
+
 DTB_DIR="/usr/lib/linux-image-${KERNEL_VERSION}"
 if [ ! -d "$DTB_DIR" ]; then
     fatal_w "$DTB_DIR does not exist"
@@ -100,6 +113,7 @@ done
 log "Embedding $# device trees from $DTB_DIR into $KERNEL_DEST"
 
 stubblify build \
+    --stub="$STUB" \
     --linux="$KERNEL_IMAGE" \
     --uname="$KERNEL_VERSION" \
     --os-release= \

@@ -658,6 +658,8 @@ actions:
     packages:
       # provides stubblify, the hardware ID database and the finddtbs script
       - stubble
+      # provides the systemd-stub used as DTB loader
+      - systemd-boot-efi
 {{- end }}
 {{- end }}
 
