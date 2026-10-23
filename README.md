@@ -167,6 +167,10 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   `multimedia` without `westonsession`), fails at render time.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
+- `workarounds`: a `,`-separated list of temporary workarounds to apply from
+  `debos-recipes/workarounds/`; defaults to `none`. Logged to `/etc/buildinfo`
+  as `WORKAROUNDS=<list>` when set. See
+  [docs/workarounds.md](docs/workarounds.md) for the workarounds policy.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
   apt; defaults to `linux-image-qcom-next,linux-headers-qcom-next`. Set it to
   `linux-image-arm64` to install the kernel from Debian, or to `none` when you
@@ -220,6 +224,10 @@ Here are some example invocations:
 # build the root filesystem with Xfce
 debos -t variant:xfce debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
+# build the root filesystem with temporary workarounds applied
+# (see debos-recipes/workarounds/ for available workarounds)
+debos -t workarounds:<topic>,<topic> debos-recipes/qualcomm-linux-debian-rootfs.yaml
+
 # build an image where systemd overrides the firmware device tree with the one
 # for RB3 Gen2
 debos -t dtb:qcom/qcs6490-rb3gen2.dtb debos-recipes/qualcomm-linux-debian-image.yaml
@@ -260,13 +268,6 @@ Here is the list of supported overlays:
     <dt>none</dt>
     <dd>
         Special value to disable all overlays; this is the default.
-    </dd>
-    <dt>dtb-loader</dt>
-    <dd>
-      kernel-install hook to wrap the EFI kernel image installed in the
-      ESP with systemd-stub based DTB loader, device trees for these
-      machines, and boot firmware signatures (CHID). Selecting this
-      overlay also installs the <tt>stubble</tt> package the hook needs.
     </dd>
 </dl>
 
@@ -362,7 +363,7 @@ workflow submits.
 
 ### Flash the image
 
-The `disk-sdcard.img` disk image can simply be written to an external boot media such as a SD card or an USB stick, albeit most Qualcomm platforms boot from internal storage by default. With an external boot media, the platform will use its boot firmware from internal storage (eMMC, UFS or SPINOR) and perform an EFI boot from that media. This image should even be suitable for Snapdragon Windows on Arm systems, if it was built with the dtb-loader overlay.
+The `disk-sdcard.img` disk image can simply be written to an external boot media such as a SD card or an USB stick, albeit most Qualcomm platforms boot from internal storage by default. With an external boot media, the platform will use its boot firmware from internal storage (eMMC, UFS or SPINOR) and perform an EFI boot from that media. This image should even be suitable for Snapdragon Windows on Arm systems, if it was built with the dtb-loader workaround (`-t workarounds:dtb-loader`).
 
 For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
 
