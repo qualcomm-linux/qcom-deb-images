@@ -210,7 +210,7 @@ jobs:
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
-  debos-linux-deb:
+  build-images:
     if: ${{ !inputs.skip_image_build }}
     needs: build-linux-deb
     strategy:
@@ -229,21 +229,21 @@ jobs:
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
   sbom-compliance-scan:
-    if: ${{ !cancelled() && needs.debos-linux-deb.result != 'skipped' }}
-    needs: debos-linux-deb
+    if: ${{ !cancelled() && needs.build-images.result != 'skipped' }}
+    needs: build-images
     uses: $/.github/workflows/sbom-compliance-scan.yml
     permissions:
       actions: read
       contents: read
 
-  test-linux-deb:
+  test:
     if: ${{ !inputs.skip_lava_tests }}
     strategy:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
     uses: $/.github/workflows/test.yml
-    needs: debos-linux-deb
+    needs: build-images
     permissions:
       checks: write
       contents: read
@@ -252,15 +252,15 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      url: ${{ needs.build-images.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       variant: ${{ inputs.variant || 'console' }}
       # the boards tested come from .github/lava-boards.yml, keyed by kernel
       kernel: ${{ inputs.kernel_name || 'mainline' }}
 
   publish-test-results:
-    if: always() && needs.test-linux-deb.result != 'skipped'
-    needs: test-linux-deb
+    if: always() && needs.test.result != 'skipped'
+    needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
