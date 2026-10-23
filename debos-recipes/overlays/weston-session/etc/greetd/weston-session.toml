@@ -4,8 +4,8 @@ vt = 7
 
 [default_session]
 # Start agreety to provide a login prompt, then launch Weston.
-# Set Weston to log to "$XDG_RUNTIME_DIR/weston.log"
-# XDG_RUNTIME_DIR usually resolves to "/run/user/<UID>" so the log is only kept
-# for the lifetime of the user's login session.
-command = "/usr/sbin/agreety --cmd 'weston --log=$XDG_RUNTIME_DIR/weston.log'"
+# Run Weston under systemd-cat so its log (written to stderr) goes to the
+# journal and outlives the user's login session; view it with
+# "journalctl -t weston".
+command = "/usr/sbin/agreety --cmd 'systemd-cat --identifier=weston weston'"
 user = "_greetd"
