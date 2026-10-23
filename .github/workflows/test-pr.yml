@@ -109,46 +109,8 @@ jobs:
       commit: ${{ github.event.workflow_run.head_sha }}
       head_repository: ${{ github.event.workflow_run.head_repository.full_name }}
 
-  comment-on-pr:
-    name: "Comment on PR"
-    needs: [retrieve-build-url, test]
-    if: always() && needs.test.outputs.summary_id != ''
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # marocchino/sticky-pull-request-comment
-      pull-requests: write
-    steps:
-      - name: Download summary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          artifact-ids: ${{ needs.test.outputs.summary_id }}
-          path: summary
-
-      - name: Prepare PR comment
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-          echo "## Test results for commit ${HEAD_SHA}" > pr-comment.txt
-          echo "" >> pr-comment.txt
-          find summary -type f -exec cat {} + >> pr-comment.txt
-          cat pr-comment.txt
-
-      - name: Comment on PR
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
-        with:
-          path: pr-comment.txt
-          number_force: ${{ needs.retrieve-build-url.outputs.pr_number }}
-          # post a fresh comment on every run (GitHub only notifies on
-          # comment creation) and minimize the previous one as outdated
-          # instead of deleting it, keeping the history collapsed
-          header: test-results
-          hide_and_recreate: true
-          hide_classify: OUTDATED
-
   publish-test-results:
-    if: always() && needs.test.result != 'skipped'
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
@@ -162,3 +124,68 @@ jobs:
       commit: ${{ github.event.workflow_run.head_sha }}
       event_name: ${{ github.event.workflow_run.event }}
       build_id: ${{ github.event.workflow_run.id }}
+
+  comment-on-pr:
+    name: "Comment on PR"
+    # publish-test-results decides whether the tests passed, after known
+    # failures are applied, so wait for it to give the verdict
+    needs: [retrieve-build-url, test, publish-test-results]
+    if: ${{ !cancelled() && needs.test.outputs.summary_id != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Create Test Reporting App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: 2291458
+          private-key: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+          # the comment is all this token writes
+          permission-pull-requests: write
+
+      - name: Download summary
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.test.outputs.summary_id }}
+          path: summary
+
+      - name: Prepare PR comment
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # same rule as the internal CI trigger in build.yml: the Boot and
+          # Pre-merge jobs use continue-on-error, so test alone succeeds even
+          # when they fail, and publish-test-results alone could pass on
+          # partial results
+          PASSED: >-
+            ${{ needs.test.result == 'success' &&
+                needs.publish-test-results.result == 'success' }}
+        run: |
+          set -euo pipefail
+          if [ "${PASSED}" = true ]; then
+              verdict="✅ Tests passed"
+          else
+              verdict="❌ Tests failed"
+          fi
+          echo "## ${verdict} for commit ${HEAD_SHA}" > pr-comment.txt
+          echo "" >> pr-comment.txt
+          echo "[Workflow run](${RUN_URL})" >> pr-comment.txt
+          echo "" >> pr-comment.txt
+          find summary -type f -exec cat {} + >> pr-comment.txt
+          cat pr-comment.txt
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          # post as the Test Reporting App, like the check from
+          # publish-results.yml, rather than as github-actions
+          GITHUB_TOKEN: ${{ steps.app_token.outputs.token }}
+          path: pr-comment.txt
+          number_force: ${{ needs.retrieve-build-url.outputs.pr_number }}
+          # post a fresh comment on every run (GitHub only notifies on
+          # comment creation) and minimize the previous one as outdated
+          # instead of deleting it, keeping the history collapsed
+          header: test-results
+          hide_and_recreate: true
+          hide_classify: OUTDATED

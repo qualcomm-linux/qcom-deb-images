@@ -341,7 +341,7 @@ jobs:
   publish-test-summary:
     name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
     needs: [boot-job-result, submit-premerge-job]
-    if: always() && needs.boot-job-result.result == 'success'
+    if: ${{ !cancelled() && needs.boot-job-result.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read # actions/checkout
