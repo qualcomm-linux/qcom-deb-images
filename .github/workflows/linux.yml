@@ -10,8 +10,8 @@ on:
         default: 'mainline'
       overlays:
         description: >
-          Comma-separated list of rootfs overlays to apply from
-          debos-recipes/overlays/ (e.g. workaround-name); "none" or unset
+          Comma-separated list of rootfs overlays to apply, each the name
+          of a subdirectory of debos-recipes/overlays/; "none" or unset
           applies no overlay.
         required: false
         type: string
@@ -80,8 +80,8 @@ on:
         type: string
       overlays:
         description: >
-          Comma-separated list of rootfs overlays to apply from
-          debos-recipes/overlays/ (e.g. workaround-name); "none" or unset
+          Comma-separated list of rootfs overlays to apply, each the name
+          of a subdirectory of debos-recipes/overlays/; "none" or unset
           applies no overlay.
         required: false
         type: string
