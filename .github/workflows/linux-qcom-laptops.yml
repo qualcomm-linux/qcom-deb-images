@@ -30,6 +30,7 @@ jobs:
       build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel --ref qcom-laptops'
       overlays: 'dtb-loader'
       suites: '["forky"]'
+      variant: gnome
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
