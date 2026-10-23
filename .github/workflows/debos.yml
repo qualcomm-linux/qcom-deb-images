@@ -227,14 +227,19 @@ jobs:
           set -ux
           # keep the rootfs-sbom.* names used by the steps below and by the
           # published artifacts
-          for ext in cyclonedx.json spdx.json syft.json syft.txt \
-                  syft-license-summary.csv.txt; do
+          for ext in cyclonedx.json spdx.json syft.json syft.txt; do
               if [ ! -s "disk-ufs-sbom.${ext}" ]; then
                   echo "::error::disk-ufs-sbom.${ext} is missing or empty"
                   exit 1
               fi
               mv -v "disk-ufs-sbom.${ext}" "rootfs-sbom.${ext}"
           done
+
+      - name: Generate license summary from Syft report
+        run: |
+          set -ux
+          scripts/syft-license-summary.py rootfs-sbom.syft.json |
+              tee rootfs-sbom.syft-license-summary.csv.txt
 
       - name: Stage debos artifacts for publishing
         run: |

@@ -303,21 +303,6 @@ actions:
       # it was written to rather than to root; a build directory usually
       # belongs to the user who started the build.
       chown --reference="${ARTIFACTDIR}" "${sbom}".* 2>/dev/null || true
-
-  # summarize on the host: inside the fakemachine, reading syft.json back
-  # through the 9p artifact mount right after syft wrote it returned an
-  # empty file
-  - action: run
-    description: Summarize SBOM licenses
-    postprocess: true
-    command: |
-      set -eux
-      sbom="${ARTIFACTDIR}/{{ $sbom }}"
-      "${RECIPEDIR}/../scripts/syft-license-summary.py" \
-          "${sbom}.syft.json" \
-          >"${sbom}.syft-license-summary.csv.txt"
-      chown --reference="${ARTIFACTDIR}" \
-          "${sbom}.syft-license-summary.csv.txt" 2>/dev/null || true
 {{- end }}
 
   - action: run
