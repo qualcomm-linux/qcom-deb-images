@@ -88,6 +88,34 @@ To regenerate the partitions by hand, e.g. after flashing:
 sudo qcom-dtb-update
 ```
 
+### Loading the device tree from systemd-boot
+
+Instead of relying on the firmware, systemd-boot can load the device tree of
+the kernel it boots from the ESP; `kernel-install` adds it to the boot entry
+of each kernel when `/etc/kernel/devicetree` names the board device tree,
+relative to `/usr/lib/linux-image-<version>/`. The image recipe writes this
+file at build time when passed the `dtb` option, e.g.
+`-t dtb:qcom/qcs6490-rb3gen2.dtb`, but the resulting image is then specific to
+that board.
+
+On a generic image, run once on the device:
+
+```
+sudo qcom-dtb-update --devicetree
+```
+
+This writes the board device tree recorded in the marker of the dtb
+partitions to `/etc/kernel/devicetree`, and reinstalls the newest kernel so
+that its boot entry loads it; later kernels pick it up as they are installed.
+This only works on combineddtb boards, as the marker of multidtb partitions
+only records the SoC; on these, `qcom-dtb-update --devicetree` fails and
+`/etc/kernel/devicetree` has to be written by hand, e.g.:
+
+```
+echo qcom/BOARD.dtb | sudo tee /etc/kernel/devicetree
+sudo kernel-install add "$(uname -r)" "/boot/vmlinuz-$(uname -r)"
+```
+
 ### Caveats
 
 - Both `dtb_a` and `dtb_b` are updated, so a kernel with a broken device tree
