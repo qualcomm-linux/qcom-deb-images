@@ -277,7 +277,8 @@ Here is the list of supported overlays:
       initramfs-tools hook to load the Hexagon DSP driver and firmware
       from the initramfs on some laptops, before the root filesystem is
       mounted, so that a USB root filesystem doesn't get lost when the
-      ADSP is reset.
+      ADSP is reset. With dracut, which already does the reset, a dracut
+      module stops udev from loading the ADSP driver in the initramfs.
     </dd>
 </dl>
 
