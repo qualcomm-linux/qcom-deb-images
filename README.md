@@ -268,6 +268,14 @@ Here is the list of supported overlays:
       machines, and boot firmware signatures (CHID). Selecting this
       overlay also installs the <tt>stubble</tt> package the hook needs.
     </dd>
+    <dt>dtb-sync</dt>
+    <dd>
+      kernel hooks regenerating the <tt>dtb_a</tt>/<tt>dtb_b</tt>
+      partitions from the device trees of the newest installed kernel,
+      so that the firmware passes an up to date device tree after a
+      kernel upgrade. See <a href="docs/dtb.md">docs/dtb.md</a> for
+      details.
+    </dd>
 </dl>
 
 #### Supported profiles

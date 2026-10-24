@@ -21,6 +21,7 @@ actions:
     sha256sum: 4fe113e20fa8feffdd962612f17cb03e60e6e7f460738bbcf897c7c9c631ad06
     unpack: true
 
+  # keep in sync with the dtb-sync overlay in qualcomm-linux-debian-rootfs.yaml
   - action: download
     description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
     url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/e27e9b433d1bd7757d99c9970368ab8acdbffe2d.tar.gz

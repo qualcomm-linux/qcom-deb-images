@@ -661,6 +661,45 @@ actions:
       # provides the systemd-stub used as DTB loader
       - systemd-boot-efi
 {{- end }}
+{{- if eq $overlay "dtb-sync" }}
+  # The kernel hooks installed by the dtb-sync overlay regenerate the dtb_a and
+  # dtb_b partitions on the running system with gen-dtb-image.sh, as the flash
+  # recipe does; ship it with the same qcom-dtb-metadata and its dependencies.
+  # keep in sync with qualcomm-linux-debian-flash.yaml
+  - action: download
+    description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/e27e9b433d1bd7757d99c9970368ab8acdbffe2d.tar.gz
+    name: qcom-dtb-metadata
+    filename: qcom-dtb-metadata.tar.gz
+    sha256sum: 638b3b2d2079d55ccc2e5553aba6a30b623ace38e71b7e8f90a6729ba5285406
+    unpack: true
+
+  - action: run
+    description: Install DTB image generation
+    chroot: false
+    command: |
+      set -eux
+      qcom_dtb_metadata="$(ls -d "${ROOTDIR}/../qcom-dtb-metadata.tar.gz.d/qcom-dtb-metadata-"*)"
+      mkdir -p "${ROOTDIR}/usr/share/qcom-dtb-metadata"
+      cp -a "${qcom_dtb_metadata}/." "${ROOTDIR}/usr/share/qcom-dtb-metadata/"
+      install -D -m 755 "${RECIPEDIR}/../scripts/gen-dtb-image.sh" \
+          "${ROOTDIR}/usr/libexec/qcom-deb-images/gen-dtb-image.sh"
+
+  - action: apt
+    description: Install DTB image generation dependencies
+    recommends: true
+    packages:
+      # build-dtb-image.sh from qcom-dtb-metadata is a bash script
+      - bash
+      # dtc, to compile the FIT image source
+      - device-tree-compiler
+      # mkfs.vfat, for combineddtb images
+      - dosfstools
+      # mformat, mcopy and mtype, to create and update the FAT images
+      - mtools
+      # mkimage, to build the FIT image of multidtb images
+      - u-boot-tools
+{{- end }}
 {{- end }}
 
   # this is currently needed on boards such as RB1 which are using Android
