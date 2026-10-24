@@ -199,15 +199,15 @@ jobs:
               ;;
           esac
 
-          debos \
-              -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t "buildid:${BUILD_ID}" \
-              -t extract_dbg_vmlinux:true \
-              -t kernelpackages:"$kernel_packages" \
-              -t "overlays:$OVERLAYS" \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+          # debos \
+          #     -t aptlocalrepo:${PWD}/local-apt-repo \
+          #     -t "buildid:${BUILD_ID}" \
+          #     -t extract_dbg_vmlinux:true \
+          #     -t kernelpackages:"$kernel_packages" \
+          #     -t "overlays:$OVERLAYS" \
+          #     ${DEBOS_EXTRA_ARGS} \
+          #     --print-recipe \
+          #     debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS and SD card images with debos
         run: |
@@ -221,7 +221,38 @@ jobs:
           # only generate the SBOM for the UFS image; the SD card image only
           # differs in sector size, so its contents are the same
           make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t generate_sbom:true --print-recipe ${DEBOS_EXTRA_ARGS}"
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          #make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Generate SBOM of the UFS image
+        run: |
+          set -ux
+          # UFS images use 4096 bytes sectors; partition 1 is the ESP and
+          # partition 2 is the rootfs
+          loop="$(losetup --find --show --read-only --partscan --sector-size 4096 disk-ufs.img)"
+          mkdir -v disk-ufs-root
+          mount -o ro "${loop}p2" disk-ufs-root
+          mount -o ro "${loop}p1" disk-ufs-root/boot/efi
+          SYFT_FORMAT_PRETTY=true syft \
+              -o cyclonedx-json=disk-ufs-sbom.cyclonedx.json \
+              -o spdx-json=disk-ufs-sbom.spdx.json \
+              -o syft-json=disk-ufs-sbom.syft.json \
+              -o syft-text=disk-ufs-sbom.syft.txt \
+              -o syft-table \
+              --parallelism "$(nproc)" \
+              --select-catalogers debian \
+              --source-name qualcomm-linux-debian-disk-ufs \
+              --source-version "${BUILD_ID}" \
+              -v \
+              scan disk-ufs-root
+          umount disk-ufs-root/boot/efi
+          umount disk-ufs-root
+          losetup -d "${loop}"
+
+      - name: Fail early
+        run: |
+          ls -la
+          df -h
+          exit 1
 
       - name: Build flashable files with debos
         run: |
@@ -257,7 +288,7 @@ jobs:
           # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
           # SBOMs in all formats and the license summary
           tar -cv --use-compress-program=pigz \
-              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" image-sbom.*
+              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" image-sbom.* disk-ufs-sbom.*
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 
