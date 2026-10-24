@@ -635,6 +635,21 @@ actions:
           ln -s /usr/bin/true /usr/bin/dracut
       fi
 
+  # dracut's 50-dracut.install builds an additional hostonly initrd whenever
+  # kernel-install runs; including during systemd-boot installation and kernel
+  # upgrades. Mask it so that 55-initrd.install uses the existing
+  # /boot/initrd.img-<version> as it does with initramfs-tools.
+  # see: https://bugs.debian.org/1095646
+  - action: run
+    description: Mask dracut kernel-install plugin
+    chroot: true
+    command: |
+      set -eux
+      if [ -e /usr/lib/kernel/install.d/50-dracut.install ]; then
+          mkdir -p /etc/kernel/install.d
+          ln -s /dev/null /etc/kernel/install.d/50-dracut.install
+      fi
+
   - action: apt
     description: Install kernel and firmware packages
     recommends: true
