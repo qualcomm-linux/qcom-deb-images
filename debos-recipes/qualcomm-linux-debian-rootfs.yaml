@@ -824,10 +824,8 @@ actions:
       if [ -e /usr/bin/dracut ]; then
           rm /usr/bin/dracut
           dpkg-divert --rename --remove /usr/bin/dracut
-          dracut --regenerate-all --force
-      else
-          update-initramfs -c -k all
       fi
+      update-initramfs -c -k all
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
