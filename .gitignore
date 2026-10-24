@@ -9,3 +9,10 @@ fake-scratch.img*
 __pycache__/
 flash_*/
 /.security-tracker/
+
+# Syft SBOM artifacts
+*.cyclonedx.json
+*.spdx.json
+*.syft-license-summary.csv.txt
+*.syft.json
+*sbom.syft.txt
