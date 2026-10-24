@@ -108,6 +108,12 @@ jobs:
           apt -y upgrade
           apt -y full-upgrade
 
+      - name: Find any loop devices
+        run: |
+          apt install -y util-linux mount
+          ls -l /dev/loop-control /dev/loop* || true
+          losetup --find
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
