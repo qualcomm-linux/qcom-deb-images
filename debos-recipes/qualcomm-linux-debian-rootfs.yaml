@@ -625,7 +625,6 @@ actions:
     chroot: true
     command: |
       set -eux
-      # Fixes error when running outside qemu
       dpkg-divert --local --rename --add /usr/sbin/update-initramfs
       ln -s /usr/bin/true /usr/sbin/update-initramfs
       # dracut's /etc/kernel/postinst.d hook calls dracut directly rather
