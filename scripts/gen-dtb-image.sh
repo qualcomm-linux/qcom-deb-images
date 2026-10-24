@@ -5,7 +5,9 @@
 # generates a FAT image for the dtb_a/dtb_b partitions from a tree of device
 # trees, as found in dtbs.tar.gz or /usr/lib/linux-image-<version>; the image
 # is either a combineddtb holding a single board's device tree, or a multidtb
-# holding a per-SoC FIT image built with qcom-dtb-metadata
+# holding a per-SoC FIT image built with qcom-dtb-metadata; the image also
+# records its contents in a qcom-deb-images-dtb.conf marker, so that it can be
+# regenerated on the device for a different kernel
 #
 # usage:
 #   gen-dtb-image.sh --type combineddtb --dtb-src DIR --dtb qcom/BOARD.dtb \
@@ -54,6 +56,11 @@ fi
 
 rm -f "${OUT}"
 
+# marker recording what went into the image, as shell key=value pairs
+marker="$(mktemp)"
+trap 'rm -f "${marker}"' EXIT
+echo "type=${TYPE}" >"${marker}"
+
 case "${TYPE}" in
     combineddtb)
         [ -n "${DTB}" ] || usage
@@ -66,6 +73,7 @@ case "${TYPE}" in
         mkfs.vfat -S 4096 -C "${OUT}" 4096
         # copy into the FAT as combined-dtb.dtb
         mcopy -vmp -i "${OUT}" "${DTB_SRC}/${DTB}" ::/combined-dtb.dtb
+        echo "dtb=${DTB}" >>"${marker}"
         ;;
     multidtb)
         [ -n "${SOC}" ] || usage
@@ -82,8 +90,11 @@ case "${TYPE}" in
             rm -f "${OUT}"
             exit 1
         fi
+        echo "soc=${SOC}" >>"${marker}"
         ;;
     *)
         usage
         ;;
 esac
+
+mcopy -v -i "${OUT}" "${marker}" ::/qcom-deb-images-dtb.conf
