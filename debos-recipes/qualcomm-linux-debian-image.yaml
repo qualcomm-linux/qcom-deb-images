@@ -3,6 +3,7 @@
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $profile := or .profile "default" }}
+{{- $generate_sbom := or .generate_sbom "false" }}
 
 # Snapshot configuration is determined by the rootfs build, not the
 # image recipe. Reject this option to avoid conflicting configurations.
@@ -88,9 +89,22 @@ architecture: arm64
 sectorsize: {{if eq $imagetype "ufs"}}4096{{else}}512{{end}}
 
 actions:
-  - action: unpack
-    description: Unpack root filesystem
-    file: rootfs.tar
+  - action: mmdebstrap
+    description: Bootstrap minimal filesystem
+    suite: trixie
+    components:
+      - main
+      - contrib
+      - non-free
+      - non-free-firmware
+    mirrors: ['http://deb.debian.org/debian']
+    variant: minbase
+    include: [ca-certificates, systemd, systemd-sysv, linux-image-arm64]
+
+  - action: run
+    description: Create empty /etc/buildinfo
+    chroot: true
+    command: touch /etc/buildinfo
 
 {{- if ne $profile "default" }}
   - action: run

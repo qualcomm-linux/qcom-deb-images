@@ -199,6 +199,8 @@ For the image recipe:
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
   `default`. See the *Supported profiles* section below.
+- `generate_sbom`: scans the root filesystem of the image with [Syft](https://github.com/anchore/syft)
+  and generates an SBOM; defaults to `false`.
 
 For the flash recipe:
 

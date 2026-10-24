@@ -88,9 +88,9 @@ The other workflows don't publish their data there.
 Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
 `<prefix>-vulns.tar.gz` archives, each compressed on its own with gzip:
 
-* `rootfs-sbom.cyclonedx.json.gz`, `rootfs-sbom.spdx.json.gz`,
-  `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
-* `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
+* `image-sbom.cyclonedx.json.gz`, `image-sbom.spdx.json.gz`,
+  `image-sbom.syft.json.gz`, `image-sbom.syft.txt.gz`: the SBOMs, from Syft
+* `image-sbom.syft-license-summary.csv.txt.gz`: the license summary
 * `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports
 * `rootfs-vex-warnings.txt.gz`: the VEX coverage warnings

@@ -7,9 +7,7 @@
 # format
 
 import json
-import hashlib
 import argparse
-import os
 from collections import defaultdict
 
 
@@ -18,12 +16,15 @@ def load_syft_json(file_path):
         return json.load(f)
 
 
-def sha256_of_file(path):
-    try:
-        with open(path, 'rb') as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    except Exception:
-        return "unreadable"
+# map each file path to the SHA-256 digest Syft recorded for it
+def file_sha256_digests(data):
+    digests = {}
+    for entry in data.get("files", []):
+        path = entry.get("location", {}).get("path", "")
+        for digest in entry.get("digests", []):
+            if digest.get("algorithm") == "sha256":
+                digests[path] = digest.get("value")
+    return digests
 
 
 def group_by_source_package(data):
@@ -50,7 +51,7 @@ def group_by_source_package(data):
     return grouped
 
 
-def print_table(grouped, rootfs_path):
+def print_table(grouped, file_digests):
     print("source,version,binaries,licenses,copyright_sha256")
     for source, data in grouped.items():
         binaries = " ".join(sorted(data["binaries"]))
@@ -58,8 +59,7 @@ def print_table(grouped, rootfs_path):
         version = data["source_version"] or "unknown"
         hashes = set()
         for path in data["copyrights"].values():
-            full_path = os.path.join(rootfs_path, path.lstrip('/'))
-            hashes.add(sha256_of_file(full_path))
+            hashes.add(file_digests.get(path, "unknown"))
         hash_summary = " ".join(sorted(hashes))
         print(f"{source},{version},{binaries},{licenses},{hash_summary}")
 
@@ -68,10 +68,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                  description="Summarize Syft license data.")
     parser.add_argument("syft_json", help="Path to the Syft JSON file")
-    parser.add_argument("--rootfs", required=True,
-                        help="Base path to the root filesystem")
     args = parser.parse_args()
 
     syft_data = load_syft_json(args.syft_json)
+    file_digests = file_sha256_digests(syft_data)
     syft_grouped = group_by_source_package(syft_data)
-    print_table(syft_grouped, args.rootfs)
+    print_table(syft_grouped, file_digests)
