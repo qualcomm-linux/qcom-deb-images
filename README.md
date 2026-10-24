@@ -268,6 +268,14 @@ Here is the list of supported overlays:
       machines, and boot firmware signatures (CHID). Selecting this
       overlay also installs the <tt>stubble</tt> package the hook needs.
     </dd>
+    <dt>qcom-adsp</dt>
+    <dd>
+      initramfs-tools hook to load the Hexagon DSP driver and firmware
+      from the initramfs on some laptops, before the root filesystem is
+      mounted, so that a USB root filesystem doesn't get lost when the
+      ADSP is reset. With dracut, which already does the reset, a dracut
+      module stops udev from loading the ADSP driver in the initramfs.
+    </dd>
 </dl>
 
 #### Supported profiles
