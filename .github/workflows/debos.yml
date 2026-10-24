@@ -119,7 +119,7 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz libguestfs-tools
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
@@ -222,24 +222,11 @@ jobs:
           set -ux
           make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
-      - name: Move SBOMs from the image build
-        run: |
-          set -ux
-          # keep the rootfs-sbom.* names used by the steps below and by the
-          # published artifacts
-          for ext in cyclonedx.json spdx.json syft.json syft.txt; do
-              if [ ! -s "disk-ufs-sbom.${ext}" ]; then
-                  echo "::error::disk-ufs-sbom.${ext} is missing or empty"
-                  exit 1
-              fi
-              mv -v "disk-ufs-sbom.${ext}" "rootfs-sbom.${ext}"
-          done
-
       - name: Generate license summary from Syft report
         run: |
           set -ux
-          scripts/syft-license-summary.py rootfs-sbom.syft.json |
-              tee rootfs-sbom.syft-license-summary.csv.txt
+          scripts/syft-license-summary.py image-sbom.syft.json |
+              tee image-sbom.syft-license-summary.csv.txt
 
       - name: Stage debos artifacts for publishing
         run: |
@@ -264,7 +251,7 @@ jobs:
           # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
           # SBOMs in all formats and the license summary
           tar -cv --use-compress-program=pigz \
-              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
+              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" image-sbom.*
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 

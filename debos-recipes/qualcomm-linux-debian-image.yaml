@@ -4,7 +4,6 @@
 {{- $image := printf "disk-%s.img" $imagetype }}
 {{- $profile := or .profile "default" }}
 {{- $generate_sbom := or .generate_sbom "false" }}
-{{- $sbom := printf "disk-%s-sbom" $imagetype }}
 
 # Snapshot configuration is determined by the rootfs build, not the
 # image recipe. Reject this option to avoid conflicting configurations.
@@ -277,35 +276,34 @@ actions:
       rm -f /usr/local/bin/apt-snapshot-toggle
 
 {{- if eq $generate_sbom "true" }}
-  # remount the image filesystems read-only so that nothing can change
-  # them after the scan and the SBOM describes exactly what is shipped
-  # TODO: is this really needed ?
-  - action: run
-    description: Remount image filesystems read-only
-    chroot: false
-    command: |
-      set -eux
-      mount -o remount,ro "${ROOTDIR}/boot/efi"
-      mount -o remount,ro "${ROOTDIR}"
-
-  # syft takes ~7m in a qemu fakemachine but ~7s on the host, so pack the
-  # image contents and scan the tarball in a postprocess step instead; the
-  # temporary tarball is left behind in the artifact directory
-  # TODO: does the tarball contain everything in the image ?
-  - action: pack
-    description: Generate intermediate tarball for SBOM generation
-    file: {{ $sbom }}.tar
-    compression: none
-
+  # syft takes ~7m in a qemu fakemachine running in GitLab CI but <10s on the
+  # host.
+  #
+  # packing an intermediate tarball takes about ~5m and 10s to run syft...
+  #
+  # TODO: test scanning a read-only libguestfs mount of the finished image in a
+  # postprocess step instead.
+  #
+  # This is quite a roundabout way of doing it; think it'd be better to put
+  # this in the CI workflow if it's this complex... Anyway, guestfs is qemu too;
+  # so it's probably gonna be slow...
   - action: run
     description: Generate SBOM with Syft
     postprocess: true
     command: |
       set -eux
-      sbom="${ARTIFACTDIR}/{{ $sbom }}"
-      # TODO: read $buildid earlier ? also what does syft do if it is unset ?
-      build_id=$(tar -xOf "${sbom}.tar" ./etc/buildinfo |
-          sed -n 's/^BUILD_ID=//p')
+      sbom="${ARTIFACTDIR}/image-sbom"
+
+      # mount the disk image using libguestfs
+      rootfs=$(mktemp -d)
+      trap 'guestunmount "${rootfs}" || true; rmdir "${rootfs}"' EXIT
+      guestmount --ro \
+          --format=raw \
+          --inspector \
+          --blocksize={{if eq $imagetype "ufs"}}4096{{else}}512{{end}} \
+          --add "${ARTIFACTDIR}/{{ $image }}" \
+           "${rootfs}"
+      build_id=$(sed -n 's/^BUILD_ID=//p' "${rootfs}/etc/buildinfo")
       SYFT_FORMAT_PRETTY=true syft \
           --output cyclonedx-json="${sbom}.cyclonedx.json" \
           --output spdx-json="${sbom}.spdx.json" \
@@ -314,11 +312,9 @@ actions:
           --output syft-table \
           --parallelism "$(nproc)" \
           --select-catalogers debian \
-          --source-name qualcomm-linux-debian-image \
+          --source-name qualcomm-linux-debian-rootfs \
           ${build_id:+--source-version "${build_id}"} \
-          --verbose scan "file:${sbom}.tar"
-
-      # TODO: should we clean up intermediate tarball ?
+          --verbose scan "dir:${rootfs}"
 {{- end }}
 
   - action: run

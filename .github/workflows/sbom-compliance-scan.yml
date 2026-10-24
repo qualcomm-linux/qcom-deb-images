@@ -180,7 +180,7 @@ jobs:
           shopt -s nullglob globstar
           for prefix in ${PREFIXES}; do
               python3 .security-tracker/scripts/vex-check.py --coverage-only \
-                  --sbom "sboms/${prefix}/rootfs-sbom.syft.json" \
+                  --sbom "sboms/${prefix}/image-sbom.syft.json" \
                   .security-tracker/vex/**/*.openvex.json |
                       tee "sboms/${prefix}/rootfs-vex-warnings.txt"
           done
@@ -235,7 +235,7 @@ jobs:
                   "${vex[@]}" \
                   --sort-by severity \
                   --verbose \
-                  "sbom:${dir}/rootfs-sbom.syft.json"
+                  "sbom:${dir}/image-sbom.syft.json"
               # all the outputs go to files, so echo the table to the log too
               cat "${dir}/rootfs-vulns.grype.txt"
               "$GRYPE" \
@@ -243,7 +243,7 @@ jobs:
                   --output json="${dir}/rootfs-vulns-triage.grype.json" \
                   --by-cve \
                   "${vex[@]}" \
-                  "sbom:${dir}/rootfs-sbom.syft.json"
+                  "sbom:${dir}/image-sbom.syft.json"
           done
 
       # one archive per image, named like the images it describes, e.g.
@@ -295,7 +295,7 @@ jobs:
               } >>"$GITHUB_STEP_SUMMARY"
               scripts/grype-vulnerability-summary.py \
                   "${dir}/rootfs-vulns.grype.json" \
-                  --sbom "${dir}/rootfs-sbom.syft.json" \
+                  --sbom "${dir}/image-sbom.syft.json" \
                   --triage "${dir}/rootfs-vulns-triage.grype.json" \
                   >>"$GITHUB_STEP_SUMMARY"
               if [ -s "${dir}/rootfs-vex-warnings.txt" ]; then
@@ -378,7 +378,7 @@ jobs:
               scripts/compliance-manifest.py \
                   --channel "${CHANNEL}" \
                   --image "${prefix}" \
-                  --sbom "${dir}/rootfs-sbom.syft.json" \
+                  --sbom "${dir}/image-sbom.syft.json" \
                   --grype "${dir}/rootfs-vulns.grype.json" \
                   --repository-url "${REPOSITORY_URL}" \
                   --scan-run-url "${SCAN_RUN_URL}" \
