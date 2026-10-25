@@ -35,8 +35,8 @@ build workflow  ──▶  test.yml  ──▶  test-distro.yml  ──▶  LAVA
 ## Which boards are tested
 
 `.github/lava-boards.yml` maps a kernel flavour to the boards tested with it.
-It is the only place board coverage is described: the daily builds, the weekly
-mainline build and the pull request and push builds all read it.
+It is the only place board coverage is described: the daily builds and the pull
+request and push builds all read it.
 
 A board name there is a device in the `qcom-deb-images` project of
 lava-test-plans, i.e. a file under
