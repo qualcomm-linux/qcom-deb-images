@@ -1,8 +1,8 @@
 # Boards tested per kernel flavour.
 #
 # This is the single place board coverage is described. The lists are the ones
-# the daily builds exercise; the weekly mainline build and the pull request and
-# push builds reuse them rather than carrying their own.
+# the daily builds exercise; the pull request and push builds reuse them rather
+# than carrying their own.
 #
 # A name is a device in the qcom-deb-images project of lava-test-plans, i.e. a
 # file under lava_test_plans/projects/qcom-deb-images/devices/. Boards are named

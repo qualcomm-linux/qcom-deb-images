@@ -2,7 +2,7 @@ name: mainline linux build
 
 on:
   schedule:
-    - cron: '00 9 * * 1'
+    - cron: '00 9 * * *'
   # allow manual runs
   workflow_dispatch:
 
