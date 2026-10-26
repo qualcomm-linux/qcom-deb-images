@@ -12,6 +12,9 @@ It validates the documents against the [OpenVEX JSON
 schema](https://github.com/openvex/spec/blob/main/openvex_json_schema.json),
 which rejects unknown fields such as misspelt keys, then checks:
 
+- the vulnerability is a CVE, or the ID of one of our
+  [advisories](../advisories/README.md) without a CVE (`QLI-<year>-<n>`);
+  for a `QLI-<CVE>` advisory, name the CVE, as Grype reports it;
 - the product is `pkg:generic/qualcomm-linux-debian-rootfs`, without a
   version;
 - subcomponents are the affected **binary** packages, as
@@ -63,30 +66,30 @@ Minimal example:
 }
 ```
 
-Download the pinned upstream schema, then check your changes (needs `make`,
-`curl`, `ca-certificates` and `python3-jsonschema`):
+Download the pinned upstream schemas, then check your changes (needs `make`,
+`curl`, `ca-certificates`, `distro-info-data`, `python3-debian` and
+`python3-jsonschema`):
 
 ```sh
-make vex-schema
-scripts/vex-check.py vex/*.openvex.json
+make vex-schema osv-schema
+scripts/vex-check.py vex/*.openvex.json advisories/*.osv.json
 ```
 
+or simply `make check`. Pass the advisories along, statements about a QLI
+advisory have to name an existing one.
+
 The download verifies the SHA-256 checksum recorded in the Makefile and
-stores the schema in `.cache/`, which is ignored by Git. This branch's CI,
-`make check` and `make test` fetch it automatically. Once downloaded, validation and
-`py.test-3 ci/test_vex.py` work offline; `--schema PATH` lets the checker use
-a schema supplied separately.
+stores the schemas in `.cache/`; `--schema PATH` and `--osv-schema PATH`
+let the checker use schemas supplied separately.
 
-Tracker CI rejects invalid assessments before image builds can consume them.
-Coverage warnings from `--sbom` (missing binaries or outdated pins) remain
-non-fatal. Image CI runs this checker with `--coverage-only` using its SBOM;
-this skips static validation and needs neither the schema nor `jsonschema`.
-The summary lists suppressed findings after the critical/high table, outside
-the open totals, with Grype's fix state and the reason they were hidden.
+The `security-tracker` CI rejects invalid assessments before image builds can
+consume them. Coverage warnings from `--sbom` (missing binaries or outdated
+pins) remain non-fatal. The `qcom-deb-images:main` CI runs this checker with
+`--coverage-only` using its SBOM; this skips static validation and needs
+neither the schema nor `jsonschema`.
 
-Grype does all the matching, configured by `.github/grype.yaml` on the
-image-build branch. It only reports the
-`affected` or `under_investigation` statement behind an open finding when
-that statement re-adds an ignored one, so the build runs a second scan with
-`.github/grype-triage.yaml`, which ignores everything; the summary takes the triage
-status of open findings from it.
+Grype does all the matching, configured by `.github/grype.yaml` using the CI on
+`qcom-deb-images:main`. It only reports the `affected` or `under_investigation`
+statement behind an open finding when that statement re-adds an ignored one, so
+the build runs a second scan with `.github/grype-triage.yaml`, which ignores
+everything; the summary takes the triage status of open findings from it.
