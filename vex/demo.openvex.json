@@ -1,0 +1,33 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/qualcomm-linux/qcom-deb-images/vex/demo",
+  "author": "Qualcomm Linux Debian images maintainers",
+  "timestamp": "2026-10-26T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "QLI-2026-99999"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/qualcomm-linux-debian-rootfs",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/debian/liburm1"
+            },
+            {
+              "@id": "pkg:deb/debian/userspace-resource-manager"
+            },
+            {
+              "@id": "pkg:deb/debian/userspace-resource-manager-extensions"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "DEMO ENTRY, NOT A REAL ASSESSMENT: suppresses the demo advisory QLI-2026-99999 for every binary of userspace-resource-manager on our images, to demonstrate suppressed findings of QLI advisories in image reports."
+    }
+  ]
+}
