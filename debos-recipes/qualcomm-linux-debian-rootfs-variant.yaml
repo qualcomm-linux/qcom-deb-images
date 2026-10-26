@@ -197,9 +197,9 @@ actions:
 # /usr/share/wayland-sessions/*.desktop so Weston is set as the command to run
 # after login.
 #
-# Weston logs to "$XDG_RUNTIME_DIR/weston.log", XDG_RUNTIME_DIR usually resolves
-# to "/run/user/<UID>", so the log is only kept for the lifetime of the user's
-# login session.
+# Weston is run under systemd-cat so its log goes to the journal (view it with
+# "journalctl -t weston") rather than a file in "$XDG_RUNTIME_DIR", which is
+# removed when the user's login session ends, e.g. when Weston crashes.
 #
 # greetd is configured through /etc/greetd/weston-session.toml rather than
 # /etc/greetd/config.toml - the latter is a dpkg conffile shipped by the
