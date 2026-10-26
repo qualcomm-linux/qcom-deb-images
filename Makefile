@@ -4,10 +4,10 @@ SHELL := /bin/bash
 all: check
 
 # Check the entire database together, including conflicts across documents.
-check: vex-schema
-	shopt -s nullglob globstar; scripts/vex-check.py vex/**/*.openvex.json
+check: vex-schema osv-schema
+	shopt -s nullglob globstar; scripts/vex-check.py vex/**/*.openvex.json advisories/**/*.osv.json
 
-test: vex-schema
+test: vex-schema osv-schema
 	py.test-3 --verbose ci/test_vex.py
 
 # OpenVEX v0.2.0 schema (CC0-1.0); keep validation reproducible without
@@ -26,3 +26,19 @@ vex-schema: .cache/openvex_json_schema.json
 	echo '$(OPENVEX_SCHEMA_SHA256)  $@.tmp' | sha256sum --check
 	mv $@.tmp $@
 
+
+# OSV schema v1.9.2 (Apache-2.0), likewise. Update the revision and checksum
+# together.
+OSV_SCHEMA_REV := c8a57bdc5b0bc54646e140cabbb7834bd0b5aec9
+OSV_SCHEMA_SHA256 := 15b10dbb4c4e31c7aae11d22cdd991a9a374758db7c8389e62b3cc37cac92653
+
+.PHONY: osv-schema
+osv-schema: .cache/osv_schema.json
+
+.cache/osv_schema.json: Makefile
+	mkdir -p $(@D)
+	curl --fail --silent --show-error --location --retry 3 \
+		'https://raw.githubusercontent.com/ossf/osv-schema/$(OSV_SCHEMA_REV)/validation/schema.json' \
+		-o $@.tmp
+	echo '$(OSV_SCHEMA_SHA256)  $@.tmp' | sha256sum --check
+	mv $@.tmp $@

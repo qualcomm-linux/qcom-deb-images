@@ -3,6 +3,7 @@
 
 # helpers for vex-check.py
 
+import csv
 import json
 import re
 from datetime import datetime
@@ -77,3 +78,89 @@ def sbom_debs(sbom):
         name, version = artifact.get("name"), artifact.get("version")
         source = metadata.get("source") or name
         yield {"name": name, "version": version, "source": source}
+
+
+# --- OSV advisories ---
+
+# QLI-<CVE> once a CVE is assigned, QLI-<year>-<n> until then; see
+# advisories/README.md
+ADVISORY_ID_RE = re.compile(
+    r"QLI-(?:(?P<cve>CVE-[0-9]{4}-[0-9]{4,})|[0-9]{4}-[0-9]+)")
+
+# Debian source and binary package names, and versions, as in
+# SUBCOMPONENT_RE
+PACKAGE_RE = re.compile(r"[a-z0-9][a-z0-9+.-]+")
+# colons only after an epoch, as dpkg wants it
+VERSION_RE = re.compile(
+    r"[0-9]+:[0-9](?:[A-Za-z0-9.+~:-]*[A-Za-z0-9.+~])?|"
+    r"[0-9](?:[A-Za-z0-9.+~-]*[A-Za-z0-9.+~])?")
+
+RANGE_ENDS = ("fixed", "last_affected")
+
+
+def compare_versions(a, b):
+    # Debian version ordering, like dpkg --compare-versions; returns -1, 0 or
+    # 1. Imported here rather than at the top, so that the image builds, which
+    # only check coverage, need nothing but the standard library
+    # pylint: disable-next=import-outside-toplevel
+    from debian.debian_support import version_compare
+
+    result = version_compare(a, b)
+    return (result > 0) - (result < 0)
+
+
+def range_pairs(osv_range):
+    # the affected intervals of an OSV ECOSYSTEM range, as (introduced, end
+    # kind, end version) tuples; the end is (None, None) for a last interval
+    # that is still open. raises ValueError for anything else than ascending
+    # introduced/fixed/last_affected pairs
+    if not isinstance(osv_range, dict) or \
+            osv_range.get("type") != "ECOSYSTEM":
+        raise ValueError("ranges must have type ECOSYSTEM")
+    events = osv_range.get("events")
+    if not isinstance(events, list) or not events:
+        raise ValueError("events must be a non-empty array")
+    pairs, previous = [], None
+    for event in events:
+        if not isinstance(event, dict) or len(event) != 1:
+            raise ValueError("each event must contain exactly one boundary")
+        kind, version = next(iter(event.items()))
+        if kind not in ("introduced", *RANGE_ENDS):
+            raise ValueError(f"unsupported range event {kind!r}; use "
+                             "introduced, fixed or last_affected")
+        if not isinstance(version, str) or not VERSION_RE.fullmatch(version):
+            raise ValueError(f"invalid Debian version {version!r}")
+        if kind == "introduced":
+            if pairs and pairs[-1][1] is None:
+                raise ValueError("introduced must be followed by fixed or "
+                                 "last_affected, except in the last pair")
+            pairs.append((version, None, None))
+        else:
+            if not pairs or pairs[-1][1] is not None:
+                raise ValueError(f"{kind} must follow an introduced event")
+            pairs[-1] = (pairs[-1][0], kind, version)
+        if version == "0" and kind == "introduced":
+            # all versions; only valid as the very first event
+            if previous is not None or len(pairs) > 1:
+                raise ValueError('introduced "0" must be the first event')
+            continue
+        if previous is not None and \
+                compare_versions(previous, version) >= 0:
+            raise ValueError("events must be in ascending version order")
+        previous = version
+    return pairs
+
+
+def debian_releases(path):
+    # the Debian releases of distro-info-data (debian.csv), as the OSV
+    # Debian ecosystem names them: by version, e.g. "13", or by series for
+    # those without one, e.g. "sid". returns {version: series} for the former
+    # and the set of the latter's series
+    numbered, unnumbered = {}, set()
+    with open(path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            if row.get("version"):
+                numbered[row["version"]] = row["series"]
+            else:
+                unnumbered.add(row["series"])
+    return numbered, unnumbered

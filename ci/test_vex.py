@@ -274,3 +274,235 @@ def test_no_assessments(tmp_path, extra_args):
                     write(tmp_path, "sbom.json", SBOM))
     assert result.returncode == 0, result.stdout
     assert not result.stdout
+
+
+# --- OSV advisories ---
+
+def advisory(advisory_id="QLI-2026-1", **extra):
+    doc = {
+        "id": advisory_id,
+        "published": "2026-09-30T00:00:00Z",
+        "modified": "2026-09-30T00:00:00Z",
+        "summary": "urm: out-of-bounds write",
+        "database_specific": {"severity": "High"},
+        "affected": [{
+            "package": {"ecosystem": "Debian:13",
+                        "name": "userspace-resource-manager"},
+            "ranges": [{"type": "ECOSYSTEM", "events": [
+                {"introduced": "0"}, {"fixed": "0.4.7-0qli1~bpo13+1"}]}],
+        }],
+    }
+    doc.update(extra)
+    return doc
+
+
+def write_advisory(tmp_path, doc, name=None):
+    return write(tmp_path, name or f"{doc['id']}.osv.json", doc)
+
+
+@pytest.mark.parametrize("a,b,result", [
+    ("1.0", "1.0", 0),
+    ("1.0~rc1", "1.0", -1),
+    ("1.0", "1.0+b1", -1),
+    ("1.0", "1.0-1", -1),
+    ("1.9", "1.10", -1),
+    ("1:0.1", "2.0", 1),
+    ("0.4.6-0qli2~bpo13+2", "0.4.6-0qli2", -1),
+    ("3.5.4-1~deb13u2", "3.5.4-1~deb13u1", 1),
+    ("1.0a", "1.0+", -1),
+    ("1.0~~", "1.0~", -1),
+    ("00.1", "0.01", 0),
+])
+def test_compare_versions(a, b, result):
+    assert vexlib.compare_versions(a, b) == result
+    assert vexlib.compare_versions(b, a) == -result
+
+
+@pytest.mark.parametrize("events,pairs", [
+    ([{"introduced": "0"}], [("0", None, None)]),
+    ([{"introduced": "0"}, {"fixed": "1.2-1"}],
+     [("0", "fixed", "1.2-1")]),
+    ([{"introduced": "1.0-1"}, {"last_affected": "1.1-1"},
+      {"introduced": "2.0-1"}],
+     [("1.0-1", "last_affected", "1.1-1"), ("2.0-1", None, None)]),
+])
+def test_range_pairs(events, pairs):
+    assert vexlib.range_pairs({"type": "ECOSYSTEM", "events": events}) == \
+        pairs
+
+
+@pytest.mark.parametrize("osv_range", [
+    {"type": "SEMVER", "events": [{"introduced": "0"}]},
+    {"type": "ECOSYSTEM", "events": []},
+    {"type": "ECOSYSTEM", "events": [{"fixed": "1.0"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"limit": "*"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "1.0", "fixed": "2"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "1.0"},
+                                     {"introduced": "2.0"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "2.0"},
+                                     {"fixed": "1.0"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "1.0"},
+                                     {"fixed": "2.0"},
+                                     {"introduced": "0"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "v1"}]},
+    {"type": "ECOSYSTEM", "events": [{"introduced": "1.0-"}]},
+    # dpkg rejects colons without an epoch
+    {"type": "ECOSYSTEM", "events": [{"introduced": "0"},
+                                     {"fixed": "1.0:5"}]},
+])
+def test_range_pairs_rejects(osv_range):
+    with pytest.raises(ValueError):
+        vexlib.range_pairs(osv_range)
+
+
+def test_check_accepts_advisories_and_their_statements(tmp_path):
+    paths = [
+        write_advisory(tmp_path, advisory()),
+        write_advisory(tmp_path, advisory(
+            "QLI-CVE-2026-12345", aliases=["CVE-2026-12345"],
+            severity=[{"type": "CVSS_V3", "score":
+                       "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"}],
+            references=[{"type": "WEB", "url": "https://example.com"}])),
+        write_advisory(tmp_path, {"id": "QLI-2026-2",
+                                  "modified": "2026-10-01T00:00:00Z",
+                                  "withdrawn": "2026-10-01T00:00:00Z"}),
+        write(tmp_path, "a.openvex.json", vex_doc(
+            statement("not_affected", ["pkg:deb/debian/liburm1"],
+                      name="QLI-2026-1",
+                      justification="vulnerable_code_not_present",
+                      impact_statement="not built"),
+            statement("affected", ["pkg:deb/debian/liburm1"],
+                      name="CVE-2026-12345", action_statement="update"))),
+    ]
+    result = script("vex-check.py", *paths)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("doc,name,message", [
+    (advisory("GHSA-1234"), None, "must be QLI-<CVE>"),
+    (advisory(), "QLI-2026-2.osv.json", "file name must be"),
+    (advisory(published="2026-09-30"), None, "published"),
+    (advisory(summary=" "), None, "summary"),
+    (advisory(database_specific={}), None, "severity must be one of"),
+    (advisory(database_specific={"severity": "high"}), None,
+     "severity must be one of"),
+    (advisory(severity=[{"type": "Ubuntu", "score": "high"}]), None,
+     "severity type"),
+    (advisory("QLI-CVE-2026-1234"), None, "aliases must include"),
+    (advisory("QLI-CVE-2026-1234",
+              aliases=["CVE-2026-1234", "CVE-2026-9999"]), None,
+     "no other CVE"),
+    (advisory(aliases=["CVE-2026-1234"]), None, "rename the advisory"),
+    (advisory(aliases=["QLI-2026-7"]), None, "is a QLI advisory"),
+    (advisory(affected=[]), None, "no affected packages"),
+    (advisory(typo=1), None, "Additional properties"),
+])
+def test_check_rejects_advisories(tmp_path, doc, name, message):
+    result = script("vex-check.py", write_advisory(tmp_path, doc, name))
+    assert result.returncode == 1
+    assert message in result.stdout
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("change,message", [
+    ({"package": {"ecosystem": "Ubuntu:24.04",
+                  "name": "userspace-resource-manager"}}, "ecosystem must"),
+    ({"package": {"ecosystem": "Debian:13x",
+                  "name": "userspace-resource-manager"}},
+     "unknown Debian release '13x'"),
+    ({"package": {"ecosystem": "Debian:99",
+                  "name": "userspace-resource-manager"}},
+     "unknown Debian release '99'"),
+    # the OSV schema wants the version of releases that have one
+    ({"package": {"ecosystem": "Debian:trixie",
+                  "name": "userspace-resource-manager"}},
+     "by its version: Debian:13"),
+    ({"package": {"ecosystem": "Debian:forky",
+                  "name": "userspace-resource-manager"}},
+     "by its version: Debian:14"),
+    ({"package": {"ecosystem": "Debian", "name": "URM"}},
+     "source package"),
+    ({"versions": ["1.0"]}, "versions is not supported"),
+    ({"ecosystem_specific": {"binaries": ["liburm1"]}},
+     "covers every binary of the source package"),
+    ({"ranges": []}, "no ranges"),
+    ({"ranges": [{"type": "ECOSYSTEM", "events": [
+        {"introduced": "0"}, {"limit": "*"}]}]}, "unsupported range event"),
+    ({"ranges": [{"type": "ECOSYSTEM", "events": [
+        {"introduced": "2.0"}, {"fixed": "1.0"}]}]}, "ascending"),
+    # the OSV schema doesn't allow mixing these
+    ({"ranges": [{"type": "ECOSYSTEM", "events": [
+        {"introduced": "1.0"}, {"last_affected": "1.1"},
+        {"introduced": "2.0"}, {"fixed": "2.1"}]}]}, "should not be valid"),
+])
+def test_check_rejects_affected(tmp_path, change, message):
+    doc = advisory()
+    doc["affected"][0].update(change)
+    result = script("vex-check.py", write_advisory(tmp_path, doc))
+    assert result.returncode == 1
+    assert message in result.stdout
+
+
+@pytest.mark.parametrize("ecosystem", [
+    "Debian", "Debian:13", "Debian:14", "Debian:sid",
+])
+def test_check_accepts_debian_releases(tmp_path, ecosystem):
+    doc = advisory()
+    doc["affected"][0]["package"]["ecosystem"] = ecosystem
+    result = script("vex-check.py", write_advisory(tmp_path, doc))
+    assert result.returncode == 0, result.stdout
+
+
+def test_check_reports_unavailable_distro_info(tmp_path):
+    result = script("vex-check.py", "--distro-info",
+                    str(tmp_path / "missing.csv"),
+                    write_advisory(tmp_path, advisory()))
+    assert result.returncode == 2
+    assert "cannot read the Debian releases" in result.stderr
+    assert "distro-info-data" in result.stderr
+
+
+@pytest.mark.parametrize("first,second", [
+    (advisory(), advisory()),
+    (advisory(aliases=["GHSA-aaaa-bbbb-cccc"]),
+     advisory("QLI-2026-2", aliases=["GHSA-aaaa-bbbb-cccc"])),
+])
+def test_check_rejects_duplicate_advisory_ids(tmp_path, first, second):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    result = script("vex-check.py", write_advisory(tmp_path, first),
+                    write_advisory(sub, second))
+    assert result.returncode == 1
+    assert "is already claimed by" in result.stdout
+
+
+@pytest.mark.parametrize("name,message", [
+    ("QLI-CVE-2026-12345", "must be CVE-2026-12345"),
+    ("QLI-2026-404", "no such advisory"),
+])
+def test_check_rejects_statements_about_advisories(tmp_path, name, message):
+    doc = write(tmp_path, "a.openvex.json", vex_doc(
+        statement("affected", ["pkg:deb/debian/liburm1"], name=name,
+                  action_statement="update")))
+    result = script("vex-check.py", write_advisory(tmp_path, advisory()),
+                    doc)
+    assert result.returncode == 1
+    assert message in result.stdout
+
+
+def test_check_reports_unavailable_osv_schema(tmp_path):
+    result = script("vex-check.py", "--osv-schema",
+                    str(tmp_path / "missing.json"),
+                    write_advisory(tmp_path, advisory()))
+    assert result.returncode == 2
+    assert "cannot read OSV schema" in result.stderr
+    assert "make osv-schema" in result.stderr
+
+
+def test_coverage_only_ignores_advisories(tmp_path):
+    result = script("vex-check.py", "--coverage-only", "--osv-schema",
+                    str(tmp_path / "missing.json"), "--sbom",
+                    write(tmp_path, "sbom.json", SBOM),
+                    write_advisory(tmp_path, advisory(typo=1)))
+    assert result.returncode == 0, result.stdout
+    assert not result.stdout
