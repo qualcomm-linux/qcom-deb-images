@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate OpenVEX
+    name: Validate OpenVEX and OSV advisories
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,15 +24,15 @@ jobs:
       - name: Install validation dependencies
         run: |
           sudo apt update
-          sudo apt -y install ca-certificates curl make python3-jsonschema python3-pytest flake8 pylint
+          sudo apt -y install ca-certificates curl make distro-info-data python3-debian python3-jsonschema python3-pytest flake8 pylint
 
       - name: Check Python tooling
         run: |
           flake8 scripts/ ci/
           pylint --errors-only scripts/vex-check.py scripts/vexlib.py
 
-      - name: Download OpenVEX JSON schema
-        run: make vex-schema
+      - name: Download OpenVEX and OSV JSON schemas
+        run: make vex-schema osv-schema
 
       - name: Validate all assessments
         run: make check
