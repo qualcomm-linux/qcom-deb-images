@@ -116,8 +116,15 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
+      # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs
+
+      # Use the "download-syft" sub-action to install Syft and keep it
+      # updated via Dependabot.
+      - name: Install Syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
       - name: Setup local APT repo
         run: |
@@ -202,6 +209,57 @@ jobs:
           set -ux
           make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
+      # only generate the SBOM for the UFS image; the SD card image only
+      # differs in sector size, so its contents are the same
+      - name: Generate SBOMs with Syft (from the UFS image)
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: |
+          set -ux
+
+          # running syft inside the fakemachine is too slow with the qemu
+          # backend, so extract the partition images to a temporary directory.
+          # mounting the image would require a loop device.
+          # the ESP is not scanned by syft; but extract it anyway so the scanned
+          # tree matches the image.
+          mkdir -v rootfs
+          debugfs_err="$(debugfs -R "rdump / rootfs" disk-ufs.img2 2>&1 >/dev/null)"
+          echo "$debugfs_err" >&2
+          # debugfs exits 0 even when the command fails, so fail on anything
+          # other than its version banner on stderr
+          if echo "$debugfs_err" | grep -qv '^debugfs [0-9]'; then
+              exit 1
+          fi
+          mkdir -pv rootfs/boot/efi
+          mcopy -s -p -m -i disk-ufs.img1 '::/*' rootfs/boot/efi/
+
+          # check the extraction worked
+          test -s rootfs/var/lib/dpkg/status
+
+          # run syft to generate the sbom
+          "$SYFT" --version
+          SYFT_FORMAT_PRETTY=true "$SYFT" \
+              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
+              -o spdx-json=rootfs-sbom.spdx.json \
+              -o syft-json=rootfs-sbom.syft.json \
+              -o syft-text=rootfs-sbom.syft.txt \
+              -o syft-table \
+              --parallelism "$(nproc)" \
+              --select-catalogers debian \
+              --source-name qualcomm-linux-debian-rootfs \
+              --source-version "${BUILD_ID}" \
+              -v \
+              scan rootfs
+
+          # remove the temporary rootfs
+          rm -rf rootfs
+
+      - name: Generate license summary from Syft report
+        run: |
+          set -ux
+          scripts/syft-license-summary.py rootfs-sbom.syft.json |
+              tee rootfs-sbom.syft-license-summary.csv.txt
+
       - name: Stage debos artifacts for publishing
         run: |
           set -ux
@@ -221,6 +279,11 @@ jobs:
           fi
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
+          # one SBOM archive per image, named like the images it describes,
+          # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
+          # SBOMs in all formats and the license summary
+          tar -cv --use-compress-program=pigz \
+              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 
@@ -230,59 +293,6 @@ jobs:
         id: upload_artifacts_s3
         with:
           path: debos-artifacts
-          # these should be the defaults; or ought to reuse BUILD_ID
-          s3_bucket: qcom-prd-gh-artifacts
-          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
-
-      - name: Unpack rootfs to generate SBOM
-        run: mkdir -v rootfs && tar -C rootfs -xf rootfs.tar
-
-      # Use the "download-syft" sub-action to install Syft and keep it
-      # updated via Dependabot.
-      - name: Install Syft
-        id: syft
-        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-
-      - name: Generate SBOMs with Syft
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
-        run: |
-          set -ux
-          "$SYFT" --version
-          SYFT_FORMAT_PRETTY=true "$SYFT" \
-              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
-              -o spdx-json=rootfs-sbom.spdx.json \
-              -o syft-json=rootfs-sbom.syft.json \
-              -o syft-text=rootfs-sbom.syft.txt \
-              -o syft-table \
-              --parallelism `nproc` \
-              --select-catalogers debian \
-              --source-name qualcomm-linux-debian-rootfs \
-              --source-version "${BUILD_ID}" \
-              -v \
-              scan rootfs
-
-      - name: Generate license summary from Syft report
-        run: |
-          set -ux
-          scripts/syft-license-summary.py rootfs-sbom.syft.json |
-              tee rootfs-sbom.syft-license-summary.csv.txt
-
-      # one archive per image, named like the images it describes, e.g.
-      # trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the SBOMs in
-      # all formats and the license summary
-      - name: Pack SBOMs for publishing
-        run: |
-          set -ux
-          mkdir -v sboms
-          tar -cv --use-compress-program=pigz \
-              -f "sboms/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
-
-      - name: Upload SBOMs as private artifacts
-        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
-        id: upload_sbom_artifacts
-        with:
-          path: sboms
           # these should be the defaults; or ought to reuse BUILD_ID
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
@@ -297,7 +307,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
-          path: sboms/${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
+          path: debos-artifacts/${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
           archive: false
           overwrite: true
 
