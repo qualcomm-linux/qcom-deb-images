@@ -23,10 +23,10 @@ actions:
 
   - action: download
     description: Download qcom-dtb-metadata (DTB image build scripts and ITS/metadata files)
-    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/dfa9f221a88e97a6acf1db32f0ce5934cfef4b38.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-dtb-metadata/archive/81f3792d3554aa01616c4ccaac0502f72774584c.tar.gz
     name: qcom-dtb-metadata
     filename: qcom-dtb-metadata.tar.gz
-    sha256sum: 45e697717d676f4d1d19aac9e71065f80612640c1080c5cf70684d42f188ecee
+    sha256sum: 333a271512aee4d97bfb8a90dea483c17dcf5c844bce0f7e803e6efcaf22d4a5
     unpack: true
 
 # soc_id identifies the SoC/SKU each board is built on, using the same
