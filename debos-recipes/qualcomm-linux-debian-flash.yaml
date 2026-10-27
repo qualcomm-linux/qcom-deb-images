@@ -58,6 +58,33 @@ actions:
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
+    Glymur-CRD and Glymur-QCB share the same qcom-ptool
+    platform (glymur-crd), soc_id and boot binaries; they differ in CDT
+    and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "glymur-qcb"
+    "soc_id" "glymur"
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "boot_binaries_download" (dict
+        "description" "Glymur boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
+        "name" "glymur_boot-binaries"
+        "filename" "glymur_boot-binaries.zip"
+        "sha256sum" "2477f98d66023a4cd59e7b8cca53dae1c8d2383979534e66348183f40b29d775"
+    )
+    "cdt_download" (dict
+        "description" "Glymur QCB CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8480XP/cdt/sc8480xp-qcb.zip"
+        "name" "glymur-qcb_cdt"
+        "filename" "glymur-qcb_cdt.zip"
+        "sha256sum" "21483c474db911143bef02839acb17af735361be25f56a763ce2f88c80636b2e"
+    )
+    "cdt_filename" "QCB/cdt_glymur_qcb_0.1.0.bin"
+    "dtb" "qcom/glymur-qcb.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- /*
     Kalambo CRD shares the same qcom-ptool platform (glymur-crd) and boot
     binaries as Mahua CRD; it differs only in soc_id and DTB.
 */}}
