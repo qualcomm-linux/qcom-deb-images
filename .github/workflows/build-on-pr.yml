@@ -28,13 +28,13 @@ jobs:
         include:
           - suite: trixie
             variant: console
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
           - suite: trixie
             variant: weston-multimedia
-            kernelpackages: 'linux-image-qcom-next,linux-image-qcom-next-modules,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next,linux-image-qcom-next-modules'
           - suite: forky
             variant: console
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
