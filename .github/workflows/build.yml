@@ -41,7 +41,7 @@ jobs:
           - suite: trixie
             variant: weston-multimedia
             profile: default
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+            kernelpackages: 'linux-image-qcom-next,linux-image-qcom-next-modules,linux-headers-qcom-next'
           - suite: trixie
             variant: xfce
             profile: default

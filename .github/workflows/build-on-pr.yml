@@ -20,24 +20,28 @@ jobs:
         path: ${{ github.event_path }}
 
   build:
+    # job name: "build (<suite>, <variant>)"
+    name: build (${{ matrix.suite }}, ${{ matrix.variant }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - suite: trixie
             variant: console
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: trixie
             variant: weston-multimedia
+            kernelpackages: 'linux-image-qcom-next,linux-image-qcom-next-modules,linux-headers-qcom-next'
           - suite: forky
             variant: console
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
     with:
       suite: ${{ matrix.suite }}
       variant: ${{ matrix.variant }}
-      # QLI targets qcom-next; install the kernel from the QLI APT repository
-      kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+      kernelpackages: ${{ matrix.kernelpackages }}
 
   sbom-compliance-scan:
     if: ${{ !cancelled() && needs.build.result != 'skipped' }}

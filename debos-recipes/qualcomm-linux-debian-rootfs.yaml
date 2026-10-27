@@ -600,9 +600,8 @@ actions:
 
   # Disable initramfs generation until just before the recipe finishes (see
   # "Generate the initramfs for all installed kernels" below). Every later
-  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
-  # generating it once at the end, after DKMS, ensures DKMS modules are
-  # included in it.
+  # package install (e.g. desktop packages) would otherwise trigger a
+  # rebuild.
   - action: run
     description: Disable initramfs generation until all packages are installed
     chroot: true

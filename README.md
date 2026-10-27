@@ -342,6 +342,9 @@ build on any other name:
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
   stack (GPU, camera, audio, video codec and related user-space tools).
+  The out-of-tree kernel drivers come prebuilt in
+  `linux-image-qcom-next-modules`, so add it to `kernelpackages`, e.g.
+  `-t kernelpackages:linux-image-qcom-next,linux-image-qcom-next-modules,linux-headers-qcom-next`.
 
 Every variant other than `minimal` also installs a common set of useful
 packages on top: Bluetooth, PipeWire, fwupd, the DSP binaries and FastRPC

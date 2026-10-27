@@ -37,7 +37,7 @@ jobs:
           - suite: trixie
             variant: weston-multimedia
             profile: default
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.2,linux-image-qcom-7.2-modules,linux-headers-qcom-7.2'
           - suite: trixie
             variant: xfce
             profile: default
