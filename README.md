@@ -1,29 +1,32 @@
 # Qualcomm Linux security tracker
 
 This orphan branch holds the OpenVEX assessments for Qualcomm Linux Debian
-images, their validation tooling, and the CI that checks them. It has no image
-build history or image recipes. See [vex/README.md](vex/README.md) for the data
-format and assessment rules.
+images, the OSV advisories for vulnerabilities in packages the Debian security
+tracker doesn't cover, their validation tooling, and the CI that checks them.
+It has no image build history or image recipes. See
+[vex/README.md](vex/README.md) and [advisories/README.md](advisories/README.md)
+for the data formats and rules.
 
 ## Contributing assessments
 
 Create a topic branch from `security-tracker` and target `security-tracker`
 when opening a pull request. Keep assessments under `vex/`, named
-`<source>.openvex.json`. CI validates every such file, including subdirectories,
+`<source>.openvex.json`, and advisories under `advisories/`, named
+`<id>.osv.json`. CI validates every such file, including subdirectories,
 and checks for conflicts across the entire database.
 
 Follow the repository's [contribution and attribution rules](https://github.com/qualcomm-linux/qcom-deb-images/blob/main/CONTRIBUTING.md).
 
-Install `make`, `curl`, `ca-certificates`, `python3-jsonschema`, and
-`python3-pytest`, then run:
+Install `make`, `curl`, `ca-certificates`, `distro-info-data`,
+`python3-debian`, `python3-jsonschema`, and `python3-pytest`, then run:
 
 ```sh
 make check test
 ```
 
-The Makefile downloads an upstream OpenVEX schema pinned by commit and SHA-256
-checksum into `.cache/`. It is not vendored. After the download, validation
-and tests work offline.
+The Makefile downloads the upstream OpenVEX and OSV schemas, pinned by commit
+and SHA-256 checksum, into `.cache/`. After the download, validation and tests
+work offline.
 
 ## Consumption by image builds
 
@@ -44,3 +47,7 @@ image. Coverage-only mode trusts the documents and needs only Python's
 standard library, without the schema or `jsonschema`. Warnings appear in the
 image build's job log and summary without failing the build. Omit
 `--coverage-only` to run static validation along with coverage checks locally.
+
+The image workflow also fetches `advisories/` and adds the advisories to
+Grype's vulnerability database before scanning, so their findings are part of
+the regular Grype reports; see [advisories/README.md](advisories/README.md).
