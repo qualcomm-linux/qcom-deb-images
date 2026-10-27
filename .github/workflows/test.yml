@@ -26,10 +26,10 @@ on:
         type: string
         default: trixie
       variant:
-        description: Image variant (e.g. weston-multimedia), 'default' for none
+        description: Image variant (e.g. weston-multimedia); 'console' has no suffix
         required: false
         type: string
-        default: default
+        default: console
       pr_number:
         description: Pull request number, recorded in the LAVA job metadata
         required: false
@@ -79,7 +79,7 @@ env:
   TESTKIT_REF: "testkit-2026.09.27"
 
 jobs:
-  prepare-env:
+  select-boards:
     name: Select boards
     runs-on: ubuntu-latest
     permissions:
@@ -130,7 +130,7 @@ jobs:
 
   test:
     name: ${{ inputs.kernel }} ${{ inputs.suite }}
-    needs: prepare-env
+    needs: select-boards
     uses: $/.github/workflows/test-distro.yml
     permissions:
       checks: write
@@ -142,13 +142,13 @@ jobs:
     with:
       url: ${{ inputs.url }}
       build_id: ${{ inputs.build_id || github.run_id }}
-      devices: ${{ needs.prepare-env.outputs.devices }}
-      devices_premerge: ${{ needs.prepare-env.outputs.devices_premerge }}
+      devices: ${{ needs.select-boards.outputs.devices }}
+      devices_premerge: ${{ needs.select-boards.outputs.devices_premerge }}
       suite: ${{ inputs.suite }}
       variant: ${{ inputs.variant }}
       kernel: ${{ inputs.kernel }}
-      testkit_ref: ${{ needs.prepare-env.outputs.testkit-ref }}
-      known_failures_file: ${{ needs.prepare-env.outputs.known_failures_file }}
+      testkit_ref: ${{ needs.select-boards.outputs.testkit-ref }}
+      known_failures_file: ${{ needs.select-boards.outputs.known_failures_file }}
       pr_number: ${{ inputs.pr_number }}
       pr_url: ${{ inputs.pr_url }}
 
@@ -162,7 +162,7 @@ jobs:
       packages: read # actions/download-artifact
     env:
       # the build variant, as the lava-test-plans action names its result files
-      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+      VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
     steps:
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,7 +174,7 @@ jobs:
       # named <prefix>-<device>-<job file> by the lava-test-plans action, and
       # the prefix ends with the variant.
       - name: Download test results (this variant)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
           pattern: "*-${{ env.VARIANT }}-*"
@@ -223,7 +223,7 @@ jobs:
       # here: one check covering every kernel and suite reads better than one
       # per variant, and only the caller knows when they are all in.
       - name: Upload test results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: results-${{ env.VARIANT }}
           path: artifacts

@@ -50,6 +50,13 @@ on:
         required: false
         type: string
         default: ''
+      variant:
+        description: >
+          Image variant to build and test (e.g. console, gnome); see the
+          variant input of debos.yml
+        required: false
+        type: string
+        default: console
       lava_report_test_results_externally:
         description: >
           Report LAVA results as a check run on the commit and a comment on
@@ -64,6 +71,12 @@ on:
         description: API token used to submit jobs to LAVA
         # only forwarded to test.yml; callers passing skip_lava_tests
         # never reach that job, so this stays optional
+        required: false
+      TEST_REPORTING_APP_TOKEN:
+        description: >
+          Private key of the Test Reporting GitHub App, forwarded to
+          publish-results.yml
+        # like LAVATOKEN, only needed when LAVA tests run
         required: false
   # allow manual runs
   workflow_dispatch:
@@ -91,6 +104,10 @@ on:
         description: >
           JSON array of Debian suites to build images for and test
           (empty = trixie and forky)
+        required: false
+        type: string
+      variant:
+        description: 'Image variant to build and test (default: console)'
         required: false
         type: string
 
@@ -193,7 +210,7 @@ jobs:
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
-  debos-linux-deb:
+  build-images:
     if: ${{ !inputs.skip_image_build }}
     needs: build-linux-deb
     strategy:
@@ -205,19 +222,28 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      variant: ${{ inputs.variant || 'console' }}
       overlays: ${{ inputs.overlays || 'none' }}
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
 
-  test-linux-deb:
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.build-images.result != 'skipped' }}
+    needs: build-images
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read
+
+  test:
     if: ${{ !inputs.skip_lava_tests }}
     strategy:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(inputs.suites || '["trixie", "forky"]') }}
     uses: $/.github/workflows/test.yml
-    needs: debos-linux-deb
+    needs: build-images
     permissions:
       checks: write
       contents: read
@@ -226,19 +252,22 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      url: ${{ needs.debos-linux-deb.outputs.artifacts_url }}
+      url: ${{ needs.build-images.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: ${{ inputs.variant || 'console' }}
       # the boards tested come from .github/lava-boards.yml, keyed by kernel
       kernel: ${{ inputs.kernel_name || 'mainline' }}
 
   publish-test-results:
-    if: always() && needs.test-linux-deb.result != 'skipped'
-    needs: test-linux-deb
+    if: always() && needs.test.result != 'skipped'
+    needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read
       packages: read
       pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
     with:
       report_test_results_externally: ${{ inputs.lava_report_test_results_externally }}

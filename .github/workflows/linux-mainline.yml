@@ -1,11 +1,8 @@
 name: mainline linux build
 
 on:
-  # run weekly on Monday at 2:30pm, after the daily builds and the weekly u-boot
-  # build have finished for the day, so this doesn't add its LAVA jobs on top of
-  # theirs
   schedule:
-    - cron: '30 14 * * 1'
+    - cron: '00 9 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -23,6 +20,7 @@ jobs:
       github.ref == 'refs/heads/main')
     uses: $/.github/workflows/linux.yml
     permissions:
+      actions: read
       checks: write
       contents: read
       packages: read
@@ -35,3 +33,4 @@ jobs:
       # the boards tested come from .github/lava-boards.yml, under mainline
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

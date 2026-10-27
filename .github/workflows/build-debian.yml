@@ -7,11 +7,8 @@
 name: Build Debian
 
 on:
-  # run daily at 10:30am, last of the daily builds: this tracks upstream Debian
-  # rather than what QLI ships, so it gets the LAVA queue once the kernel builds
-  # are done with it
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '00 7 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -19,7 +16,7 @@ on:
 permissions: {}
 
 jobs:
-  build-debian:
+  build:
     # don't run cron from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -44,7 +41,18 @@ jobs:
       # which follows the bootstrap only ever pulls in packages from Debian
       debos_extra_args: -t qliaptrepo:false
 
-  test-debian:
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: build
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      # latest compliance data under latest/debian-baseline/
+      channel: debian-baseline
+
+  test:
     # don't run cron from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -57,7 +65,7 @@ jobs:
       matrix:
         suite: [trixie, forky]
     uses: $/.github/workflows/test.yml
-    needs: build-debian
+    needs: build
     permissions:
       checks: write
       contents: read
@@ -66,7 +74,7 @@ jobs:
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      url: ${{ needs.build-debian.outputs.artifacts_url }}
+      url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
       # the boards tested come from .github/lava-boards.yml
       kernel: debian
@@ -74,13 +82,15 @@ jobs:
       # they are reported through this workflow instead of gating our work
 
   publish-test-results:
-    if: always() && needs.test-debian.result != 'skipped'
-    needs: test-debian
+    if: always() && needs.test.result != 'skipped'
+    needs: test
     uses: $/.github/workflows/publish-results.yml
     permissions:
       checks: write
       contents: read
       packages: read
       pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
     with:
       report_test_results_externally: false

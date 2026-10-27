@@ -29,8 +29,25 @@ tuned!
 
 Every image is flashed onto real boards and tested in the LAVA lab; see
 [docs/testing.md](docs/testing.md) for which boards run which tests and how to
-change that.
+change that. See [docs/workflows.md](docs/workflows.md) for when the scheduled
+builds run and why.
 
+## Vulnerability assessments
+
+OpenVEX data, its validation tooling, and authoring instructions live on the
+[security-tracker branch](https://github.com/qualcomm-linux/qcom-deb-images/tree/security-tracker).
+The debos workflow generates an SBOM of every image; the SBOM compliance scan
+workflow then fetches `vex/` from that branch's HEAD and passes the documents
+to Grype to scan these SBOMs, once for all the images built in a workflow run.
+Pull requests targeting `security-tracker` validate the data before merging.
+The SBOM compliance scan also uses the tracker's `vex-check.py --coverage-only`
+to report missing binaries and outdated version pins against the image SBOMs.
+These warnings appear in the job log and summary; they do not fail the build.
+The SBOM compliance scan can also be run manually, to rescan the SBOMs of an
+earlier workflow run, e.g. after updating the VEX data.
+The SBOMs and vulnerability reports of the latest build of each image are also
+published at a static location, see
+[docs/workflows.md](docs/workflows.md#latest-compliance-data).
 
 ## Requirements
 
@@ -244,6 +261,13 @@ Here is the list of supported overlays:
     <dd>
         Special value to disable all overlays; this is the default.
     </dd>
+    <dt>dtb-loader</dt>
+    <dd>
+      kernel-install hook to wrap the EFI kernel image installed in the
+      ESP with systemd-stub based DTB loader, device trees for these
+      machines, and boot firmware signatures (CHID). Selecting this
+      overlay also installs the <tt>stubble</tt> package the hook needs.
+    </dd>
 </dl>
 
 #### Supported profiles
@@ -307,27 +331,37 @@ The following variants are supported; the list lives in
 `debos-recipes/qualcomm-linux-debian-rootfs-variant.yaml`, which fails the
 build on any other name:
 
+- `minimal`: only what is needed to boot, connect to a network and use APT:
+  the kernel and firmware, NetworkManager (`nmcli`) and wpa_supplicant for
+  Ethernet, USB Ethernet and Wi-Fi, `systemd-timesyncd`, `sudo` and the
+  `debian` user. Everything else is left for the user to install with APT.
 - `console`: the default; no graphical environment is installed.
 - `xfce`: an Xfce desktop environment.
-- `gnome`: a GNOME desktop environment. Only supported on `trixie` for
-  now; see [issue #416](https://github.com/qualcomm-linux/qcom-deb-images/issues/416).
+- `gnome`: a GNOME desktop environment.
 - `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
-  stack (GPU, camera and video codec drivers and user-space).
+  stack (GPU, camera, audio, video codec and related user-space tools).
 
-CI differs from the recipe: its `default` variant (also used when no variant
-is passed to the workflow) builds `xfce`, so that the unsuffixed artifacts
-published today keep their contents. Artifacts of any other variant are
-suffixed with the variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`.
+Every variant other than `minimal` also installs a common set of useful
+packages on top: Bluetooth, PipeWire, fwupd, the DSP binaries and FastRPC
+support, adbd, thermald, the Debian `important` and `standard` packages and
+some command-line tools.
 
-`build.yml` builds the `default` (`xfce`), `gnome` and `weston-multimedia`
-variants, but for now only `default` is LAVA-tested, to avoid multiplying the
-LAVA jobs the workflow submits.
+CI also builds `console` when no variant is passed to the workflow, and
+publishes its artifacts without a variant suffix, e.g.
+`trixie-disk-ufs.img.gz`. Artifacts of any other variant are suffixed with the
+variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`. The Xfce image,
+previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
+
+`build.yml` builds the `minimal`, `console`, `xfce`, `gnome` and
+`weston-multimedia` variants (`minimal` for `trixie` and `forky` only), but
+for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
+workflow submits.
 
 ### Flash the image
 
-The `disk-sdcard.img` disk image can simply be written to an SD card, albeit most Qualcomm boards boot from internal storage by default. With an SD card, the board will use boot firmware from internal storage (eMMC or UFS) and do an EFI boot from the SD card if the firmware can't boot from internal storage.
+The `disk-sdcard.img` disk image can simply be written to an external boot media such as a SD card or an USB stick, albeit most Qualcomm platforms boot from internal storage by default. With an external boot media, the platform will use its boot firmware from internal storage (eMMC, UFS or SPINOR) and perform an EFI boot from that media. This image should even be suitable for Snapdragon Windows on Arm systems, if it was built with the dtb-loader overlay.
 
 For UFS boards, if there is no need to update the boot firmware, the `disk-ufs.img` disk image can also be flashed on the first LUN of the internal UFS storage with [qdl](https://github.com/linux-msm/qdl) and the provided `rawprogram-ufs.xml` file.
 
@@ -492,17 +526,17 @@ This project is licensed under the [BSD-3-clause License](https://spdx.org/licen
 <!-- link targets for the CI status badges at the top of this file; each
      workflow needs two: the shields.io image and the Actions page it links to -->
 
-[qli-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build.yml
-[qli-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build.yml?label=QLI%20images
-[debian-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-debian.yml
-[debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-debian.yml?label=Debian%20images
-[linux-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-next.yml
-[linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-next.yml?label=linux-next%20images
-[mainline]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-mainline.yml
-[mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-mainline.yml?label=mainline%20images
-[arduino]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-arduino.yml
-[arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-arduino.yml?label=arduino
-[qcom-7.2]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-7.2.yml
-[qcom-7.2-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-7.2.yml?label=qcom-7.2
-[qcom-laptops]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-laptops.yml
-[qcom-laptops-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-laptops.yml?label=qcom-laptops
+[qli-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build.yml?query=branch%3Amain+event%3Aschedule
+[qli-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build.yml?label=QLI%20images&branch=main&event=schedule
+[debian-images]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/build-debian.yml?query=branch%3Amain+event%3Aschedule
+[debian-images-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/build-debian.yml?label=Debian%20images&branch=main&event=schedule
+[linux-next]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-next.yml?query=branch%3Amain+event%3Aschedule
+[linux-next-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-next.yml?label=linux-next%20images&branch=main&event=schedule
+[mainline]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-mainline.yml?query=branch%3Amain+event%3Aschedule
+[mainline-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-mainline.yml?label=mainline%20images&branch=main&event=schedule
+[arduino]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-arduino.yml?query=branch%3Amain+event%3Aschedule
+[arduino-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-arduino.yml?label=arduino&branch=main&event=schedule
+[qcom-7.2]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-7.2.yml?query=branch%3Amain+event%3Aschedule
+[qcom-7.2-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-7.2.yml?label=qcom-7.2&branch=main&event=schedule
+[qcom-laptops]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-laptops.yml?query=branch%3Amain+event%3Aschedule
+[qcom-laptops-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-laptops.yml?label=qcom-laptops&branch=main&event=schedule

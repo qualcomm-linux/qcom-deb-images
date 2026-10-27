@@ -2,8 +2,13 @@
 {{- $imagesize := or .imagesize "8GiB" }}
 {{- $imagetype := or .imagetype "ufs" }}
 {{- $image := printf "disk-%s.img" $imagetype }}
-{{- $snapshot := or .snapshot "" }}
 {{- $profile := or .profile "default" }}
+
+# Snapshot configuration is determined by the rootfs build, not the
+# image recipe. Reject this option to avoid conflicting configurations.
+{{- if .snapshot }}
+{{- fail "snapshot can only be configured in the rootfs recipe" }}
+{{- end }}
 
 # kernel command line appended by the filesystem-deploy action below
 # XXX these kernel options might be specific to a kernel version or board
@@ -115,15 +120,15 @@ actions:
       # Have systemd ping /dev/watchdog so a hang resets the board. With
       # qcom_scm.download_mode=1, the reset leaves a memory dump for debugging.
       #
-      # Match meta-qcom's 30s timeout. This is close to the qcom-wdt hardware limit
-      # and avoids false watchdog bites during slow, verbose debug boots. Use a
-      # systemd drop-in rather than modifying Debian's packaged system.conf.
+      # Use a 10s timeout for faster watchdog-triggered recovery and quicker
+      # transition to dump mode, enabling efficient debugging of APPS hangs
+      # and watchdog-related failures.
       #
       # Boards without a hardware watchdog are unaffected.
       mkdir -pv /etc/systemd/system.conf.d
       cat >/etc/systemd/system.conf.d/10-qcom-debug-watchdog.conf <<'EOF'
       [Manager]
-      RuntimeWatchdogSec=30s
+      RuntimeWatchdogSec=10s
       EOF
 {{- end }}
 
@@ -182,15 +187,16 @@ actions:
     setup-fstab: true
     append-kernel-cmdline: "{{ $kernelcmdline }}"
 
-{{- if $snapshot }}
   - action: run
-    description: Enable snapshot sources for image build
+    description: Enable snapshot APT sources from rootfs
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle enable
-      apt-get update
-{{- end }}
+      SNAPSHOT=$(sed -n 's/^SNAPSHOT=//p' /etc/buildinfo)
+      if [ -n "$SNAPSHOT" ]; then
+          apt-snapshot-toggle enable
+          apt-get update
+      fi
 
   - action: apt
     description: Make system bootable with systemd-boot
@@ -257,16 +263,16 @@ actions:
       # enable unit
       systemctl enable debos-grow-rootfs
 
-{{- if $snapshot }}
   - action: run
     description: Restore APT sources to live mirrors and clean up snapshot helpers
     chroot: true
     command: |
       set -eux
-      apt-snapshot-toggle disable
+      if [ -x /usr/local/bin/apt-snapshot-toggle ]; then
+          apt-snapshot-toggle disable
+      fi
       rm -f /etc/apt/sources.list.d/snapshot_*.sources
       rm -f /usr/local/bin/apt-snapshot-toggle
-{{- end }}
 
   - action: run
     description: Extract partition images

@@ -1,10 +1,8 @@
 name: linux-next linux build
 
 on:
-  # run daily at 8:30am, two hours behind the arduino kernel build, so that our
-  # LAVA jobs don't queue up behind its own
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '00 5 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -22,6 +20,7 @@ jobs:
       github.ref == 'refs/heads/main')
     uses: $/.github/workflows/linux.yml
     permissions:
+      actions: read
       checks: write
       contents: read
       packages: read
@@ -35,3 +34,4 @@ jobs:
       # the boards tested come from .github/lava-boards.yml, under linux-next
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

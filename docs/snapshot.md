@@ -28,8 +28,8 @@ built from.
 
 ### The `snapshot` option
 
-Pass a snapshot timestamp to the debos recipes via the `snapshot` variable. The
-value **must** be in the form `YYYYMMDDTHHMMSSZ` (UTC, e.g.
+Pass a snapshot timestamp to the debos rootfs recipe via the `snapshot` template
+variable. The value **must** be in the form `YYYYMMDDTHHMMSSZ` (UTC, e.g.
 `20260115T000000Z`). Any other format aborts the build with an error — this is
 deliberate. While snapshot.debian.org also supports `YYYYMMDD`, Debusine only
 supports the full form.
@@ -37,25 +37,28 @@ supports the full form.
 ### Building with the Makefile
 
 The `snapshot` variable is a debos template variable, so it is passed through
-`EXTRA_DEBOS_OPTS`. It must be supplied to **both** the rootfs build and the
-image build, because each recipe re-pins its own APT sources:
+`EXTRA_DEBOS_OPTS`. It must be supplied to the **rootfs build only**:
 
 ```bash
 # 1. root filesystem + DTBs, pinned to the snapshot
 EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make rootfs.tar
 
-# 2. disk image, pinned to the same snapshot
-EXTRA_DEBOS_OPTS="-t snapshot:20260115T000000Z" make disk-ufs.img
+# 2. disk image; the snapshot is read from the rootfs tarball
+make disk-ufs.img
 ```
 
-Use the **same** timestamp for both steps. The flash recipe does not install
-packages and takes no `snapshot` option.
+The rootfs build records the timestamp in `/etc/buildinfo` as
+`SNAPSHOT=<date>`, and the image build reads it back from there, so the two
+cannot drift apart.
+
+The flash recipe does not install packages and therefore does not use
+snapshot configuration.
 
 ### Building by calling debos directly
 
 ```bash
 debos -t snapshot:20260115T000000Z debos-recipes/qualcomm-linux-debian-rootfs.yaml
-debos -t snapshot:20260115T000000Z debos-recipes/qualcomm-linux-debian-image.yaml
+debos debos-recipes/qualcomm-linux-debian-image.yaml
 ```
 
 (The Makefile is still recommended, as it sets memory/scratchsize defaults that
@@ -270,14 +273,15 @@ When `snapshot` is non-empty, the following happens in order:
 The image recipe installs a few more packages (`systemd-boot`,
 `u-boot-efi-dtb`, `cloud-guest-utils`), so it must pin those too:
 
-1. After unpacking `rootfs.tar`, if `snapshot` is set: `apt-snapshot-toggle
-   enable` + `apt-get update`. This works because the `snapshot_*.sources` files
-   are still present from the rootfs build. (No re-derivation is needed here —
-   the image recipe only toggles.)
+1. After unpacking `rootfs.tar`, the recipe reads `SNAPSHOT=` back from the
+   unpacked `/etc/buildinfo`; if it is set: `apt-snapshot-toggle enable` +
+   `apt-get update`. This works because the `snapshot_*.sources` files are still
+   present from the rootfs build.
 2. Package installation proceeds against the snapshot.
-3. **Cleanup:** `apt-snapshot-toggle disable`, then delete
-   `/etc/apt/sources.list.d/snapshot_*.sources` and
-   `/usr/local/bin/apt-snapshot-toggle`.
+3. **Cleanup (always):** `apt-snapshot-toggle disable` if the helper is
+   present, then delete `/etc/apt/sources.list.d/snapshot_*.sources` and
+   `/usr/local/bin/apt-snapshot-toggle`. This runs whether or not the rootfs
+   carried a snapshot, so no snapshot state can leak into the image.
 
 ### What the shipped image looks like
 
@@ -302,9 +306,6 @@ gets out of the way so the running system tracks live updates.
   `Check-Valid-Until` but still requires a currently-valid archive signing key.
   Reaching back far enough that the key of the day has expired would
   additionally need `Apt::Key::gpgvcommand`; this is deliberately not enabled.
-- **Both recipes need the option.** rootfs and image builds each re-pin
-  independently; passing `snapshot` to only one leaves the other resolving live
-  packages.
 - **Not every source supports snapshots.** Only Debian (main + security),
   `debian-backports`, and the Qualcomm Linux `qli` archive are rewritten. Any
   `aptlocalrepo`/`localdebs` sources are **not** pinned; packages from them are

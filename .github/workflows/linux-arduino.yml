@@ -1,10 +1,8 @@
 name: arduino linux build
 
 on:
-  # run daily at 6:30am, once the qcom-next build (0:30am) and the "Build"
-  # workflow chained onto it have submitted their LAVA jobs
   schedule:
-    - cron: '30 6 * * *'
+    - cron: '00 1 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -22,6 +20,7 @@ jobs:
       github.ref == 'refs/heads/main')
     uses: $/.github/workflows/linux.yml
     permissions:
+      actions: read
       checks: write
       contents: read
       packages: read
@@ -29,13 +28,7 @@ jobs:
     with:
       kernel_name: arduino
       build_linux_deb_extra_args: '--repo https://github.com/qualcomm-linux/kernel-topics --ref early/hwe/arduino'
-      # workaround-hexagon-dsp-binaries-monza can be dropped once an
-      # updated hexagon-dsp-binaries with Monza support is integrated; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/298 and
-      # https://github.com/linux-msm/hexagon-dsp-binaries/pull/59
-      # workaround-initramfs-firmware-monaco adds firmware to initramfs; see
-      # https://github.com/qualcomm-linux/qcom-deb-images/issues/258
-      overlays: 'workaround-hexagon-dsp-binaries-monza,workaround-initramfs-firmware-monaco'
       # the boards tested come from .github/lava-boards.yml, under arduino
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

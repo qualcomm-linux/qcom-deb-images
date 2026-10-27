@@ -54,10 +54,13 @@ do
 done
 echo "multidtb_bins: $multidtb_bins"
 
-# word splitting is a feature in this case
-# shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $multidtb_bins $emmc_dirs
+# compress with all CPUs when pigz is available; the output is plain gzip
+compress="$(command -v pigz || echo gzip)"
 
 # word splitting is a feature in this case
 # shellcheck disable=SC2086
-tar -cvzf "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $multidtb_bins $ufs_dirs
+tar -cv -I "$compress" -f "$output_dir/$prefix-flash-emmc.tar.gz" disk-sdcard.img1 disk-sdcard.img2 $multidtb_bins $emmc_dirs
+
+# word splitting is a feature in this case
+# shellcheck disable=SC2086
+tar -cv -I "$compress" -f "$output_dir/$prefix-flash-ufs.tar.gz" disk-ufs.img1 disk-ufs.img2 $multidtb_bins $ufs_dirs

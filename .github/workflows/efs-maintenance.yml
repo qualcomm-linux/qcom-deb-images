@@ -17,6 +17,11 @@
 #         projects (could be used by aiml-container-test for instance)
 #         /22988421776-1: artifacts from a particular build; build ids are
 #             typically ${{ github.run_id }}-${{ github.run_attempt }}
+#         /.cache: caches shared by the qcom-deb-images builds; they're
+#             expected to prune themselves, files in there are also pruned by
+#             age, like build directories, in case a cache stops being used
+#             /grype-db: Grype vulnerability databases, see
+#                 scripts/grype-db-cache.sh
 #     /u-boot-rb1-latest => symlink to artifacts directory for the last
 #         successful u-boot workflow build
 #     /mainline, /linux-next, /qcom-next...: symlinks to the artifacts
@@ -29,11 +34,8 @@
 name: EFS Maintenance
 
 on:
-  # run every Sunday at 10:30pm UTC, before the other workflows: the earliest of
-  # those is the daily qcom-next kernel build at 0:30am, and pruning artifacts
-  # while a build is publishing to EFS is best avoided
   schedule:
-    - cron: '30 22 * * 0'
+    - cron: '00 19 * * 0'
   workflow_dispatch:
     inputs:
       create_new_location:
@@ -102,9 +104,11 @@ jobs:
 
           # walk build directories one level deep under qualcomm-linux/,
           # removing those older than max_age_days that are not currently
-          # referenced by a symlink
+          # referenced by a symlink; .cache is pruned file by file below, as
+          # its own modification time doesn't change when its contents do
           find "${EFS_NEW_PATH}" \
               -maxdepth 1 -mindepth 1 -type d \
+              ! -name .cache \
               -mtime "+${max_age_days}" \
           | while IFS= read -r dir; do
             if echo "${active}" | grep -qxF "$(readlink -f "${dir}")"; then
@@ -114,3 +118,13 @@ jobs:
               rm -rfv "${dir}"
             fi
           done
+
+          # remove cached files older than max_age_days, then the directories
+          # they leave empty; caches prune themselves while they're used, so
+          # this only cleans up after the caches that are no longer used
+          if [ -d "${EFS_NEW_PATH}/.cache" ]; then
+            find "${EFS_NEW_PATH}/.cache" -mindepth 1 -type f \
+                -mtime "+${max_age_days}" -print -delete
+            find "${EFS_NEW_PATH}/.cache" -mindepth 1 -type d -empty \
+                -print -delete
+          fi

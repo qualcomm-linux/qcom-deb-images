@@ -9,8 +9,8 @@
 
 glymur-crd:
   - test: fastrpc_test
-    comment: "fails on linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [linux-next]
+    comment: "fails on linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [linux-next, mainline]
 
 lemans-evk:
   - test: BT_ON_OFF
@@ -34,8 +34,8 @@ lemans-evk:
 
 monaco-arduino-monza:
   - test: Ethernet_Basic_Validation
-    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
-    kernels: [arduino, linux-next]
+    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/695"
+    kernels: [arduino, linux-next, mainline]
 
 monaco-evk:
   - test: BT_ON_OFF
@@ -67,10 +67,12 @@ qrb2210-arduino-imola:
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
   - test: fastrpc_test
-    comment: "fails on arduino and linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
-    kernels: [arduino, linux-next]
+    comment: "fails on arduino, linux-next and mainline, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
+    kernels: [arduino, linux-next, mainline]
 
 qrb2210-rb1:
+  - test: BT_ON_OFF
+    comment: "controller stays unconfigured (DOWN RAW, no valid BD address) and is not visible to bluetoothctl, https://github.com/qualcomm-linux/qcom-deb-images/issues/719"
   - test: EFI_Variable_Validation
     comment: "expected to work on this board, does not yet, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
 
@@ -79,8 +81,3 @@ shikra-iqs-evk:
   - test: fastrpc_test
     comment: "no FastRPC session can be created on the CDSP (AEE_EUNABLETOLOAD), https://github.com/qualcomm-linux/qcom-deb-images/issues/671"
     kernels: [linux-next]
-
-# "*" applies to every device tested with this suite
-"*":
-  - test: BT_ON_OFF
-    comment: "testkit-2026.09.27 installs expect with apt-get during the test, and the board has no network, https://github.com/qualcomm-linux/qcom-deb-images/issues/694"

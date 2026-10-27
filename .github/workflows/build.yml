@@ -7,16 +7,8 @@
 name: Build
 
 on:
-  # run daily at 0:30am. these are the images QLI ships, so they go first of
-  # the scheduled builds and get an empty LAVA queue; the rest of the day's
-  # builds are staggered behind them (arduino 6:30am, vanilla Debian 10:30am)
-  # so that they don't all submit LAVA jobs at once.
-  #
-  # the images this workflow produces are shared with the test teams and are
-  # expected by 8:00am IST (2:30am UTC); building from 0:30am leaves two hours
-  # of headroom, see issue #566.
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '00 21 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -25,6 +17,9 @@ permissions: {}
 
 jobs:
   build:
+    # job name: "build (<suite>, <variant>, <profile>)"
+    name: build (${{ matrix.suite }}, ${{ matrix.variant }}, ${{ matrix.profile }})
+
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
     # that changes to the workflows can be tested before they are merged
@@ -40,27 +35,39 @@ jobs:
           # profile, so that any kernel can be combined with any profile (e.g.
           # the debug kernel with the default profile when bisecting)
           - suite: trixie
-            variant: default
+            variant: console
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
-          - suite: trixie
-            variant: default
-            profile: performance
-            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
-          - suite: trixie
-            variant: default
-            profile: debug
-            kernelpackages: 'linux-image-qcom-next-debug,linux-headers-qcom-next-debug'
           - suite: trixie
             variant: weston-multimedia
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: trixie
+            variant: xfce
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: xfce
+            profile: performance
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: xfce
+            profile: debug
+            kernelpackages: 'linux-image-qcom-next-debug,linux-headers-qcom-next-debug'
+          - suite: trixie
             variant: gnome
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: trixie
+            variant: minimal
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
           - suite: forky
-            variant: default
+            variant: console
+            profile: default
+            kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+          - suite: forky
+            variant: minimal
             profile: default
             kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
     uses: $/.github/workflows/debos.yml
@@ -72,11 +79,21 @@ jobs:
       profile: ${{ matrix.profile }}
       kernelpackages: ${{ matrix.kernelpackages }}
 
+  sbom-compliance-scan:
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: build
+    uses: $/.github/workflows/sbom-compliance-scan.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      # latest compliance data under latest/debian-qli/
+      channel: debian-qli
+
   test:
-    # only the default profile and variant are tested for now: adding the
-    # performance and debug profiles, or the gnome and weston-multimedia
-    # variants, to this matrix would multiply the LAVA jobs submitted by
-    # this workflow
+    # only the default profile and the console variant are tested for now:
+    # adding the performance and debug profiles, or the other variants, to
+    # this matrix would multiply the LAVA jobs submitted by this workflow
     #
     # don't run from forks of the main repository or from other branches;
     # manual runs are allowed from any branch of the main repository so
@@ -113,3 +130,45 @@ jobs:
       contents: read
       packages: read
       pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+
+  # trigger for the Qualcomm internal CI: it watches for this check run by
+  # its exact name ("Checks Run Name" in its configuration) and starts once
+  # it passes. the job does nothing itself; it only runs once every build
+  # above has succeeded, and is skipped otherwise. the name must stay unique
+  # across all workflows in this repository, or the internal CI can't tell
+  # the runs apart; don't rename, move or remove this job without updating
+  # the internal CI configuration at the same time
+  internal-ci-images-built:
+    name: Internal CI trigger (qcom-next images built)
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-next images built"
+
+  # trigger for the Qualcomm internal CI, as above, once every test has
+  # passed, and skipped otherwise. both jobs are needed:
+  # - publish-test-results: the Boot and Pre-merge jobs in
+  #   test-distro.yml use continue-on-error, so test succeeds even when
+  #   they fail; only publish-test-results knows whether the tests
+  #   passed (after known failures are applied)
+  # - test: still fails when one of its other jobs fails (e.g.
+  #   preparing, collecting or summarising results), while
+  #   publish-test-results runs on always() and could pass on partial
+  #   results in that case
+  # build isn't listed: if it fails, test and everything after it is
+  # skipped. don't rename, move or remove this job without updating the
+  # internal CI configuration at the same time
+  internal-ci-images-tested:
+    name: Internal CI trigger (qcom-next images tested)
+    needs: [test, publish-test-results]
+    if: >-
+      needs.test.result == 'success' &&
+      needs.publish-test-results.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "qcom-next images tested"

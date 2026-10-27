@@ -82,6 +82,29 @@ actions:
     )
     "cdt_filename" "QCB/cdt_glymur_qcb_0.1.0.bin"
     "dtb" "qcom/glymur-qcb.dtb"
+    Kalambo CRD shares the same qcom-ptool platform (glymur-crd) and boot
+    binaries as Mahua CRD; it differs only in soc_id and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "kalambo-crd"
+    "soc_id" "kalambo"
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "boot_binaries_download" (dict
+        "description" "Kalambo boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
+        "name" "kalambo_boot-binaries"
+        "filename" "kalambo_boot-binaries.zip"
+        "sha256sum" "2477f98d66023a4cd59e7b8cca53dae1c8d2383979534e66348183f40b29d775"
+    )
+    "cdt_download" (dict
+        "description" "Kalambo CRD CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8440XP/cdt/sc8440xp-crd.zip"
+        "name" "kalambo-crd_cdt"
+        "filename" "kalambo-crd_cdt.zip"
+        "sha256sum" "b229f339eb221f295fca66461a87e362505ecbb7e44f1d3b38a8a9fa4a244b71"
+    )
+    "cdt_filename" "CRD/cdt_mahua_crd_0.1.0.bin"
+    "dtb" "qcom/kalambo-crd.dtb"
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
@@ -495,7 +518,12 @@ actions:
     chroot: false
     command: |
       set -eux
-      # work dir that will be thrown away
+
+      # When running with --disable-fakemachine the cwd of the run action is
+      # set to $ARTIFACTDIR. Use $ROOTDIR instead, which is inside the
+      # temporary scratch directory debos creates and removes at the end of
+      # the build.
+      cd "${ROOTDIR}"
       mkdir -v build
 
       # mirror template variables in shell variables to keep the action body
@@ -732,6 +760,7 @@ actions:
                   -or -name '*.melf' \
                   -or -name '*.fv' \
                   -or -name '*.mbn' \
+                  -or -name 'qsahara_device_programmer.xml' \
               \) \
               -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
 
@@ -818,9 +847,6 @@ actions:
                       '{}' \;
               done
       done
-
-      # cleanup
-      rm -rf build
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause

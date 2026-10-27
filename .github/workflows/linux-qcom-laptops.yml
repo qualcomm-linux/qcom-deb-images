@@ -1,10 +1,8 @@
 name: qcom-laptops linux build
 
 on:
-  # run daily at 7:00am, once the qcom-next build (0:30am) and the "Build"
-  # workflow chained onto it have submitted their LAVA jobs
   schedule:
-    - cron: '00 7 * * *'
+    - cron: '00 3 * * *'
   # allow manual runs
   workflow_dispatch:
 
@@ -22,6 +20,7 @@ jobs:
       github.ref == 'refs/heads/main')
     uses: $/.github/workflows/linux.yml
     permissions:
+      actions: read
       checks: write
       contents: read
       packages: read
@@ -29,6 +28,9 @@ jobs:
     with:
       kernel_name: qcom-laptops
       build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel --ref qcom-laptops'
+      overlays: 'dtb-loader'
       suites: '["forky"]'
+      variant: gnome
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}

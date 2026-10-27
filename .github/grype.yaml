@@ -1,0 +1,20 @@
+# Grype configuration for the vulnerability scan, see the security-tracker branch
+#
+# Grype already ignores the findings of not_affected and fixed statements;
+# these rules only make it record the justification of not_affected ones
+ignore:
+  - vex-status: not_affected
+    vex-justification: component_not_present
+  - vex-status: not_affected
+    vex-justification: vulnerable_code_not_present
+  - vex-status: not_affected
+    vex-justification: vulnerable_code_not_in_execute_path
+  - vex-status: not_affected
+    vex-justification: vulnerable_code_cannot_be_controlled_by_adversary
+  - vex-status: not_affected
+    vex-justification: inline_mitigations_already_exist
+# our own affected and under_investigation statements win over Grype's default
+# ignore rules (e.g. for kernel headers)
+vex-add:
+  - affected
+  - under_investigation

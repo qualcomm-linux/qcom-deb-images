@@ -31,10 +31,10 @@ on:
           Name of the image variant to build (e.g. gnome); it selects
           which packages are installed in the image and is appended to the
           name of every published artifact, so that variants of the same
-          suite don't overwrite each other. Empty or "default" currently
-          builds the xfce image.
+          suite don't overwrite each other, except for "console" which
+          is not appended.
         type: string
-        default: default
+        default: console
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -65,31 +65,27 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  # TODO: empty and "default" map to xfce for now, to keep today's
-  # unsuffixed artifacts unchanged; a follow-up PR switches the default to
-  # console.
   DEBOS_EXTRA_ARGS: >-
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
-    -t variant:${{ (!inputs.variant || inputs.variant == 'default') && 'xfce' || inputs.variant }}
+    -t variant:${{ inputs.variant || 'console' }}
     ${{ inputs.debos_extra_args }}
   # Filename prefix for all published artifacts:
   # "<suite>[-<variant>][-<profile>]".
   #
-  # The variant and profile are omitted from the filename when "default".
+  # The variant is omitted from the filename when "console" and the profile
+  # when "default".
   ARTIFACT_PREFIX: >-
     ${{ format(
       '{0}{1}{2}',
       inputs.suite,
-      (inputs.variant && inputs.variant != 'default') && format('-{0}', inputs.variant) || '',
+      (inputs.variant && inputs.variant != 'console') && format('-{0}', inputs.variant) || '',
       (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '')
     }}
 
 jobs:
   build-debos:
-    name: >-
-      Build and upload debos recipes
-      (${{ (inputs.variant && inputs.variant != 'default') && format('{0}, {1}', inputs.suite, inputs.variant) || inputs.suite }})
+    name: Build and upload images
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -121,7 +117,7 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz
 
       - name: Setup local APT repo
         run: |
@@ -213,15 +209,15 @@ jobs:
           dir="debos-artifacts"
           mkdir -v "${dir}"
           # compress output files directly into the staging directory
-          gzip -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
-          gzip -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
-          gzip -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
+          pigz -c rootfs.tar >"${dir}/${ARTIFACT_PREFIX}-rootfs.tar.gz"
+          pigz -c disk-ufs.img >"${dir}/${ARTIFACT_PREFIX}-disk-ufs.img.gz"
+          pigz -c disk-sdcard.img >"${dir}/${ARTIFACT_PREFIX}-disk-sdcard.img.gz"
           cp -av dtbs.tar.gz "${dir}/${ARTIFACT_PREFIX}-dtbs.tar.gz"
           # publish the unstripped vmlinux of the kernel installed in the image
           # to facilitate debugging oops/panic backtraces; absent when the
           # installed kernel has no -dbg package.
           if [ -f vmlinux ]; then
-              gzip -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
+              pigz -c vmlinux >"${dir}/${ARTIFACT_PREFIX}-vmlinux.gz"
           fi
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
@@ -245,7 +241,7 @@ jobs:
       # updated via Dependabot.
       - name: Install Syft
         id: syft
-        uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
       - name: Generate SBOMs with Syft
         env:
@@ -273,68 +269,15 @@ jobs:
               --rootfs rootfs rootfs-sbom.syft.json |
                   tee rootfs-sbom.syft-license-summary.csv.txt
 
-      # Use the "download-grype" sub-action to install Grype and keep it
-      # updated via Dependabot.
-      - name: Install Grype
-        id: grype
-        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
-
-      # the vulnerability database is downloaded separately from the scan so
-      # that a transient download failure is reported as its own step, and so
-      # the database metadata (built date, schema) shows up in the logs; it also
-      # lists the data providers, which is where the Debian Security Tracker
-      # data comes from (provider "debian")
-      - name: Update Grype vulnerability database
-        env:
-          GRYPE: ${{ steps.grype.outputs.cmd }}
+      # one archive per image, named like the images it describes, e.g.
+      # trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the SBOMs in
+      # all formats and the license summary
+      - name: Pack SBOMs for publishing
         run: |
           set -ux
-          "$GRYPE" --version
-          "$GRYPE" db update -v
-          "$GRYPE" db status
-          "$GRYPE" db providers
-
-      # scan the SBOM generated above by Syft rather than the rootfs directory:
-      # it's much faster and it guarantees both reports describe exactly the
-      # same set of packages
-      #
-      # the distro is not overridden with --distro: the SBOM already records the
-      # Debian release from the rootfs' os-release, and that is what Grype needs
-      # to select the Debian provider's data. passing a codename Grype doesn't
-      # map to a release (e.g. forky while it's still testing) would silently
-      # match nothing at all
-      #
-      # --by-cve reports CVE identifiers instead of Debian-specific DSA/DLA ids,
-      # which is what downstream tooling and reports expect
-      #
-      # no --fail-on: a Debian image always carries known unfixed CVEs, so
-      # failing the build on severity would make every build red; the reports
-      # are published as artifacts for review instead
-      - name: Scan SBOM for vulnerabilities with Grype
-        env:
-          GRYPE: ${{ steps.grype.outputs.cmd }}
-        run: |
-          set -ux
-          "$GRYPE" \
-              -o json=rootfs-vulns.grype.json \
-              -o table=rootfs-vulns.grype.txt \
-              -o cyclonedx-json=rootfs-vulns.grype.cyclonedx.json \
-              -o sarif=rootfs-vulns.grype.sarif \
-              --by-cve \
-              --sort-by severity \
-              -v \
-              sbom:rootfs-sbom.syft.json
-          # every -o above writes to a file, so echo the table to the log too
-          cat rootfs-vulns.grype.txt
-
-      - name: Stage SBOMs and Vulnerability report for publishing
-        run: |
-          set -ux
-          dir="sboms"
           mkdir -v sboms
-          for f in rootfs-sbom.* rootfs-vulns.*; do
-              gzip -c "$f" >"${dir}/${ARTIFACT_PREFIX}-${f}.gz"
-          done
+          tar -cv --use-compress-program=pigz \
+              -f "sboms/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
 
       - name: Upload SBOMs as private artifacts
         uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
@@ -345,6 +288,20 @@ jobs:
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
+      # the VEX coverage check and the vulnerability scan run once for all the
+      # images of the calling workflow run, in sbom-compliance-scan.yml, from
+      # the SBOM archive of each image; it's uploaded as is rather than zipped,
+      # so the artifact is named after the file. overwrite the artifact of an
+      # earlier attempt when the job is re-run, which looks it up by name, so
+      # give the file name as name as well
+      - name: Upload SBOMs for sbom-compliance-scan.yml
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
+          path: sboms/${{ env.ARTIFACT_PREFIX }}-sbom.tar.gz
+          archive: false
+          overwrite: true
+
       - name: "Print output"
         env:
           build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
@@ -354,13 +311,8 @@ jobs:
           echo "${build_url}" > build_url
           echo "## Download URL" >> $GITHUB_STEP_SUMMARY
           echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
-          # append the Grype summary after the download link, so the link stays
-          # at the top of the job summary
-          scripts/grype-vulnerability-summary.py rootfs-vulns.grype.json \
-              --sbom rootfs-sbom.syft.json \
-              >> $GITHUB_STEP_SUMMARY
       - name: Upload build URL
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build_url
           path: build_url

@@ -28,10 +28,10 @@ on:
         required: true
         type: string
       variant:
-        description: Image variant (e.g. weston-multimedia), 'default' for none
+        description: Image variant (e.g. weston-multimedia); 'console' has no suffix
         required: false
         type: string
-        default: default
+        default: console
       kernel:
         description: Kernel flavour in the image (e.g. qcom-next)
         required: true
@@ -79,11 +79,11 @@ permissions: {}
 env:
   # the build variant, used to name artifacts and to tell the results of one
   # (kernel, suite, variant) combination from another within the same run
-  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+  VARIANT: ${{ inputs.kernel }}-${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
-  LAVA_TEST_PLANS_REF: 2ce8726dca093afbce76a9cea477491545bfc477
+  LAVA_TEST_PLANS_REF: 1e0eb3f02721665e60a5c771387aa2e7a8bbc66a
 
 jobs:
   prepare-boot-jobs:
@@ -116,7 +116,7 @@ jobs:
 
       - name: Render boot jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@2ce8726dca093afbce76a9cea477491545bfc477 # master
+        uses: qualcomm-linux/lava-test-plans@1e0eb3f02721665e60a5c771387aa2e7a8bbc66a # master
         with:
           machines: ${{ inputs.devices }}
           build_url: ${{ inputs.url }}
@@ -133,7 +133,7 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -157,7 +157,7 @@ jobs:
     # one red board must not stop the others; the failure is reported through
     # the summary and the JUnit results instead
     continue-on-error: true
-    name: Boot ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Boot ${{ matrix.target.name }}
     permissions:
       contents: read
     strategy:
@@ -165,7 +165,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare-boot-jobs.outputs.jobmatrix) }}
     steps:
       - name: Download job templates
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.prepare-boot-jobs.outputs.artifact_id }}
 
@@ -174,7 +174,7 @@ jobs:
         # while in the LAVA queue as there is a limited number of devices
         timeout-minutes: 120
         id: submit
-        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
+        uses: foundriesio/lava-action@2392ee48130c6d99c97bb91cddb46d1fcde43f3e # v14
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
@@ -272,7 +272,7 @@ jobs:
 
       - name: Render pre-merge jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@2ce8726dca093afbce76a9cea477491545bfc477 # master
+        uses: qualcomm-linux/lava-test-plans@1e0eb3f02721665e60a5c771387aa2e7a8bbc66a # master
         with:
           machines: ${{ needs.boot-job-result.outputs.booted_devices }}
           build_url: ${{ inputs.url }}
@@ -289,7 +289,7 @@ jobs:
           variables: |
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
-            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'default' && format('-{0}', inputs.variant) || '' }}
+            DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -311,7 +311,7 @@ jobs:
     needs: prepare-premerge-jobs
     runs-on: ubuntu-latest
     continue-on-error: true
-    name: Pre-merge ${{ matrix.target.name }} (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Pre-merge ${{ matrix.target.name }}
     permissions:
       contents: read
     strategy:
@@ -319,13 +319,13 @@ jobs:
       matrix: ${{ fromJson(needs.prepare-premerge-jobs.outputs.jobmatrix) }}
     steps:
       - name: Download job templates
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.prepare-premerge-jobs.outputs.artifact_id }}
 
       - name: Submit ${{ matrix.target.name }}
         timeout-minutes: 120
-        uses: foundriesio/lava-action@3d40f621e0cd5acec50f557783b755f278ca892d # v13
+        uses: foundriesio/lava-action@2392ee48130c6d99c97bb91cddb46d1fcde43f3e # v14
         with:
           lava_token: ${{ secrets.LAVATOKEN }}
           lava_url: 'lava.infra.foundries.io'
@@ -339,7 +339,7 @@ jobs:
           test_job_file_name_prefix: ${{ env.VARIANT }}-
 
   publish-test-summary:
-    name: Publish summary (${{ inputs.kernel }} ${{ inputs.suite }})
+    name: Publish summary
     needs: [boot-job-result, submit-premerge-job]
     if: always() && needs.boot-job-result.result == 'success'
     runs-on: ubuntu-latest
@@ -351,8 +351,7 @@ jobs:
       summary_id: ${{ steps.generate-summary.outputs.artifact_id }}
     steps:
       # the known failures list the summary reads is a file in this
-      # repository, so it has to be checked out. The action itself is
-      # referenced as $/ and is fetched by the runner, not from the workspace.
+      # repository, so it has to be checked out
       - name: Clone repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -360,9 +359,7 @@ jobs:
 
       - name: Generate summary
         id: generate-summary
-        # local action pinned to the running workflow's commit
-        # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
-        uses: $/.github/actions/test-job-summary
+        uses: qualcomm/qcom-reusable-workflows/.github/actions/test-job-summary@940a2b8f218dd8fea38cec2ec34776d98f039f69 # v2.0.14
         with:
           # the job detail artifacts are attached to this run, not to the build
           build_id: ${{ github.run_id }}
@@ -374,7 +371,7 @@ jobs:
           kernel: ${{ inputs.kernel }}
 
       - name: Download summary
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ steps.generate-summary.outputs.artifact_id }}
 
