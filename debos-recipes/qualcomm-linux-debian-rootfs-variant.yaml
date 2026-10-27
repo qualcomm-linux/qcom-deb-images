@@ -259,6 +259,31 @@ actions:
       # AudioReach diagnostics and testing
       - audioreach-graphmgr-utils
       - tinyalsa
+
+  # The module packages do not include the runtime configuration which is usually
+  # provided by the *-dkms packages (e.g. modprobe.d, udev rules and initramfs
+  # hooks). Extract these files directly from the *-dkms packages, excluding
+  # the module sources and other unnecessary files.
+  - action: run
+    description: Install out-of-tree kernel driver configuration
+    chroot: true
+    command: |
+      set -eux
+      tmp="$(mktemp -d)"
+      # let APT download as its unprivileged _apt user
+      chown _apt "$tmp"
+      cd "$tmp"
+      apt-get download kgsl-dkms camx-dkms iris-vpu-dkms audioreach-dkms
+      for deb in ./*.deb; do
+        echo "Extracting runtime configuration from $(dpkg-deb --field "$deb" Package):"
+        dpkg-deb --fsys-tarfile "$deb" | \
+          tar -xv --no-overwrite-dir -C / \
+            --exclude=./usr/src \
+            --exclude=./usr/share/doc \
+            --exclude=./usr/share/lintian
+      done
+      cd /
+      rm -rf "$tmp"
 {{- end }}
 
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
