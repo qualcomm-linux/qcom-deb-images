@@ -43,6 +43,10 @@ Pull requests targeting `security-tracker` validate the data before merging.
 The SBOM compliance scan also uses the tracker's `vex-check.py --coverage-only`
 to report missing binaries and outdated version pins against the image SBOMs.
 These warnings appear in the job log and summary; they do not fail the build.
+
+The branch also holds OSV advisories for the packages the Debian security
+tracker doesn't cover, which the scan reports too, see
+[docs/workflows.md](docs/workflows.md#qli-advisories).
 The SBOM compliance scan can also be run manually, to rescan the SBOMs of an
 earlier workflow run, e.g. after updating the VEX data.
 The SBOMs and vulnerability reports of the latest build of each image are also

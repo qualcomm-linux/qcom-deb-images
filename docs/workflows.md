@@ -56,7 +56,8 @@ runner and without LAVA jobs, so it is not part of the sequence above.
 the license summary, into a `<prefix>-sbom.tar.gz` archive, which is published
 next to the images and uploaded as an artifact of the same name.
 `sbom-compliance-scan.yml` then checks the VEX coverage of all the SBOMs of a
-workflow run and scans them for vulnerabilities with Grype, in a single job.
+workflow run and scans them for vulnerabilities with Grype, in a single job,
+including the QLI advisories, see below.
 It packs the reports and the VEX coverage warnings of each image into a
 `<prefix>-vulns.tar.gz` archive, which is published next to the images too and
 uploaded in a `vulns` artifact. It installs the Grype vulnerability database
@@ -70,6 +71,24 @@ tests the images of successful "Build on PR" runs, skips them.
 It can also be run manually with the ID of an earlier workflow run, to rescan
 the SBOMs of that run, e.g. after updating the VEX data; the reports are then
 published under the manual run.
+
+### QLI advisories
+
+Grype only knows the vulnerabilities of the data sources of its database, which
+for Debian packages is the Debian security-tracker, so it can't report those
+of packages the tracker doesn't cover, e.g. from the QLI overlay. These are
+recorded as OSV advisories in `advisories/` on the QLI security-tracker instead,
+see its `advisories/README.md`.
+
+Grype can't load extra vulnerability data, so before scanning,
+`sbom-compliance-scan.yml` adds the advisories to the database installed for
+the job (not to the cache on EFS), as another Debian data source, provider
+`qli`, with `scripts/grype-db-add-advisories.py`. Grype then matches them like
+the Debian security-tracker's data and reports their findings in its regular
+reports, under the `qli:distro:debian:<release>` namespace, with the advisory,
+at the commit of the QLI security-tracker used, as their data source; the VEX
+statements apply to them too. Warnings, e.g. about advisories the Debian
+security-tracker covers by now, are listed once at the end of the job summary.
 
 ### Latest compliance data
 
@@ -93,7 +112,8 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
   `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
 * `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
 * `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
-  `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports
+  `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
+  findings from the QLI advisories
 * `rootfs-vex-warnings.txt.gz`: the VEX coverage warnings
 
 along with an uncompressed `manifest.json` giving the build the data describes
