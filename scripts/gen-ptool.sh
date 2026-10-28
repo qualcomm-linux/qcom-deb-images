@@ -27,6 +27,12 @@ DTB_TYPE="${6:-combineddtb}"
 # the multidtb dtb type
 SOC="${7:-}"
 
+# board name is the first path component of PLATFORM (e.g. "maili-mtp" from
+# "maili-mtp/ufs"); migrated boards live as platforms/boards/<board>.yaml and
+# the per-storage layout is selected by DISK_TYPE, which matches the YAML
+# storage "id" (ufs/emmc/nvme/spinor). Legacy boards keep partitions.conf.
+BOARD="${PLATFORM%%/*}"
+BOARD_YAML="${QCOM_PTOOL}/platforms/boards/${BOARD}.yaml"
 PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
 
 case "$DISK_TYPE" in
@@ -87,10 +93,23 @@ partition_map="${partition_map},rootfs=${rootfs}"
 # without a pip install
 export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
 
-# generate ptool-partitions.xml from partitions.conf
-python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
-    -o ptool-partitions.xml \
-    -m "${partition_map}"
+# generate ptool-partitions.xml, from the migrated YAML board file if one
+# exists, else from the legacy per-platform partitions.conf. In --board mode
+# the storage is picked by id (== DISK_TYPE) and written to <dir>/<id>/; we
+# then hoist that file to the flat ptool-partitions.xml the rest of the flow
+# expects.
+if [ -e "${BOARD_YAML}" ]; then
+    ptool_tmp="$(mktemp -d)"
+    python3 -m qcom_ptool.gen_partition --board "${BOARD_YAML}" \
+        -C "${ptool_tmp}" \
+        -m "${partition_map}"
+    cp "${ptool_tmp}/${DISK_TYPE}/partitions.xml" ptool-partitions.xml
+    rm -rf "${ptool_tmp}"
+else
+    python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
+        -o ptool-partitions.xml \
+        -m "${partition_map}"
+fi
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
