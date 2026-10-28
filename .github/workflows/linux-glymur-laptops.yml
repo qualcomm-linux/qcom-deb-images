@@ -1,0 +1,40 @@
+# short-lived: builds the topic/glymur-laptops branch until it is merged into
+# qcom-laptops, then this workflow can be removed along with its README badge,
+# lava-boards.yml entry, known-failures entries and docs/workflows.md schedule
+# entry
+name: glymur-laptops linux build
+
+on:
+  schedule:
+    - cron: '00 11 * * *'
+  # allow manual runs
+  workflow_dispatch:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  build:
+    # don't run cron from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    uses: $/.github/workflows/linux.yml
+    permissions:
+      actions: read
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    with:
+      kernel_name: glymur-laptops
+      build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel --ref topic/glymur-laptops'
+      overlays: 'dtb-loader'
+      suites: '["forky"]'
+      variant: gnome
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
