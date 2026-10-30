@@ -235,6 +235,8 @@ if [ "$SUITE" = "trixie" ]; then
         config/archives/firmware.pref.chroot
 fi
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
+overlay defaults/automated-install-preseed.cfg \
+    config/includes.binary/automated-install-preseed.cfg
 
 # The target's post-install step, which runs the postinst.d parts.
 overlay postinst/postinst.sh config/includes.binary/qli/postinst.sh
