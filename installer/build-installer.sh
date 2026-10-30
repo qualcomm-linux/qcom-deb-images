@@ -5,16 +5,21 @@
 set -euo pipefail
 
 ARCH=arm64
+VARIANT="gnome"
 SUITE="trixie"
 KERNEL_NAME=""
 BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch arm64] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch arm64] [--variant console|xfce|gnome] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --arch)
             ARCH="${2:?Missing value for --arch}"
+            shift 2
+            ;;
+        --variant)
+            VARIANT="${2:?Missing value for --variant}"
             shift 2
             ;;
         --suite)
@@ -52,6 +57,21 @@ case "$ARCH" in
         ;;
 esac
 
+# The variants match the rootfs recipes'. All of them install the base
+# system from the pool on the ISO, with the desktop's task in the pool
+# too (so it can be installed offline) and ticked by default. console has
+# no desktop in the pool and ticks none, but tasksel can still fetch one
+# from the network mirror.
+DESKTOP=""
+case "$VARIANT" in
+    console) ;;
+    xfce|gnome) DESKTOP="$VARIANT" ;;
+    *)
+        echo "$USAGE" >&2
+        exit 1
+        ;;
+esac
+
 if [ "$(id -u)" -ne 0 ]; then
     echo "Run this script as root (sudo $0 ...)" >&2
     exit 1
@@ -64,9 +84,12 @@ fi
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INSTALLER_DIR=$SCRIPT_DIR
-# Each suite has its own live-build tree in BUILD_DIR, so e.g. trixie and
-# forky don't collide.
-BUILD_DIR="$INSTALLER_DIR/build/$ARCH/$SUITE"
+# Each variant has its own live-build tree (including firmware/) in
+# BUILD_DIR under build/$ARCH/$SUITE/, so different variants can build in
+# parallel. Suites don't share trees, so e.g. trixie and forky don't
+# collide.
+SUITE_DIR="$INSTALLER_DIR/build/$ARCH/$SUITE"
+BUILD_DIR="$SUITE_DIR/$VARIANT"
 
 # The build only runs once in a tree, so refuse to reuse one.
 if [ -e "$BUILD_DIR" ]; then
@@ -74,7 +97,7 @@ if [ -e "$BUILD_DIR" ]; then
     exit 1
 fi
 
-mkdir -p "$(dirname "$BUILD_DIR")"
+mkdir -p "$SUITE_DIR"
 mkdir "$BUILD_DIR"
 CALLER_DIR=$PWD
 cd "$BUILD_DIR"
@@ -220,17 +243,25 @@ overlay dtb-loader/hooks/0100-dtb-loader.hook.binary \
 overlay dtb-loader/dtb-loader.postinst.sh \
     config/includes.binary/qli/postinst.d/dtb-loader.postinst.sh
 
+# The desktop task is only offered when the pool has it.
+if [ -n "$DESKTOP" ]; then
+    overlay "defaults/package-lists/$DESKTOP.list.binary" \
+        "config/package-lists/$DESKTOP.list.binary"
+fi
+
 # For ISOs, live-build's config/preseed/ only ends up as /install/preseed.cfg
 # on the ISO, which d-i ignores without a file= boot argument. So
 # replace-di-kernel.sh puts the preseed in the initrd as /preseed.cfg
 # instead, which d-i always loads, before anything else runs. (Not via
 # config/includes.installer: live-build unpacks the initrd without fakeroot,
-# which can't mknod in a container.)
+# which can't mknod in a container.) All of the variants use the same
+# preseeds, except for the desktop tasksel ticks by default.
 PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/network-mirror.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/no-root-login.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/no-swap-prompt.cfg" \
+    "$INSTALLER_DIR/live-build/defaults/preseed/tasksel-${DESKTOP:-console}.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
     "$INSTALLER_DIR/live-build/postinst/preseed/postinst.cfg" \
     > "$PRESEED"
@@ -252,14 +283,14 @@ for overlay in dtb-loader qcom-adsp; do
         "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay/"
 done
 
-# Add the kernel name, suite and build ID to the boot menu's title,
-# e.g. "qcom-deb-images installer (qcom-laptops forky 123456789-1)";
+# Add the kernel name, suite, variant and build ID to the boot menu's
+# title, e.g. "qcom-deb-images installer (qcom-laptops forky gnome 123456789-1)";
 # the kernel name and build ID are left out when not given.
 TITLE=""
 if [ -n "$KERNEL_NAME" ]; then
     TITLE+="$KERNEL_NAME "
 fi
-TITLE+="$SUITE"
+TITLE+="$SUITE $VARIANT"
 if [ -n "$BUILD_ID" ]; then
     TITLE+=" $BUILD_ID"
 fi

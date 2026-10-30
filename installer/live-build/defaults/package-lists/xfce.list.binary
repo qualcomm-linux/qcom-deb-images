@@ -1,0 +1,5 @@
+# tasksel's Xfce task for the ISO's pool, so it can be installed offline
+# (see defaults/package-lists/installer-pool.list.binary). build-installer.sh only
+# adds this to the xfce and live-xfce variants; the console variant
+# installs a desktop from the network mirror instead.
+task-xfce-desktop
