@@ -204,11 +204,13 @@ overlay bootloader/hooks/0110-grub-menu.hook.binary \
 overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
     initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
 
-# The DTB loader, on the stick.
+# The DTB loader, on the stick and on the target.
 overlay dtb-loader/package-lists/dtb-loader.list.binary \
     config/package-lists/dtb-loader.list.binary
 overlay dtb-loader/hooks/0100-dtb-loader.hook.binary \
     config/hooks/normal/0100-dtb-loader.hook.binary
+overlay dtb-loader/dtb-loader.postinst.sh \
+    config/includes.binary/qli/postinst.d/dtb-loader.postinst.sh
 
 # For ISOs, live-build's config/preseed/ only ends up as /install/preseed.cfg
 # on the ISO, which d-i ignores without a file= boot argument. So
@@ -221,6 +223,16 @@ cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
     "$INSTALLER_DIR/live-build/postinst/preseed/postinst.cfg" \
     > "$PRESEED"
+
+# The postinst.d parts install files no package ships from these
+# rootfs overlays, so ship them on the image as /qli/overlays/<name>/, laid
+# out like the target filesystem.
+DEBOS_OVERLAYS="$INSTALLER_DIR/../debos-recipes/overlays"
+for overlay in dtb-loader; do
+    mkdir -p "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay"
+    cp -a "$DEBOS_OVERLAYS/$overlay/." \
+        "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay/"
+done
 
 # Add the kernel name, suite and build ID to the boot menu's title,
 # e.g. "qcom-deb-images installer (qcom-laptops forky 123456789-1)";
