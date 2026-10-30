@@ -1,0 +1,65 @@
+# Without a desktop-image, GRUB's gfxmenu init_background() passes a NULL
+# bitmap to grub_video_bitmap_create_scaled(), leaving "null src bitmap" in
+# grub_errno, which is then printed later, e.g. when entering a submenu.
+# Work around it with a tiny solid image in desktop-color, stretched to fill
+# the screen...
+
+desktop-image: "bg.png"
+desktop-color: "#111827"
+
+title-color: "#ffffff"
+title-font: "Unifont Regular 16"
+title-text: "qcom-deb-images installer"
+message-font: "Unifont Regular 16"
+terminal-font: "Unifont Regular 16"
+
+# Once an entry is chosen, GRUB draws its terminal (for linux/initrd output)
+# as a small black box in the middle of the splash by default. Make it cover
+# the whole screen instead.
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+terminal-border: "0"
+
+# Help bar at the bottom of the screen.
++ label {
+        top = 100%-50
+        left = 0
+        width = 100%
+        height = 20
+        text = "@KEYMAP_SHORT@"
+        align = "center"
+        color = "#9ca3af"
+	font = "Unifont Regular 16"
+}
+
++ boot_menu {
+        left = 10%
+        width = 80%
+        top = 38%
+        height = 40%
+        item_color = "#d1d5db"
+	item_font = "Unifont Regular 16"
+        selected_item_color = "#00a9e0"
+	selected_item_font = "Unifont Regular 16"
+        item_height = 16
+        item_padding = 0
+        item_spacing = 4
+	icon_width = 0
+	item_icon_space = 0
+}
+
++ progress_bar {
+        id = "__timeout__"
+        left = 15%
+        top = 100%-80
+        height = 16
+        width = 70%
+        font = "Unifont Regular 16"
+        text_color = "#000000"
+        fg_color = "#ffffff"
+        bg_color = "#a8a8a8"
+        border_color = "#ffffff"
+        text = "@TIMEOUT_NOTIFICATION_LONG@"
+}
