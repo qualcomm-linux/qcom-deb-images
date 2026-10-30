@@ -204,6 +204,14 @@ overlay bootloader/hooks/0110-grub-menu.hook.binary \
 overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
     initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
 
+# The ADSP reset, in the installer and on the target.
+overlay qcom-adsp/qcom-adsp.postinst.sh \
+    config/includes.binary/qli/postinst.d/qcom-adsp.postinst.sh
+overlay qcom-adsp/initrd/usr/lib/debian-installer-startup.d/S03qcom-adsp \
+    initrd-overlay/usr/lib/debian-installer-startup.d/S03qcom-adsp
+overlay qcom-adsp/initrd/usr/lib/modprobe.d/qcom-adsp.conf \
+    initrd-overlay/usr/lib/modprobe.d/qcom-adsp.conf
+
 # The DTB loader, on the stick and on the target.
 overlay dtb-loader/package-lists/dtb-loader.list.binary \
     config/package-lists/dtb-loader.list.binary
@@ -228,7 +236,7 @@ cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
 # rootfs overlays, so ship them on the image as /qli/overlays/<name>/, laid
 # out like the target filesystem.
 DEBOS_OVERLAYS="$INSTALLER_DIR/../debos-recipes/overlays"
-for overlay in dtb-loader; do
+for overlay in dtb-loader qcom-adsp; do
     mkdir -p "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay"
     cp -a "$DEBOS_OVERLAYS/$overlay/." \
         "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay/"
