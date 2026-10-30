@@ -1,0 +1,183 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# The UEFI firmware of Qualcomm boards loads the device tree it passes to the
+# kernel from the dtb_a/dtb_b partitions. These are filled with the device
+# trees of the kernel in the image when the board is flashed, so regenerate
+# them from the device trees of the newest installed kernel, as to keep them
+# in sync after a kernel upgrade or removal.
+#
+# The partitions hold a FAT with a qcom-deb-images-dtb.conf marker, written by
+# gen-dtb-image.sh at flash time, recording the board device tree or SoC used
+# to generate them. Partitions without a marker are left alone.
+#
+# usage: qcom-dtb-update [KERNEL-VERSION]
+#        qcom-dtb-update --devicetree
+#
+# When KERNEL-VERSION is passed, e.g. from a kernel postinst hook, the
+# partitions are only updated when it is the newest installed kernel.
+#
+# With --devicetree, have systemd-boot load the board device tree recorded in
+# the partitions' marker instead, by writing it to /etc/kernel/devicetree and
+# reinstalling the newest kernel; this is only possible for combineddtb
+# partitions, as multidtb ones only record the SoC.
+#
+# depends: mtools, dosfstools, u-boot-tools, device-tree-compiler, bash,
+# systemd (kernel-install);
+# gen-dtb-image.sh and qcom-dtb-metadata as installed by the dtb-sync overlay
+
+set -eu
+
+PROG="${0##*/}"
+
+GEN_DTB_IMAGE="/usr/libexec/qcom-deb-images/gen-dtb-image.sh"
+# list of dtb partitions (block devices or FAT images) to update
+QCOM_DTB_PARTS="${QCOM_DTB_PARTS:-/dev/disk/by-partlabel/dtb_a /dev/disk/by-partlabel/dtb_b}"
+# root of the installed kernels' device trees
+QCOM_DTB_ROOT="${QCOM_DTB_ROOT:-/usr/lib}"
+# board device tree used by kernel-install for systemd-boot
+QCOM_DTB_DEVICETREE="${QCOM_DTB_DEVICETREE:-/etc/kernel/devicetree}"
+
+# mtools checks the FAT geometry against the device's, skip this as the
+# partitions are larger than the FAT they hold
+export MTOOLS_SKIP_CHECK=1
+
+warn() {
+    echo "$PROG: warning: $*" >&2
+}
+
+fatal() {
+    echo "$PROG: error: $*" >&2
+    exit 1
+}
+
+devicetree=false
+if [ "${1:-}" = "--devicetree" ]; then
+    devicetree=true
+    shift
+fi
+
+# never touch the dtb partitions of the host when running in a chroot or a
+# container, e.g. while building an image
+if systemd-detect-virt -q --chroot || systemd-detect-virt -q --container; then
+    echo "$PROG: running in a chroot or a container, skipping"
+    exit 0
+fi
+
+version="$(linux-version list | linux-version sort --reverse | head -1)"
+if [ -z "${version}" ]; then
+    warn "no kernel installed, not updating dtb partitions"
+    exit 0
+fi
+if [ $# -ge 1 ] && [ "$1" != "${version}" ]; then
+    echo "$PROG: $1 is not the newest kernel (${version}), skipping"
+    exit 0
+fi
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+
+# read_marker PART: set type, dtb and soc from the marker in PART; fails when
+# PART has no marker
+read_marker() {
+    marker="${tmpdir}/marker.conf"
+    rm -f "${marker}"
+    mtype -i "$1" ::/qcom-deb-images-dtb.conf >"${marker}" 2>/dev/null ||
+        return 1
+
+    type=""
+    dtb=""
+    soc=""
+    while IFS="=" read -r key value; do
+        case "${key}" in
+            type) type="${value}" ;;
+            dtb) dtb="${value}" ;;
+            soc) soc="${value}" ;;
+        esac
+    done <"${marker}"
+}
+
+# set_devicetree: point systemd-boot at the board device tree recorded in the
+# first dtb partition with a marker
+set_devicetree() {
+    for part in ${QCOM_DTB_PARTS}; do
+        [ -e "${part}" ] || continue
+        read_marker "${part}" || continue
+        case "${type}" in
+            combineddtb)
+                [ -n "${dtb}" ] || fatal "no device tree in the marker of ${part}"
+                ;;
+            multidtb)
+                fatal "${part} holds a multidtb image for SoC ${soc}, which" \
+                    "doesn't record the board device tree; write it to" \
+                    "/etc/kernel/devicetree by hand, e.g. qcom/BOARD.dtb"
+                ;;
+            *)
+                fatal "unknown dtb image type '${type}' in ${part}"
+                ;;
+        esac
+        echo "$PROG: setting ${QCOM_DTB_DEVICETREE} to ${dtb} from ${part}"
+        mkdir -p "${QCOM_DTB_DEVICETREE%/*}"
+        echo "${dtb}" >"${QCOM_DTB_DEVICETREE}"
+        kernel-install add "${version}" "/boot/vmlinuz-${version}"
+        return 0
+    done
+    fatal "no dtb partition with a marker found"
+}
+
+if "${devicetree}"; then
+    set_devicetree
+    exit 0
+fi
+
+# update_part PART: regenerate the dtb image in PART for the newest kernel
+update_part() {
+    part="$1"
+    image="${tmpdir}/dtb.bin"
+    files="${tmpdir}/files"
+    rm -rf "${image}" "${files}"
+
+    if ! read_marker "${part}"; then
+        echo "$PROG: no marker in ${part}, skipping"
+        return 0
+    fi
+
+    case "${type}" in
+        combineddtb) set -- --dtb "${dtb}" ;;
+        multidtb) set -- --soc "${soc}" ;;
+        *)
+            warn "unknown dtb image type '${type}' in ${part}"
+            return 1
+            ;;
+    esac
+
+    echo "$PROG: updating ${part} (${type}) for kernel ${version}"
+    if ! "${GEN_DTB_IMAGE}" \
+        --type "${type}" \
+        --dtb-src "${QCOM_DTB_ROOT}/linux-image-${version}" \
+        "$@" \
+        --out "${image}" >"${tmpdir}/log" 2>&1; then
+        cat "${tmpdir}/log" >&2
+        warn "failed to generate the dtb image for ${part}"
+        return 1
+    fi
+
+    # copy the files of the new image over the ones in the partition, keeping
+    # the FAT the partition was flashed with
+    mkdir "${files}"
+    mcopy -n -i "${image}" "::/*" "${files}/"
+    if ! mcopy -o -i "${part}" "${files}"/* ::/; then
+        warn "failed to update ${part}"
+        return 1
+    fi
+    sync
+}
+
+for part in ${QCOM_DTB_PARTS}; do
+    [ -e "${part}" ] || continue
+    update_part "${part}" || warn "${part} left unchanged or incomplete"
+done
+
+# never fail the kernel installation or removal
+exit 0
