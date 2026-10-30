@@ -7,17 +7,18 @@ as any change to them.
 
 ## Schedule
 
-| Time  | Days    | Workflow                       | File                     |
-|-------|---------|--------------------------------|--------------------------|
-| 19:00 | Sunday  | EFS Maintenance                | `efs-maintenance.yml`    |
-| 21:00 | daily   | Build (qcom-next QLI images)   | `build.yml`              |
-| 23:00 | daily   | qcom-7.2 linux build           | `linux-qcom-7.2.yml`     |
-| 01:00 | daily   | arduino linux build            | `linux-arduino.yml`      |
-| 03:00 | daily   | qcom-laptops linux build       | `linux-qcom-laptops.yml` |
-| 05:00 | daily   | linux-next linux build         | `linux-next.yml`         |
-| 07:00 | daily   | Build Debian                   | `build-debian.yml`       |
-| 09:00 | daily   | mainline linux build           | `linux-mainline.yml`     |
-| 11:00 | Monday  | Build U-Boot for RB1           | `u-boot.yml`             |
+| Time  | Days    | Workflow                       | File                       |
+|-------|---------|--------------------------------|----------------------------|
+| 19:00 | Sunday  | EFS Maintenance                | `efs-maintenance.yml`      |
+| 21:00 | daily   | Build (qcom-next QLI images)   | `build.yml`                |
+| 23:00 | daily   | qcom-7.2 linux build           | `linux-qcom-7.2.yml`       |
+| 01:00 | daily   | arduino linux build            | `linux-arduino.yml`        |
+| 03:00 | daily   | qcom-laptops linux build       | `linux-qcom-laptops.yml`   |
+| 05:00 | daily   | linux-next linux build         | `linux-next.yml`           |
+| 07:00 | daily   | Build Debian                   | `build-debian.yml`         |
+| 09:00 | daily   | mainline linux build           | `linux-mainline.yml`       |
+| 11:00 | daily   | glymur laptops linux build     | `linux-glymur-laptops.yml` |
+| 11:00 | Monday  | Build U-Boot for RB1           | `u-boot.yml`               |
 
 `stale-issues.yaml` also runs daily at 01:30, but only on a GitHub-hosted
 runner and without LAVA jobs, so it is not part of the sequence above.
@@ -34,8 +35,8 @@ runner and without LAVA jobs, so it is not part of the sequence above.
   from queuing behind the previous workflows.
 * The rest follow in no particular order. The project-specific kernels
   (arduino, qcom-laptops) come next, then linux-next and Vanilla Debian, which
-  tracks upstream Debian rather than what QLI ships. Mainline is the last daily
-  build.
+  tracks upstream Debian rather than what QLI ships. Mainline follows, then the
+  short-lived glymur-laptops build, which is the last daily build.
 * The weekly U-Boot build runs on Monday after the daily ones. It only starts
   once the daily builds are done with the runners and LAVA, so it doesn't add
   its jobs on top.

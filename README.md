@@ -25,7 +25,7 @@ tuned!
 | Qualcomm Linux | [![QLI images][qli-images-badge]][qli-images] |
 | Debian | [![Debian images][debian-images-badge]][debian-images] |
 | Reference upstream kernels | [![linux-next images][linux-next-badge]][linux-next] [![mainline images][mainline-badge]][mainline] |
-| Project-specific builds | [![arduino images][arduino-badge]][arduino] [![qcom-7.2][qcom-7.2-badge]][qcom-7.2] [![qcom-laptops][qcom-laptops-badge]][qcom-laptops] |
+| Project-specific builds | [![arduino images][arduino-badge]][arduino] [![qcom-7.2][qcom-7.2-badge]][qcom-7.2] [![qcom-laptops][qcom-laptops-badge]][qcom-laptops] [![glymur-laptops][glymur-laptops-badge]][glymur-laptops] |
 
 Every image is flashed onto real boards and tested in the LAVA lab; see
 [docs/testing.md](docs/testing.md) for which boards run which tests and how to
@@ -544,3 +544,5 @@ This project is licensed under the [BSD-3-clause License](https://spdx.org/licen
 [qcom-7.2-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-7.2.yml?label=qcom-7.2&branch=main&event=schedule
 [qcom-laptops]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-qcom-laptops.yml?query=branch%3Amain+event%3Aschedule
 [qcom-laptops-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-qcom-laptops.yml?label=qcom-laptops&branch=main&event=schedule
+[glymur-laptops]: https://github.com/qualcomm-linux/qcom-deb-images/actions/workflows/linux-glymur-laptops.yml?query=branch%3Amain+event%3Aschedule
+[glymur-laptops-badge]: https://img.shields.io/github/actions/workflow/status/qualcomm-linux/qcom-deb-images/linux-glymur-laptops.yml?label=glymur-laptops&branch=main&event=schedule

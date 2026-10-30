@@ -47,6 +47,12 @@ qcom-laptops:
   boot:
     - glymur-crd
 
+glymur-laptops:
+  # the nightly glymur laptops build tests one board; see
+  # linux-glymur-laptops.yml
+  boot:
+    - glymur-crd
+
 arduino:
   # the arduino kernel is only validated on the monza, monaco and imola boards
   boot:
