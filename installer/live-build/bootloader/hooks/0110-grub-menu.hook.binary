@@ -9,7 +9,10 @@
 #
 # Replaces live-build's grub.cfg with our own menu:
 #
-#   - "Graphical installer" - the default.
+#   - "Live system (GNOME|Xfce)" - only when live/filesystem.squashfs
+#     exists, then the default. build-installer.sh puts its kernel and
+#     initrd in live/.
+#   - "Graphical installer" - the default without a live system.
 #   - "Text installer"
 #
 # Every installer entry boots install/vmlinuz (0100-dtb-loader.hook.binary
@@ -45,6 +48,25 @@ done
 # The kernel/kernel-cmdline args, on one line.
 CUSTOM_BOOT_ARGS="$(grep -v '^#' "$CONFIG_DIR/kernel-cmdline" | xargs)"
 
+# The live system (the live variants only), first so it's the default.
+# live-boot finds live/filesystem.squashfs on the stick by itself.
+# 0100-dtb-loader.hook.binary checked there's exactly one live kernel.
+LIVE_ENTRY=""
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    LIVE_KERNEL="${LIVE_KERNELS[0]}"
+    LIVE_INITRD="live/initrd.img-${LIVE_KERNEL#live/vmlinuz-}"
+    [ -f "$LIVE_INITRD" ] || die "$LIVE_INITRD not found"
+    LIVE_DESKTOP="$(cat "$CONFIG_DIR/live-desktop")"
+
+    LIVE_ENTRY="menuentry 'Live system ($LIVE_DESKTOP)' {
+    linux /$LIVE_KERNEL boot=live components $CUSTOM_BOOT_ARGS
+    initrd /$LIVE_INITRD
+}
+
+"
+fi
+
 # live-build's theme.cfg only selects the live-theme when
 # /boot/grub/splash.png exists, which binary_bootloader_splash doesn't
 # create for hdd images; select it here. The theme draws bg.png.
@@ -60,7 +82,7 @@ fi
 set timeout=10
 set default=0
 
-menuentry 'Graphical installer' {
+${LIVE_ENTRY}menuentry 'Graphical installer' {
     linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS
     initrd /install/gtk/initrd.gz
 }

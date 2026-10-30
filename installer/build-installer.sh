@@ -10,7 +10,7 @@ SUITE="trixie"
 KERNEL_NAME=""
 BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch arm64] [--variant console|xfce|gnome] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
+USAGE="Usage: $0 [--arch arm64] [--variant console|xfce|gnome|live-gnome|live-xfce] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -61,11 +61,17 @@ esac
 # system from the pool on the ISO, with the desktop's task in the pool
 # too (so it can be installed offline) and ticked by default. console has
 # no desktop in the pool and ticks none, but tasksel can still fetch one
-# from the network mirror.
+# from the network mirror. The live variants add a live system with that
+# desktop to the boot menu, with the same installer.
 DESKTOP=""
+LIVE=0
 case "$VARIANT" in
     console) ;;
     xfce|gnome) DESKTOP="$VARIANT" ;;
+    live-xfce|live-gnome)
+        DESKTOP="${VARIANT#live-}"
+        LIVE=1
+        ;;
     *)
         echo "$USAGE" >&2
         exit 1
@@ -109,11 +115,16 @@ stage() {
 
 stage "Configure live-build"
 
-# live-build's rootfs stages are skipped, as the installer installs from
-# the pool (see "Skip live-build's rootfs stages" below).
+# Without a live system, live-build's rootfs stages are skipped, as the
+# installer installs from the pool (see "Skip live-build's rootfs stages"
+# below). The live variants build the chroot's filesystem.squashfs.
 #
 # The bootstrap is still cached, in the build tree: installer_debian-installer
 # reuses its packages from cache/packages.bootstrap/ and fails without them.
+#
+# All variants use live-build's cdrom installer: its live installer would copy
+# the live system to the target instead of installing from the pool, so the
+# live variants' installer stays the same as the others'.
 #
 # Don't boot via shim, as the image isn't signed: it boots Debian's signed
 # GRUB directly (0099-grub-efi-install.hook.binary).
@@ -167,6 +178,7 @@ lb config \
     --debian-installer-distribution "$SUITE" \
     --debian-installer-gui true \
     --firmware-binary false \
+    --chroot-filesystem squashfs \
     --cache-stages "bootstrap" \
     --uefi-secure-boot disable \
     --binary-images hdd \
@@ -182,8 +194,15 @@ overlay() {
     cp -a "$INSTALLER_DIR/live-build/$1" "$BUILD_DIR/$2"
 }
 
-# The boot menu's kernel arguments.
+# The boot menu's kernel arguments, and the live system entry's name.
 overlay kernel/kernel-cmdline config/kernel-cmdline
+if [ "$LIVE" = 1 ]; then
+    case "$DESKTOP" in
+        gnome) LIVE_DESKTOP="GNOME" ;;
+        xfce) LIVE_DESKTOP="Xfce" ;;
+    esac
+    echo "$LIVE_DESKTOP" > "$BUILD_DIR/config/live-desktop"
+fi
 
 # Installer defaults: the pool, the udebs and the tasks.
 overlay defaults/hooks/0060-prune-pool.hook.binary \
@@ -202,11 +221,15 @@ if [ "$SUITE" = "trixie" ]; then
 fi
 
 # The firmware, in the pool for the target (see POOL_INCLUDE below) and the
-# installer initrds.
+# installer initrds, and in the live system.
 overlay firmware/package-lists/firmware.list.binary \
     config/package-lists/firmware.list.binary
 overlay firmware/hooks/0040-non-free-firmware.hook.binary \
     config/hooks/normal/0040-non-free-firmware.hook.binary
+if [ "$LIVE" = 1 ]; then
+    overlay firmware/package-lists/firmware.list.binary \
+        config/package-lists/firmware.list.chroot
+fi
 if [ "$SUITE" = "trixie" ]; then
     overlay firmware/archives/firmware.pref.chroot \
         config/archives/firmware.pref.chroot
@@ -249,6 +272,14 @@ if [ -n "$DESKTOP" ]; then
         "config/package-lists/$DESKTOP.list.binary"
 fi
 
+# The live system.
+if [ "$LIVE" = 1 ]; then
+    overlay "live/package-lists/$DESKTOP.list.chroot" \
+        "config/package-lists/$DESKTOP.list.chroot"
+    overlay live/hooks/0050-initramfs.hook.chroot \
+        config/hooks/normal/0050-initramfs.hook.chroot
+fi
+
 # For ISOs, live-build's config/preseed/ only ends up as /install/preseed.cfg
 # on the ISO, which d-i ignores without a file= boot argument. So
 # replace-di-kernel.sh puts the preseed in the initrd as /preseed.cfg
@@ -282,6 +313,17 @@ for overlay in dtb-loader qcom-adsp; do
     cp -a "$DEBOS_OVERLAYS/$overlay/." \
         "$BUILD_DIR/config/includes.binary/qli/overlays/$overlay/"
 done
+
+# The live system's initrd needs the same initramfs-tools hooks as the
+# installed system (see qcom-adsp.postinst.sh), e.g. to reset the ADSP
+# before mounting the root filesystem from USB. The live overlay's
+# 0050-initramfs hook creates the initrd after copying
+# config/includes.chroot/, and lb's chroot_hacks regenerates it.
+if [ "$LIVE" = 1 ]; then
+    mkdir -p "$BUILD_DIR/config/includes.chroot/etc/initramfs-tools"
+    cp -a "$DEBOS_OVERLAYS/qcom-adsp/etc/initramfs-tools/." \
+        "$BUILD_DIR/config/includes.chroot/etc/initramfs-tools/"
+fi
 
 # Add the kernel name, suite, variant and build ID to the boot menu's
 # title, e.g. "qcom-deb-images installer (qcom-laptops forky gnome 123456789-1)";
@@ -320,24 +362,36 @@ fi
 # which lb installer's *_$ARCH.deb and *_all.deb globs rely on. The
 # 0060-prune-pool hook drops the stock kernel, keeping the debs listed
 # in config/kernel-debs.list.
+#
+# For live, also install the kernel in the live system: lb chroot installs
+# every deb in config/packages.chroot/.
 PACKAGES_BINARY="$BUILD_DIR/config/packages.binary"
+PACKAGES_CHROOT="$BUILD_DIR/config/packages.chroot"
 KERNEL_DEBS_LIST="$BUILD_DIR/config/kernel-debs.list"
 mkdir -p "$PACKAGES_BINARY"
 : > "$KERNEL_DEBS_LIST"
 
-# Copy a deb into config/packages.binary/, named as apt would name it.
-# Sets POOL_PKG and POOL_NAME to its package and file names.
+# Copy a deb into config/packages.binary/, named as apt would name it, and
+# with --chroot into config/packages.chroot/ too for live. Sets POOL_PKG and
+# POOL_NAME to its package and file names.
 pool_add() {
-    local ver
+    local chroot=0 ver
+    if [ "$1" = --chroot ]; then
+        chroot=1
+        shift
+    fi
     POOL_PKG=$(dpkg-deb -f "$1" Package)
     ver=$(dpkg-deb -f "$1" Version)
     POOL_NAME="${POOL_PKG}_${ver#*:}_$(dpkg-deb -f "$1" Architecture).deb"
     cp "$1" "$PACKAGES_BINARY/$POOL_NAME"
+    if [ "$chroot" = 1 ] && [ "$LIVE" = 1 ]; then
+        install -D -m 0644 "$1" "$PACKAGES_CHROOT/$POOL_NAME"
+    fi
 }
 
 KERNEL_PACKAGE=""
 for DEB in "${KERNEL_DEBS[@]}"; do
-    pool_add "$DEB"
+    pool_add --chroot "$DEB"
     echo "$POOL_NAME" >> "$KERNEL_DEBS_LIST"
     case "$POOL_PKG" in
         linux-image-*)
@@ -378,8 +432,18 @@ pool_include dtb-loader.list.binary
 
 stage "Build bootstrap and chroot"
 
+# After the kernel is added: lb chroot installs config/packages.chroot/.
 lb bootstrap
 lb chroot
+
+# --linux-packages none makes binary_linux-image skip the live system's
+# kernel and initrd, so put them in binary/live/ via config/includes.binary/.
+# The 0100-dtb-loader binary hook wraps the kernel with Stubble.
+LIVE_BOOT="$BUILD_DIR/config/includes.binary/live"
+if [ "$LIVE" = 1 ]; then
+    mkdir -p "$LIVE_BOOT"
+    cp -L chroot/boot/vmlinuz-* chroot/boot/initrd.img-* "$LIVE_BOOT/"
+fi
 
 stage "Build installer"
 
@@ -455,12 +519,15 @@ install -D -m 0644 "$BUILD_DIR/config/debian-cd/cdrom_udeb_include" \
 # boots the installer, and d-i installs from the pool. Marking the stages
 # done leaves the chroot as binary_rootfs would, and nothing else needs
 # them. ("--chroot-filesystem none" can't do this: it replaces the whole
-# binary/ tree with the chroot, wiping the installer.)
-mkdir -p "$BUILD_DIR/.build"
-touch \
-    "$BUILD_DIR/.build/binary_chroot" \
-    "$BUILD_DIR/.build/binary_rootfs" \
-    "$BUILD_DIR/.build/binary_manifest"
+# binary/ tree with the chroot, wiping the installer.) live keeps them, for
+# its live/filesystem.squashfs.
+if [ "$LIVE" != 1 ]; then
+    mkdir -p "$BUILD_DIR/.build"
+    touch \
+        "$BUILD_DIR/.build/binary_chroot" \
+        "$BUILD_DIR/.build/binary_rootfs" \
+        "$BUILD_DIR/.build/binary_manifest"
+fi
 
 stage "Build image"
 
@@ -468,6 +535,13 @@ lb binary
 
 rm -rf "$KERNEL_DIR"
 trap - EXIT
+
+# The image is FAT32, which can't hold files of 4 GiB or more.
+SQUASHFS="$BUILD_DIR/binary/live/filesystem.squashfs"
+if [ -f "$SQUASHFS" ] && [ "$(stat -c %s "$SQUASHFS")" -gt 4294967295 ]; then
+    echo "$SQUASHFS is too big for FAT32 (4 GiB or more)" >&2
+    exit 1
+fi
 
 echo "=== Complete ==="
 
