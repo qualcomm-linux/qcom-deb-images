@@ -32,7 +32,7 @@ jobs:
     with:
       kernel_name: glymur-laptops
       build_linux_deb_extra_args: '--repo https://github.com/linux-msm/laptops-kernel --ref topic/glymur-laptops'
-      overlays: 'dtb-loader'
+      overlays: 'dtb-loader,qcom-adsp'
       suites: '["forky"]'
       variant: gnome
     secrets:
