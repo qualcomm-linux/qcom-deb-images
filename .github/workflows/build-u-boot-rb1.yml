@@ -55,11 +55,24 @@ jobs:
 
       - name: Build U-Boot Android boot image for RB1
         run: |
-            set -ux
-            # install build-dependencies
-            apt -y install git crossbuild-essential-arm64 make bison flex bc \
-                libssl-dev gnutls-dev uuid-dev xxd coreutils gzip mkbootimg fwupd
-            scripts/build-u-boot-rb1.sh
+          set -ux
+          # install build-dependencies
+          apt -y install \
+              bc \
+              bison \
+              coreutils \
+              crossbuild-essential-arm64 \
+              flex \
+              fwupd \
+              git \
+              gnutls-dev \
+              gzip \
+              libssl-dev \
+              make \
+              mkbootimg \
+              uuid-dev \
+              xxd
+          scripts/build-u-boot-rb1.sh
 
       - name: Stage artifacts for upload
         run: |
