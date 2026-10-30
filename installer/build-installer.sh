@@ -73,6 +73,9 @@ stage "Configure live-build"
 # The bootstrap is still cached, in the build tree: installer_debian-installer
 # reuses its packages from cache/packages.bootstrap/ and fails without them.
 #
+# Don't boot via shim, as the image isn't signed: it boots Debian's signed
+# GRUB directly (0099-grub-efi-install.hook.binary).
+#
 # Set the mirrors explicitly, and the parent mirrors too as lb saves them
 # separately and doesn't rederive them. Keep the trailing slashes: lb appends
 # "dists" to the debian-installer mirror directly.
@@ -97,6 +100,7 @@ lb config \
     --debian-installer-distribution "$SUITE" \
     --debian-installer-gui true \
     --cache-stages "bootstrap" \
+    --uefi-secure-boot disable \
     --binary-images hdd \
     --binary-filesystem fat32
 
@@ -111,6 +115,12 @@ overlay() {
 }
 
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
+
+# The stick's and the target's bootloader.
+overlay bootloader/hooks/0099-grub-efi-install.hook.binary \
+    config/hooks/normal/0099-grub-efi-install.hook.binary
+overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
+    initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
 
 stage "Build bootstrap and chroot"
 
