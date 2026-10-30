@@ -1,0 +1,5 @@
+# tasksel's GNOME task for the ISO's pool, so it can be installed offline
+# (see defaults/package-lists/installer-pool.list.binary). build-installer.sh only
+# adds this to the gnome and live-gnome variants; the console variant
+# installs a desktop from the network mirror instead.
+task-gnome-desktop

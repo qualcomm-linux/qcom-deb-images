@@ -1,0 +1,56 @@
+# Builds the installer images:
+#  - live-xfce and live-gnome on trixie for the qcom-7.2 and qcom-next
+#    kernels
+#  - live-gnome on trixie and forky for the debian, qcom-laptops and
+#    glymur-laptops kernels
+#
+# See docs/installer.md.
+
+name: Build installer images
+
+on:
+  schedule:
+    - cron: '00 13 * * *'
+  # allow manual runs
+  workflow_dispatch:
+  # HACK: temporary, drop before merging: build the installers on pushes
+  # to the installer branch
+  push:
+    branches: [wip/obbardc/iso-installer]
+
+# grant nothing by default; the job below declares the scopes it needs
+permissions: {}
+
+jobs:
+  build:
+    # don't run from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    # HACK: temporary, drop before merging: also run on pushes to the
+    # installer branch
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/wip/obbardc/iso-installer')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {kernel: qcom-7.2, suite: trixie, variant: live-xfce}
+          - {kernel: qcom-next, suite: trixie, variant: live-xfce}
+          - {kernel: qcom-7.2, suite: trixie, variant: live-gnome}
+          - {kernel: qcom-next, suite: trixie, variant: live-gnome}
+          - {kernel: debian, suite: trixie, variant: live-gnome}
+          - {kernel: debian, suite: forky, variant: live-gnome}
+          - {kernel: qcom-laptops, suite: trixie, variant: live-gnome}
+          - {kernel: qcom-laptops, suite: forky, variant: live-gnome}
+          - {kernel: glymur-laptops, suite: trixie, variant: live-gnome}
+          - {kernel: glymur-laptops, suite: forky, variant: live-gnome}
+    uses: $/.github/workflows/installer.yml
+    permissions:
+      contents: read
+    with:
+      kernel: ${{ matrix.kernel }}
+      suite: ${{ matrix.suite }}
+      variant: ${{ matrix.variant }}

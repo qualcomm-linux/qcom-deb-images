@@ -272,6 +272,14 @@ Here is the list of supported overlays:
       machines, and boot firmware signatures (CHID). Selecting this
       overlay also installs the <tt>stubble</tt> package the hook needs.
     </dd>
+    <dt>qcom-adsp</dt>
+    <dd>
+      initramfs-tools hook to load the Hexagon DSP driver and firmware
+      from the initramfs on some laptops, before the root filesystem is
+      mounted, so that a USB root filesystem doesn't get lost when the
+      ADSP is reset. With dracut, which already does the reset, a dracut
+      module stops udev from loading the ADSP driver in the initramfs.
+    </dd>
 </dl>
 
 #### Supported profiles
@@ -475,6 +483,19 @@ the Debian archive and the image has no Qualcomm Linux APT sources so it will
 never pull a Qualcomm Linux package on upgrade. Expect reduced hardware support
 compared to the default image, as the Debian kernel does not carry the
 Qualcomm platform patches which `linux-image-qcom-next` does.
+
+## Build an installer image
+
+A customised, standalone installer image can be built with `live-build`. It
+boots a kernel from a kernel `.deb` you provide and needs `live-build`,
+`xorriso` and `stubble` among others. It runs as root:
+
+```bash
+make installer KERNEL_DEB=/path/to/linux-image-custom.deb
+```
+
+See [docs/installer.md](docs/installer.md) for more information about the
+installer.
 
 ## Development
 

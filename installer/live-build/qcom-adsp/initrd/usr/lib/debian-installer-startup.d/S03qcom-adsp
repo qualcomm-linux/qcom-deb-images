@@ -1,0 +1,24 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# d-i equivalent of the qcom-adsp initramfs-tools init-top script (see
+# debos-recipes/overlays/qcom-adsp/etc/initramfs-tools/): reset the ADSP early,
+# on Qualcomm laptops where it hosts the Type-C Port Manager. The reset
+# re-enumerates every device on the Type-C bus, so do it before the
+# installer looks for its install media.
+#
+# d-i starts udev in /sbin/init, before these startup scripts run, so the
+# driver is blacklisted in modprobe.d/qcom-adsp.conf to keep udev from
+# autoloading it, and is loaded here by name.
+
+# Platforms where the ADSP gates the Type-C bus.
+adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
+
+grep -q -E "${adsp_compatibles}" \
+	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null || exit 0
+
+modprobe qcom_q6v5_pas || true
+
+# Let the devices that drop off with the reset come back.
+udevadm settle || true

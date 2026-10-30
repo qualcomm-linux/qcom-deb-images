@@ -1,0 +1,12 @@
+# Firmware to download into the pool; hooks/0040-non-free-firmware.hook.binary
+# files them under the non-free-firmware component. build-installer.sh reads
+# this list for pkgsel to install them on the target, and installs them in
+# the live system as firmware.list.chroot. The 0050-replace-di-kernel binary
+# hook runs lib/extract-firmware.sh, which copies the files the installer needs
+# from them into its initrd.
+#
+#if DEBIAN_INSTALLER cdrom
+firmware-atheros
+firmware-qcom-soc
+firmware-qcom-dsp
+#endif

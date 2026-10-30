@@ -1,0 +1,22 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Don't install shim on the installed system, as the image isn't signed.
+#
+# grub-installer always tries to install shim-signed on arm64 and has no
+# preseed to skip it, and with a network mirror apt would fetch it even
+# though it isn't in the ISO's pool. base-installer runs this once the base
+# system is installed, before grub-installer, so the pin makes that
+# install fail, which grub-installer ignores. The pin stays on the
+# installed system, so later upgrades don't pull shim in either.
+set -e
+
+mkdir -p /target/etc/apt/preferences.d
+cat > /target/etc/apt/preferences.d/qli-no-shim.pref <<'EOF'
+# Installed by the Qualcomm Linux installer: don't install shim, as the
+# image isn't signed; the system boots Debian's signed GRUB directly.
+Package: shim-signed shim-helpers-arm64-signed
+Pin: release *
+Pin-Priority: -1
+EOF

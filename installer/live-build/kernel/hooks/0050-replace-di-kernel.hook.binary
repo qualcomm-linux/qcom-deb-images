@@ -1,0 +1,36 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb binary's binary_package-lists has
+# added the firmware packages (firmware.list.binary) to the pool, and before
+# 0060-prune-pool.hook.binary, the GRUB hooks and 0100-dtb-loader.hook.binary,
+# which wraps the kernel this puts in install/.
+#
+# Replaces the kernel in the installer's initrds with the custom one, which
+# build-installer.sh unpacks to $KERNEL_DIR, using lib/replace-di-kernel.sh. First
+# extracts the firmware the installer needs from the pool with
+# firmware/lib/extract-firmware.sh, and adds it to them.
+# Not done in build-installer.sh after lb installer: lb installer doesn't download
+# the packages of *.list.binary, so the firmware isn't in the pool before.
+#
+# build-installer.sh writes INSTALLER_DIR and KERNEL_DIR to
+# config/replace-di-kernel.conf.
+set -euo pipefail
+
+# shellcheck source=/dev/null
+. ../config/replace-di-kernel.conf
+
+"$INSTALLER_DIR/live-build/firmware/lib/extract-firmware.sh" pool ../firmware
+
+# --module-rules leaves the modules the installer doesn't need out of
+# its initrds; --initrd-overlay and --firmware add extra files to them.
+"$INSTALLER_DIR/live-build/kernel/lib/replace-di-kernel.sh" \
+    --preseed ../config/installer-preseed.cfg \
+    --module-rules "$INSTALLER_DIR/live-build/kernel/initrd-modules.rules" \
+    --initrd-overlay ../initrd-overlay \
+    --firmware ../firmware \
+    "$KERNEL_DIR" \
+    install
