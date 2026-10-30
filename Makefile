@@ -77,6 +77,23 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
+# INSTALLER_OPTS are passed to the installer build script, e.g.:
+#     make installer INSTALLER_OPTS="--arch arm64"
+# live-build has to run as root, so the installer targets use sudo unless make
+# already runs as root. sudo -E keeps the environment, so the variables the
+# build script reads from it (see docs/installer.md) reach it.
+SUITE ?= trixie
+INSTALLER_OPTS ?=
+INSTALLER_SUDO := $(if $(filter 0,$(shell id -u)),,sudo -E)
+
+.PHONY: installer
+installer:
+	$(INSTALLER_SUDO) installer/build-installer.sh --suite $(SUITE) $(INSTALLER_OPTS)
+
+.PHONY: clean-installer
+clean-installer:
+	$(INSTALLER_SUDO) rm -rf installer/build
+
 .PHONY: test
 test: disk-ufs.img
 	# rootfs/ is a build artifact, so should not be scanned for tests
