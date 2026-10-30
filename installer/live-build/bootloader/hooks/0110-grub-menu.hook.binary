@@ -14,6 +14,10 @@
 #     initrd in live/.
 #   - "Graphical installer" - the default without a live system.
 #   - "Text installer"
+#   - "Automated install" - the graphical installer at critical priority,
+#     preseeded from automated-install-preseed.cfg at the root of the image,
+#     which users edit on the USB stick. auto-install/enable delays the
+#     locale and keyboard questions until that file is loaded.
 #
 # Every installer entry boots install/vmlinuz (0100-dtb-loader.hook.binary
 # removed the duplicate install/gtk/vmlinuz), with live-build's fixed
@@ -67,6 +71,8 @@ if [ -f live/filesystem.squashfs ]; then
 "
 fi
 
+AUTO_ARGS="auto-install/enable=true priority=critical preseed/file=/cdrom/automated-install-preseed.cfg"
+
 # live-build's theme.cfg only selects the live-theme when
 # /boot/grub/splash.png exists, which binary_bootloader_splash doesn't
 # create for hdd images; select it here. The theme draws bg.png.
@@ -90,6 +96,11 @@ ${LIVE_ENTRY}menuentry 'Graphical installer' {
 menuentry 'Text installer' {
     linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS
     initrd /install/initrd.gz
+}
+
+menuentry 'Automated install' {
+    linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS $AUTO_ARGS
+    initrd /install/gtk/initrd.gz
 }
 
 if [ "\${grub_platform}" = "efi" ]; then
