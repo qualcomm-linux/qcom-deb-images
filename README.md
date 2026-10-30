@@ -25,7 +25,8 @@ tuned!
 | Qualcomm Linux | [![QLI images][qli-images-badge]][qli-images] |
 | Debian | [![Debian images][debian-images-badge]][debian-images] |
 | Reference upstream kernels | [![linux-next images][linux-next-badge]][linux-next] [![mainline images][mainline-badge]][mainline] |
-| Project-specific builds | [![arduino images][arduino-badge]][arduino] [![qcom-7.2][qcom-7.2-badge]][qcom-7.2] [![qcom-laptops][qcom-laptops-badge]][qcom-laptops] [![glymur-laptops][glymur-laptops-badge]][glymur-laptops] |
+| Project-specific builds | [![arduino images][arduino-badge]][arduino] [![qcom-7.2][qcom-7.2-badge]][qcom-7.2] |
+| Community builds | [![qcom-laptops][qcom-laptops-badge]][qcom-laptops] [![glymur-laptops][glymur-laptops-badge]][glymur-laptops] |
 
 Every image is flashed onto real boards and tested in the LAVA lab; see
 [docs/testing.md](docs/testing.md) for which boards run which tests and how to
