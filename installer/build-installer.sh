@@ -6,8 +6,10 @@ set -euo pipefail
 
 ARCH=arm64
 SUITE="trixie"
+KERNEL_NAME=""
+BUILD_ID=""
 KERNEL_DEBS=()
-USAGE="Usage: $0 [--arch arm64] [--suite SUITE] KERNEL.deb..."
+USAGE="Usage: $0 [--arch arm64] [--suite SUITE] [--kernel-name NAME] [--build-id ID] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -17,6 +19,15 @@ while [ "$#" -gt 0 ]; do
             ;;
         --suite)
             SUITE="${2:?Missing value for --suite}"
+            shift 2
+            ;;
+        # Shown in the boot menu's title, e.g. qcom-laptops and the CI run.
+        --kernel-name)
+            KERNEL_NAME="${2:?Missing value for --kernel-name}"
+            shift 2
+            ;;
+        --build-id)
+            BUILD_ID="${2:?Missing value for --build-id}"
             shift 2
             ;;
         # The kernel package, or all of its packages if it is split (like
@@ -148,6 +159,9 @@ overlay() {
     cp -a "$INSTALLER_DIR/live-build/$1" "$BUILD_DIR/$2"
 }
 
+# The boot menu's kernel arguments.
+overlay kernel/kernel-cmdline config/kernel-cmdline
+
 # Installer defaults: the pool, the udebs and the tasks.
 overlay defaults/hooks/0060-prune-pool.hook.binary \
     config/hooks/normal/0060-prune-pool.hook.binary
@@ -177,8 +191,13 @@ fi
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
 
 # The stick's and the target's bootloader.
+overlay bootloader/grub/theme.txt \
+    config/bootloaders/grub-pc/live-theme/theme.txt
+overlay bootloader/grub/bg.png config/bootloaders/grub-pc/live-theme/bg.png
 overlay bootloader/hooks/0099-grub-efi-install.hook.binary \
     config/hooks/normal/0099-grub-efi-install.hook.binary
+overlay bootloader/hooks/0110-grub-menu.hook.binary \
+    config/hooks/normal/0110-grub-menu.hook.binary
 overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
     initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
 
@@ -198,6 +217,21 @@ PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
     > "$PRESEED"
+
+# Add the kernel name, suite and build ID to the boot menu's title,
+# e.g. "qcom-deb-images installer (qcom-laptops forky 123456789-1)";
+# the kernel name and build ID are left out when not given.
+TITLE=""
+if [ -n "$KERNEL_NAME" ]; then
+    TITLE+="$KERNEL_NAME "
+fi
+TITLE+="$SUITE"
+if [ -n "$BUILD_ID" ]; then
+    TITLE+=" $BUILD_ID"
+fi
+TITLE=" ($TITLE)"
+THEME="$BUILD_DIR/config/bootloaders/grub-pc/live-theme/theme.txt"
+sed -i -E "s|^(title-text: \"[^\"]*)\"|\1$TITLE\"|" "$THEME"
 
 stage "Prepare installer"
 

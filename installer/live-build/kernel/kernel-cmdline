@@ -1,0 +1,15 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Extra kernel arguments for the installer's and the live system's GRUB
+# entries and, through d-i's grub-installer, the target's.
+# Read by 0110-grub-menu.hook.binary, which skips the # comment lines and
+# joins the rest; not shipped in the ISO itself.
+clk_ignore_unused pd_ignore_unused
+
+# Some DTs (e.g. the Glymur and Mahua CRDs, the Yoga Slim 7x) set
+# /chosen/stdout-path to the serial port, which then becomes /dev/console.
+# d-i runs on /dev/console, so it would start on serial and leave the
+# screen blank. An explicit console= overrides stdout-path: run the
+# installer (and the target's console) on the screen.
+console=tty0
