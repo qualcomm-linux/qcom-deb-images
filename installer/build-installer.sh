@@ -111,7 +111,8 @@ MIRROR_ARGS+=(--mirror-chroot-security "$MIRROR_SECURITY"
     --parent-mirror-chroot-security "$MIRROR_SECURITY")
 
 # Only stable suites have backports. On trixie, the pool needs some
-# packages from them: see the package lists of the kernel topic.
+# packages from them: see the package lists of the kernel and dtb-loader
+# topics.
 BACKPORTS_ARGS=()
 if [ "$SUITE" = "trixie" ]; then
     BACKPORTS_ARGS=(--backports true)
@@ -180,6 +181,12 @@ overlay bootloader/hooks/0099-grub-efi-install.hook.binary \
     config/hooks/normal/0099-grub-efi-install.hook.binary
 overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
     initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
+
+# The DTB loader, on the stick.
+overlay dtb-loader/package-lists/dtb-loader.list.binary \
+    config/package-lists/dtb-loader.list.binary
+overlay dtb-loader/hooks/0100-dtb-loader.hook.binary \
+    config/hooks/normal/0100-dtb-loader.hook.binary
 
 # For ISOs, live-build's config/preseed/ only ends up as /install/preseed.cfg
 # on the ISO, which d-i ignores without a file= boot argument. So
@@ -253,6 +260,9 @@ pool_include() {
 # component. lb installer adds none of it (see the lb config call above).
 pool_include firmware.list.binary
 
+# The DTB loader, which lb binary adds to the pool with its dependencies.
+pool_include dtb-loader.list.binary
+
 stage "Build bootstrap and chroot"
 
 lb bootstrap
@@ -299,6 +309,26 @@ fi
     printf 'INSTALLER_DIR=%q\n' "$INSTALLER_DIR"
     printf 'KERNEL_DIR=%q\n' "$KERNEL_DIR"
 } > "$BUILD_DIR/config/replace-di-kernel.conf"
+
+stage "Extract DTBs"
+
+# All of the kernel's DTBs, not just the ones the ISO ships: the
+# 0100-dtb-loader binary hook bundles only those with a Stubble HWID
+# entry into the Stubble EFI binary. The rest stay in config/.
+mkdir -p "$BUILD_DIR/config/dtbs"
+
+# Single kernel packages ship the DTBs in /usr/lib/linux-image-$KVER/;
+# Debian's split ones in /usr/lib/modules/$KVER/dtb/, with the former as
+# a symlink to it.
+find "$KERNEL_DIR" \
+    \( -path '*/linux-image-*/*' -o -path '*/modules/*/dtb/*' \) \
+    -name '*.dtb' -type f \
+    -exec cp -t "$BUILD_DIR/config/dtbs/" {} +
+
+if ! compgen -G "$BUILD_DIR/config/dtbs/*.dtb" >/dev/null; then
+    echo "Kernel package(s) contain no DTBs" >&2
+    exit 1
+fi
 
 # live-build only ships udeb_include lists for amd64, and binary_disk fails
 # for cdrom when ${ARCH}_udeb_include is missing. It leaves an existing
