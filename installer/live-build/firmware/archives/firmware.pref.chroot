@@ -1,0 +1,9 @@
+# Only on trixie, with lb config --backports true (see build-installer.sh).
+#
+# Take the firmware from trixie-backports, which apt otherwise only uses when
+# asked (NotAutomatic). firmware-qcom-dsp is only in trixie-backports. This
+# resolves them for the ISO's pool (package-lists/firmware.list.binary) and
+# for the live system (the same list, as firmware.list.chroot).
+Package: src:firmware-nonfree src:hexagon-dsp-binaries
+Pin: release n=trixie-backports
+Pin-Priority: 900

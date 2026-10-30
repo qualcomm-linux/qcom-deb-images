@@ -6,7 +6,8 @@ set -euo pipefail
 
 ARCH=arm64
 SUITE="trixie"
-USAGE="Usage: $0 [--arch arm64] [--suite SUITE]"
+KERNEL_DEBS=()
+USAGE="Usage: $0 [--arch arm64] [--suite SUITE] KERNEL.deb..."
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -18,12 +19,19 @@ while [ "$#" -gt 0 ]; do
             SUITE="${2:?Missing value for --suite}"
             shift 2
             ;;
+        # The kernel package, or all of its packages if it is split (like
+        # Debian's linux-image, linux-base, linux-binary and linux-modules).
         *)
-            echo "$USAGE" >&2
-            exit 1
+            KERNEL_DEBS+=("$(realpath "$1")")
+            shift
             ;;
     esac
 done
+
+if [ "${#KERNEL_DEBS[@]}" -eq 0 ]; then
+    echo "$USAGE" >&2
+    exit 1
+fi
 
 case "$ARCH" in
     arm64) ;;
@@ -76,6 +84,20 @@ stage "Configure live-build"
 # Don't boot via shim, as the image isn't signed: it boots Debian's signed
 # GRUB directly (0099-grub-efi-install.hook.binary).
 #
+# Don't let lb installer add firmware packages to the pool (and /firmware/):
+# by default it adds every package in the archive's Contents that ships
+# anything under /usr/lib/firmware, e.g. indi-dsi (for one .hex file), which
+# drags in libindi, libnova, cfitsio, fftw3, theora etc., plus
+# firmware-linux-free, ath9k-htc, carl9170 etc. None of it is for this
+# hardware: the SoC and wifi firmware packages are listed in
+# firmware/package-lists/firmware.list.binary instead.
+#
+# List non-free-firmware in the archive areas: the chroot's apt downloads
+# them from it, and apt on the target skips any component the ISO's Release
+# doesn't list, which only has the parent archive areas' components. (lb
+# files them under non-free; firmware/hooks/0040-non-free-firmware.hook.binary
+# moves them back.)
+#
 # Set the mirrors explicitly, and the parent mirrors too as lb saves them
 # separately and doesn't rederive them. Keep the trailing slashes: lb appends
 # "dists" to the debian-installer mirror directly.
@@ -88,17 +110,28 @@ done
 MIRROR_ARGS+=(--mirror-chroot-security "$MIRROR_SECURITY"
     --parent-mirror-chroot-security "$MIRROR_SECURITY")
 
+# Only stable suites have backports. On trixie, the pool needs some
+# packages from them: see the package lists of the kernel topic.
+BACKPORTS_ARGS=()
+if [ "$SUITE" = "trixie" ]; then
+    BACKPORTS_ARGS=(--backports true)
+fi
+
 # Build a FAT32 disk image rather than an ISO, so the kernel needs no
 # ISO 9660 support. cdrom-detect falls back to mounting disks and USB
 # partitions as vfat, and the UEFI firmware boots the FAT partition.
 lb config \
     "${MIRROR_ARGS[@]}" \
+    "${BACKPORTS_ARGS[@]}" \
     --distribution "$SUITE" \
     --architectures "$ARCH" \
+    --archive-areas "main non-free-firmware" \
+    --parent-archive-areas "main non-free-firmware" \
     --linux-packages none \
     --debian-installer cdrom \
     --debian-installer-distribution "$SUITE" \
     --debian-installer-gui true \
+    --firmware-binary false \
     --cache-stages "bootstrap" \
     --uefi-secure-boot disable \
     --binary-images hdd \
@@ -114,6 +147,32 @@ overlay() {
     cp -a "$INSTALLER_DIR/live-build/$1" "$BUILD_DIR/$2"
 }
 
+# Installer defaults: the pool, the udebs and the tasks.
+overlay defaults/hooks/0060-prune-pool.hook.binary \
+    config/hooks/normal/0060-prune-pool.hook.binary
+overlay defaults/package-lists/installer-pool.list.binary \
+    config/package-lists/installer-pool.list.binary
+overlay defaults/package-lists/standard-task.list.binary \
+    config/package-lists/standard-task.list.binary
+overlay kernel/package-lists/linux-base.list.binary \
+    config/package-lists/linux-base.list.binary
+overlay kernel/hooks/0050-replace-di-kernel.hook.binary \
+    config/hooks/normal/0050-replace-di-kernel.hook.binary
+if [ "$SUITE" = "trixie" ]; then
+    overlay kernel/archives/linux-base.pref.chroot \
+        config/archives/linux-base.pref.chroot
+fi
+
+# The firmware, in the pool for the target (see POOL_INCLUDE below) and the
+# installer initrds.
+overlay firmware/package-lists/firmware.list.binary \
+    config/package-lists/firmware.list.binary
+overlay firmware/hooks/0040-non-free-firmware.hook.binary \
+    config/hooks/normal/0040-non-free-firmware.hook.binary
+if [ "$SUITE" = "trixie" ]; then
+    overlay firmware/archives/firmware.pref.chroot \
+        config/archives/firmware.pref.chroot
+fi
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
 
 # The stick's and the target's bootloader.
@@ -121,6 +180,78 @@ overlay bootloader/hooks/0099-grub-efi-install.hook.binary \
     config/hooks/normal/0099-grub-efi-install.hook.binary
 overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
     initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
+
+# For ISOs, live-build's config/preseed/ only ends up as /install/preseed.cfg
+# on the ISO, which d-i ignores without a file= boot argument. So
+# replace-di-kernel.sh puts the preseed in the initrd as /preseed.cfg
+# instead, which d-i always loads, before anything else runs. (Not via
+# config/includes.installer: live-build unpacks the initrd without fakeroot,
+# which can't mknod in a container.)
+PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
+cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
+    "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
+    > "$PRESEED"
+
+stage "Prepare installer"
+
+# Add the custom kernel to the pool, so base-installer installs it on the
+# target instead of the stock one. lb installer copies the debs in
+# config/packages.binary/ into the pool. They're named as apt would name them,
+# which lb installer's *_$ARCH.deb and *_all.deb globs rely on. The
+# 0060-prune-pool hook drops the stock kernel, keeping the debs listed
+# in config/kernel-debs.list.
+PACKAGES_BINARY="$BUILD_DIR/config/packages.binary"
+KERNEL_DEBS_LIST="$BUILD_DIR/config/kernel-debs.list"
+mkdir -p "$PACKAGES_BINARY"
+: > "$KERNEL_DEBS_LIST"
+
+# Copy a deb into config/packages.binary/, named as apt would name it.
+# Sets POOL_PKG and POOL_NAME to its package and file names.
+pool_add() {
+    local ver
+    POOL_PKG=$(dpkg-deb -f "$1" Package)
+    ver=$(dpkg-deb -f "$1" Version)
+    POOL_NAME="${POOL_PKG}_${ver#*:}_$(dpkg-deb -f "$1" Architecture).deb"
+    cp "$1" "$PACKAGES_BINARY/$POOL_NAME"
+}
+
+KERNEL_PACKAGE=""
+for DEB in "${KERNEL_DEBS[@]}"; do
+    pool_add "$DEB"
+    echo "$POOL_NAME" >> "$KERNEL_DEBS_LIST"
+    case "$POOL_PKG" in
+        linux-image-*)
+            if [ -n "$KERNEL_PACKAGE" ]; then
+                echo "More than one linux-image package: $KERNEL_PACKAGE, $POOL_PKG" >&2
+                exit 1
+            fi
+            KERNEL_PACKAGE="$POOL_PKG"
+            ;;
+    esac
+done
+
+if [ -z "$KERNEL_PACKAGE" ]; then
+    echo "No linux-image package among the kernel packages" >&2
+    exit 1
+fi
+
+# Packages from the pool for pkgsel to install on the target, on top of
+# the base system and the standard task.
+POOL_INCLUDE=()
+
+# Add the packages of a list in config/package-lists/ to POOL_INCLUDE, so
+# they're only listed once. Comments are dropped, #if and #endif included,
+# so the list's conditions must hold for every variant.
+pool_include() {
+    local pkgs
+    mapfile -t pkgs < <(sed 's/#.*//' "$BUILD_DIR/config/package-lists/$1" |
+        xargs -r -n1)
+    POOL_INCLUDE+=("${pkgs[@]}")
+}
+
+# The firmware, which lb binary adds to the pool's non-free-firmware
+# component. lb installer adds none of it (see the lb config call above).
+pool_include firmware.list.binary
 
 stage "Build bootstrap and chroot"
 
@@ -130,6 +261,44 @@ lb chroot
 stage "Build installer"
 
 lb installer
+
+stage "Unpack kernel"
+
+# For 0050-replace-di-kernel.hook.binary, which runs during lb binary.
+KERNEL_DIR="$BUILD_DIR/kernel"
+rm -rf "$KERNEL_DIR"
+mkdir -p "$KERNEL_DIR"
+trap 'rm -rf "$KERNEL_DIR"' EXIT
+
+for DEB in "${KERNEL_DEBS[@]}"; do
+    echo "Unpacking $DEB"
+    dpkg-deb -x "$DEB" "$KERNEL_DIR"
+done
+
+stage "Configure installer kernel"
+
+# The topics' preseeds are gathered into $PRESEED above. Add the custom
+# kernel to it: base-installer would otherwise look for the stock kernel's
+# package.
+cat >> "$PRESEED" <<EOF
+# Generated by build-installer.sh: install the custom kernel from the pool.
+d-i base-installer/kernel/image string $KERNEL_PACKAGE
+EOF
+# pkgsel/include is a single setting, so list all of the packages at once.
+if [ "${#POOL_INCLUDE[@]}" -gt 0 ]; then
+    cat >> "$PRESEED" <<EOF
+# Generated by build-installer.sh: install these packages from the pool.
+d-i pkgsel/include string ${POOL_INCLUDE[*]}
+EOF
+fi
+
+# 0050-replace-di-kernel.hook.binary replaces the installer kernel during
+# lb binary, once the firmware is in the pool: lb installer doesn't
+# download the packages of *.list.binary, binary_package-lists does.
+{
+    printf 'INSTALLER_DIR=%q\n' "$INSTALLER_DIR"
+    printf 'KERNEL_DIR=%q\n' "$KERNEL_DIR"
+} > "$BUILD_DIR/config/replace-di-kernel.conf"
 
 # live-build only ships udeb_include lists for amd64, and binary_disk fails
 # for cdrom when ${ARCH}_udeb_include is missing. It leaves an existing
@@ -153,6 +322,9 @@ touch \
 stage "Build image"
 
 lb binary
+
+rm -rf "$KERNEL_DIR"
+trap - EXIT
 
 echo "=== Complete ==="
 
