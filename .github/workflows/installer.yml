@@ -1,0 +1,250 @@
+name: Build installer image
+
+on:
+  workflow_call:
+    inputs:
+      kernel:
+        description: >
+          Kernel the installer boots and installs: qcom-7.2 or qcom-next
+          (from the Qualcomm Linux APT repository), debian (Debian's
+          linux-image-arm64) or the name of the kernel debs a linux.yml
+          caller such as linux-qcom-laptops.yml last published to EFS
+          (e.g. qcom-laptops)
+        required: true
+        type: string
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
+      variant:
+        description: Installer variant (e.g. console, gnome, live-gnome)
+        type: string
+        default: console
+
+    outputs:
+      artifacts_url:
+        description: "URL to retrieve build artifacts"
+        value: ${{ jobs.build-installer.outputs.url }}
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+jobs:
+  build-installer:
+    name: Build and upload installer image (${{ inputs.kernel }}, ${{ inputs.suite }}, ${{ inputs.variant }})
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      url: ${{ steps.upload_artifacts_s3.outputs.url }}
+    runs-on: [self-hosted, qcom-u2404, arm64]
+    # fail a hung build instead of letting it run to the 6-hour default
+    timeout-minutes: 120
+    container:
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
+      options: --privileged
+      # kernel debs published by linux.yml, for kernels from EFS
+      volumes:
+        - /efsx/qli/qcom-deb-images:/efs
+    env:
+      KERNEL: ${{ inputs.kernel }}
+      SUITE: ${{ inputs.suite }}
+      VARIANT: ${{ inputs.variant }}
+      # shown in the boot menu's title, like the debos images' buildid
+      BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      # make sure we have latest packages first, to get latest fixes and to
+      # avoid an automated update while we're building
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # dctrl-tools: grep-aptavail lists tasksel's standard task for the pool
+      # fdisk: live-build's binary_hdd needs it for the disk image
+      # bmaptool: generates the image's block map
+      - name: Install live-build and dependencies
+        run: |
+          apt -y install \
+              live-build \
+              apt-utils \
+              fakeroot \
+              xorriso \
+              device-tree-compiler \
+              ca-certificates \
+              sudo \
+              kmod \
+              squashfs-tools \
+              pigz \
+              zstd \
+              xz-utils \
+              debian-archive-keyring \
+              dctrl-tools \
+              fdisk \
+              bmaptool
+
+      # stubble (stubblify, the Stubble EFI stub and its HWID database) and
+      # the newer Debian kernel are only in trixie-backports on trixie
+      - name: Add trixie-backports
+        if: inputs.suite == 'trixie'
+        run: |
+          set -ux
+          tee /etc/apt/sources.list.d/backports.sources <<EOF
+          Types: deb
+          URIs: http://deb.debian.org/debian
+          Suites: trixie-backports
+          Components: main
+          Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+          EOF
+          apt update
+
+      - name: Install stubble
+        run: |
+          set -ux
+          if [ "${SUITE}" = trixie ]; then
+              apt -y install -t trixie-backports stubble
+          else
+              apt -y install stubble
+          fi
+
+      - name: Add Qualcomm Linux APT repository
+        if: inputs.kernel != 'debian'
+        run: |
+          set -ux
+          tee /etc/apt/sources.list.d/qli.sources <<EOF
+          # Qualcomm Linux repository
+          Types: deb
+          URIs: https://deb.debusine.qualcomm.com/qualcomm/qli
+          Suites: ${SUITE}
+          Components: main contrib non-free-firmware non-free
+          Enabled: yes
+          Signed-By:
+           -----BEGIN PGP PUBLIC KEY BLOCK-----
+           .
+           mDMEag8p/xYJKwYBBAHaRw8BAQdAdB6JSNF1OXxnsTgp4VTUekW52BM7e6ZQVRsq
+           QT5QDaS0JEFyY2hpdmUgc2lnbmluZyBrZXkgZm9yIHF1YWxjb21tL3FsaYiQBBMW
+           CgA4FiEEOwuFfyf8aPE5SQakb8qSvoHfw8IFAmoPKf8CGwMFCwkIBwIGFQoJCAsC
+           BBYCAwECHgECF4AACgkQb8qSvoHfw8Lz1gEA9XocADbvqUgZQc0LceThn7vMI98d
+           kTJoiInuulQ6rEUBANo+GOKILH71VRnZ5jWtsu7IlVk7oUMlTtC0eE5tcBwB
+           =bX6V
+           -----END PGP PUBLIC KEY BLOCK-----
+          EOF
+          apt update
+
+      # download the real linux-image-<version> package the kernel's
+      # metapackage depends on, as build-installer.sh needs the kernel, modules and
+      # DTBs; Debian splits these out of linux-image-<version> (which is
+      # then empty) into linux-base-, linux-binary- and linux-modules-
+      # <version>, so download those too; kernels from EFS are bindeb-pkg
+      # builds with everything in linux-image-<version>, so copy just that
+      - name: Download kernel packages
+        run: |
+          set -eux
+          mkdir -v kernel
+          case "${KERNEL}" in
+              qcom-7.2|qcom-next)
+                  meta="linux-image-${KERNEL}"
+                  set --
+                  ;;
+              debian)
+                  meta="linux-image-arm64"
+                  set --
+                  if [ "${SUITE}" = trixie ]; then
+                      set -- -t trixie-backports
+                  fi
+                  ;;
+              *)
+                  # any other kernel is one linux.yml published to EFS; the
+                  # directory is a symlink published by linux.yml, so report
+                  # a missing or empty one rather than failing later; skip
+                  # the -dbg package, build-installer.sh takes one linux-image
+                  efs_kernel_dir="/efs/${KERNEL}"
+                  if [ ! -d "${efs_kernel_dir}" ]; then
+                      echo "ERROR: unknown kernel '${KERNEL}': ${efs_kernel_dir} does not exist" >&2
+                      echo "run the workflow publishing '${KERNEL}' kernel debs first" >&2
+                      exit 1
+                  fi
+                  find "${efs_kernel_dir}/" -maxdepth 1 -type f \
+                      -name 'linux-image-*.deb' -not -name '*dbg*' \
+                      -exec cp -av -t kernel {} +
+                  if [ "$(find kernel -name '*.deb' | wc -l)" -ne 1 ]; then
+                      echo "ERROR: expected one linux-image-*.deb in ${efs_kernel_dir}" >&2
+                      exit 1
+                  fi
+                  # the installer build runs after the kernel build, so show
+                  # which one it got in case that failed and this is stale
+                  {
+                      echo "## Kernel"
+                      echo "EFS build: \`$(readlink -f "${efs_kernel_dir}")\`"
+                      echo
+                      echo "Package: \`$(dpkg-deb -W --showformat='${Package} ${Version}' kernel/*.deb)\`"
+                  } >>"${GITHUB_STEP_SUMMARY}"
+                  ls -l kernel
+                  exit 0
+                  ;;
+          esac
+          pkg=$(apt-cache "$@" depends --no-recommends --no-suggests "${meta}" |
+              awk '$1 ~ /Depends:$/ && $2 ~ /^linux-image-/ { print $2; exit }')
+          if [ -z "${pkg}" ]; then
+              echo "${meta} depends on no linux-image package" >&2
+              exit 1
+          fi
+          kver="${pkg#linux-image-}"
+          deps=$(apt-cache "$@" depends --no-recommends --no-suggests "${pkg}" |
+              awk -v kver="${kver}" '$1 ~ /Depends:$/ &&
+                  ($2 == "linux-base-" kver ||
+                   $2 == "linux-binary-" kver ||
+                   $2 == "linux-modules-" kver) { print $2 }')
+          (cd kernel && apt-get "$@" download "${pkg}" ${deps})
+          ls -l kernel
+          if [ "$(find kernel -name '*.deb' | wc -l)" -lt 1 ]; then
+              echo "Expected kernel package(s) in kernel/" >&2
+              exit 1
+          fi
+
+      - name: Build installer image
+        run: |
+          set -ux
+          installer/build-installer.sh --arch arm64 --variant "${VARIANT}" \
+              --suite "${SUITE}" --kernel-name "${KERNEL}" \
+              --build-id "${BUILD_ID}" \
+              kernel/*.deb
+
+      - name: Stage installer artifacts for publishing
+        run: |
+          set -ux
+          dir="installer-artifacts"
+          # every job of a run uploads to the same destination, so name
+          # everything after the variant too
+          name="installer-${KERNEL}-${SUITE}-${VARIANT}"
+          mkdir -v "${dir}"
+          img=$(ls installer/build/arm64/"${SUITE}"/"${VARIANT}"/*.img)
+          bmaptool create "${img}" >"${dir}/${name}.img.bmap"
+          pigz -c "${img}" >"${dir}/${name}.img.gz"
+          # generate sha256sums for all artifacts
+          (cd "${dir}" && sha256sum * | tee "${name}-sha256sums.txt")
+
+      # upload to a cloud storage space accessible by Axiom
+      - name: Upload private artifacts (S3)
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        id: upload_artifacts_s3
+        with:
+          path: installer-artifacts
+          # these should be the defaults; or ought to reuse BUILD_ID
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
+
+      - name: "Print output"
+        env:
+          build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
+        run: |
+          echo "Downloads URL: ${build_url}"
+          echo "## Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
