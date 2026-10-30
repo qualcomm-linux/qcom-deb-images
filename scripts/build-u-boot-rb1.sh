@@ -15,6 +15,7 @@ ABOOT_PAGE_SIZE="4096"
 ABOOT_OUTPUT="rb1-boot.img"
 CAPSULE_OUTPUT="u-boot-cap.bin"
 CABINET_OUTPUT="u-boot.cab"
+METAINFO_TEMPLATE="$(cd "$(dirname "$0")" && pwd)/u-boot-rb1.metainfo.xml.in"
 
 log_i() {
     echo "I: $*" >&2
@@ -103,15 +104,28 @@ mkbootimg --base "${ABOOT_BASE_ADDRESS}" \
 # $ ./tools/mkeficapsule guidgen dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb UBOOT_BOOT_PARTITION
 # Generating GUIDs for qcom,qrb2210-rb1 with namespace 8c9f137e-91dc-427b-b2d6-b420faebaf2a:
 # UBOOT_BOOT_PARTITION: 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5
+CAPSULE_GUID="77f90b51-588c-5ef0-aab9-046aeb2ac8c5"
 
 ./tools/mkeficapsule \
     --index 1 \
     --instance 0 \
-    --guid 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5 \
+    --guid "${CAPSULE_GUID}" \
     "${ABOOT_OUTPUT}" \
     "${CAPSULE_OUTPUT}"
+
+# generate the fwupd metadata from a template here rather than relying on the
+# U-Boot tree shipping it for RB1
+log_i "Creating fwupd cabinet archive (${CABINET_OUTPUT})"
+version="$(make -s ubootversion)"
+date="$(git log -1 --format=%cs)"
+sed -e "s|@CAPSULE_GUID@|${CAPSULE_GUID}|g" \
+    -e "s|@GIT_REPO@|${GIT_REPO}|g" \
+    -e "s|@VERSION@|${version}|g" \
+    -e "s|@DATE@|${date}|g" \
+    -e "s|@CAPSULE_OUTPUT@|${CAPSULE_OUTPUT}|g" \
+    "${METAINFO_TEMPLATE}" >u-boot-cap.metainfo.xml
 rm -f "${CABINET_OUTPUT}"
 fwupdtool build-cabinet \
     "${CABINET_OUTPUT}" \
     "${CAPSULE_OUTPUT}" \
-    board/qualcomm/rb1/u-boot-cap.metainfo.xml
+    u-boot-cap.metainfo.xml
