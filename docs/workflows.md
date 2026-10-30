@@ -18,7 +18,7 @@ as any change to them.
 | 07:00 | daily   | Build Debian                   | `build-debian.yml`         |
 | 09:00 | daily   | mainline linux build           | `linux-mainline.yml`       |
 | 11:00 | daily   | glymur laptops linux build     | `linux-glymur-laptops.yml` |
-| 11:00 | Monday  | Build U-Boot for RB1           | `u-boot.yml`               |
+| 11:00 | Monday  | Build U-Boot for RB1           | `build-u-boot-rb1.yml`     |
 
 `stale-issues.yaml` also runs daily at 01:30, but only on a GitHub-hosted
 runner and without LAVA jobs, so it is not part of the sequence above.

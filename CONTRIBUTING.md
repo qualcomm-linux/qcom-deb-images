@@ -80,7 +80,7 @@ gh workflow run linux-arduino.yml --ref "$BRANCH"
 gh workflow run linux-next.yml --ref "$BRANCH"
 gh workflow run linux-qcom-next.yml --ref "$BRANCH"
 gh workflow run linux-mainline.yml --ref "$BRANCH"
-gh workflow run u-boot.yml --ref "$BRANCH"
+gh workflow run build-u-boot-rb1.yml --ref "$BRANCH"
 
 # list the workflows ran on this branch
 gh run list --branch "$BRANCH"
