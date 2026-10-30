@@ -190,6 +190,9 @@ if [ "$SUITE" = "trixie" ]; then
 fi
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
 
+# The target's post-install step, which runs the postinst.d parts.
+overlay postinst/postinst.sh config/includes.binary/qli/postinst.sh
+
 # The stick's and the target's bootloader.
 overlay bootloader/grub/theme.txt \
     config/bootloaders/grub-pc/live-theme/theme.txt
@@ -216,6 +219,7 @@ overlay dtb-loader/hooks/0100-dtb-loader.hook.binary \
 PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
+    "$INSTALLER_DIR/live-build/postinst/preseed/postinst.cfg" \
     > "$PRESEED"
 
 # Add the kernel name, suite and build ID to the boot menu's title,
