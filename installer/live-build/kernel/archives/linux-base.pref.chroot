@@ -1,0 +1,10 @@
+# Only on trixie, with lb config --backports true (see build-installer.sh).
+#
+# The custom kernel depends on a newer linux-base than trixie's, so take
+# it from trixie-backports, which apt otherwise only uses when asked
+# (NotAutomatic). This resolves it for the ISO's pool
+# (package-lists/linux-base.list.binary) and for the live system's kernel
+# (lb chroot).
+Package: src:linux-base
+Pin: release n=trixie-backports
+Pin-Priority: 900
