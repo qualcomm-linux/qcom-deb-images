@@ -6,6 +6,7 @@
   <summary>U-Boot firmware update for Qcom RB1</summary>
   <description>
     <p>
+      U-Boot @UBOOT_VERSION@.
     </p>
   </description>
   <provides>

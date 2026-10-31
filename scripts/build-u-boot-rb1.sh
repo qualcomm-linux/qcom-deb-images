@@ -103,10 +103,17 @@ mkbootimg --base "${ABOOT_BASE_ADDRESS}" \
 # arch/arm/mach-snapdragon/capsule_update.c.
 CAPSULE_GUID="400ffdcd-22e0-47e7-9a23-f16ed9382388"
 
+# the firmware version is a 32-bit number which U-Boot reports in the ESRT and
+# fwupd compares against the cabinet version; derive it from the commit time
+# as YYYYMMDDHH (UTC) so that it increases with each qcom-next update
+fw_version="$(TZ=UTC git log -1 --date=format-local:%Y%m%d%H --format=%cd)"
+
+log_i "Creating EFI capsule (${CAPSULE_OUTPUT}, version ${fw_version})"
 ./tools/mkeficapsule \
     --index 1 \
     --instance 0 \
     --guid "${CAPSULE_GUID}" \
+    --fw-version "${fw_version}" \
     "${ABOOT_OUTPUT}" \
     "${CAPSULE_OUTPUT}"
 
@@ -117,7 +124,8 @@ version="$(make -s ubootversion)"
 date="$(git log -1 --format=%cs)"
 sed -e "s|@CAPSULE_GUID@|${CAPSULE_GUID}|g" \
     -e "s|@GIT_REPO@|${GIT_REPO}|g" \
-    -e "s|@VERSION@|${version}|g" \
+    -e "s|@VERSION@|${fw_version}|g" \
+    -e "s|@UBOOT_VERSION@|${version}|g" \
     -e "s|@DATE@|${date}|g" \
     -e "s|@CAPSULE_OUTPUT@|${CAPSULE_OUTPUT}|g" \
     "${METAINFO_TEMPLATE}" >u-boot-cap.metainfo.xml
