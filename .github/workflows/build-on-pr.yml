@@ -19,7 +19,64 @@ jobs:
         name: Event File
         path: ${{ github.event_path }}
 
+  # HACK: build the RB1 U-Boot of this branch and put it in the images built
+  # below, so that test-pr.yml boots it on qrb2210-rb1 from a fork PR; the
+  # steps are those of the build job of build-u-boot-rb1.yml. Not for merge.
+  u-boot-rb1:
+    permissions:
+      contents: read # actions/checkout
+    runs-on: [self-hosted, qcom-u2404, amd64]
+    container:
+      image: public.ecr.aws/debian/debian:trixie
+      volumes:
+        - /efsx/qli/qcom-deb-images:/efs
+    env:
+      BUILD_ID: ${{ github.event.repository.name }}-u-boot-rb1-${{ github.run_id }}-${{ github.run_attempt }}
+    outputs:
+      build_id: ${{ env.BUILD_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - name: Build U-Boot Android boot image for RB1
+        run: |
+          set -ux
+          apt -y install \
+              bc \
+              bison \
+              coreutils \
+              crossbuild-essential-arm64 \
+              flex \
+              fwupd \
+              git \
+              gnutls-dev \
+              gzip \
+              libssl-dev \
+              make \
+              mkbootimg \
+              uuid-dev \
+              xxd
+          scripts/build-u-boot-rb1.sh
+
+      - name: Upload results to EFS
+        run: |
+          set -ux
+          export BUILD_DIR="/efs/${BUILD_ID}"
+          mkdir -vp "${BUILD_DIR}"
+          cp -av u-boot/rb1-boot.img "${BUILD_DIR}"
+          sync
+
   build:
+    needs: u-boot-rb1
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +95,8 @@ jobs:
       variant: ${{ matrix.variant }}
       # QLI targets qcom-next; install the kernel from the QLI APT repository
       kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
+      # HACK: see the u-boot-rb1 job
+      u_boot_rb1: ${{ needs.u-boot-rb1.outputs.build_id }}
 
   sbom-compliance-scan:
     if: ${{ !cancelled() && needs.build.result != 'skipped' }}
