@@ -39,7 +39,9 @@ runner and without LAVA jobs, so it is not part of the sequence above.
   short-lived glymur-laptops build, which is the last daily build.
 * The weekly U-Boot build runs on Monday after the daily ones. It only starts
   once the daily builds are done with the runners and LAVA, so it doesn't add
-  its jobs on top.
+  its jobs on top. It also builds one image with the new U-Boot and submits a
+  single LAVA boot job on the RB1; U-Boot is only published, from `main`, once
+  that boots.
 * EFS maintenance runs before the first build, to prune old artifacts, which is
   best avoided while a build is publishing to EFS.
 
