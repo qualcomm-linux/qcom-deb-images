@@ -104,3 +104,9 @@ mainline:
     - monaco-arduino-monza
     - qcs6490-rb3gen2
     - qrb2210-arduino-imola
+
+u-boot-rb1:
+  # not a kernel flavour: the weekly RB1 U-Boot build boot tests an image
+  # carrying its rb1-boot.img before publishing it; see build-u-boot-rb1.yml
+  boot:
+    - qrb2210-rb1
