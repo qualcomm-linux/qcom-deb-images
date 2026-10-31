@@ -49,6 +49,13 @@ on:
           of the same suite and variant don't overwrite each other.
         type: string
         default: 'default'
+      u_boot_rb1:
+        description: >
+          Name of the EFS directory the RB1 U-Boot boot image (rb1-boot.img)
+          is copied from; by default the last published U-Boot, but a U-Boot
+          build can name its own build directory to test it before publishing.
+        type: string
+        default: u-boot-rb1-latest
 
     outputs:
       artifacts_url:
@@ -112,7 +119,17 @@ jobs:
           persist-credentials: false
 
       - name: Copy U-Boot for RB1 from EFS
-        run: cp -av "/efs/u-boot-rb1-latest/rb1-boot.img" .
+        env:
+          U_BOOT_RB1: ${{ inputs.u_boot_rb1 }}
+        run: |
+          set -ux
+          u_boot_rb1_img="/efs/${U_BOOT_RB1}/rb1-boot.img"
+          if [ ! -f "$u_boot_rb1_img" ]; then
+              echo "ERROR: ${u_boot_rb1_img} does not exist" >&2
+              echo "run build-u-boot-rb1.yml to publish an RB1 U-Boot first" >&2
+              exit 1
+          fi
+          cp -av "$u_boot_rb1_img" .
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
