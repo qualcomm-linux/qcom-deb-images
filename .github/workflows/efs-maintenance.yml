@@ -23,7 +23,9 @@
 #             /grype-db: Grype vulnerability databases, see
 #                 scripts/grype-db-cache.sh
 #     /u-boot-rb1-latest => symlink to artifacts directory for the last
-#         successful u-boot workflow build
+#         u-boot workflow build that passed the boot test; every u-boot
+#         build gets its own qcom-deb-images-<run_id>-<attempt> directory,
+#         and only builds from main that booted move this symlink
 #     /mainline, /linux-next, /qcom-next...: symlinks to the artifacts
 #         directory for the last successful workflow build of the various
 #         linux kernel workflows for different projects

@@ -1,0 +1,194 @@
+name: Build U-Boot for RB1
+
+on:
+  schedule:
+    - cron: '00 11 * * 1'
+  # allow manual runs
+  workflow_dispatch:
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+env:
+  # github runs are only unique per repository and may also be re-run; create a
+  # build id for the current run
+  BUILD_ID: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # don't run cron from forks of the main repository or from other branches;
+    # manual runs are allowed from any branch of the main repository so
+    # that changes to the workflows can be tested before they are merged
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    permissions:
+      contents: read # actions/checkout
+    # for cross-builds
+    runs-on: [self-hosted, qcom-u2404, amd64]
+    # alternative for native builds, but overkill to do both
+    #runs-on: [self-hosted, qcom-u2404, arm64]
+    container:
+      image: public.ecr.aws/debian/debian:trixie
+      volumes:
+        - /efsx/qli/qcom-deb-images:/efs
+    # the jobs below refer to the build directory through this output rather
+    # than BUILD_ID, so that re-running failed jobs (a new run_attempt) still
+    # finds the directory of the attempt that built U-Boot
+    outputs:
+      build_id: ${{ env.BUILD_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # make sure we have latest packages first, to get latest fixes, to avoid
+      # an automated update while we're building, and to prevent version skews
+      - name: Update OS packages
+        run: |
+          set -ux
+          apt update
+          apt -y upgrade
+          apt -y full-upgrade
+
+      - name: Build U-Boot Android boot image for RB1
+        run: |
+          set -ux
+          # install build-dependencies
+          apt -y install \
+              bc \
+              bison \
+              coreutils \
+              crossbuild-essential-arm64 \
+              flex \
+              fwupd \
+              git \
+              gnutls-dev \
+              gzip \
+              libssl-dev \
+              make \
+              mkbootimg \
+              uuid-dev \
+              xxd
+          scripts/build-u-boot-rb1.sh
+
+      - name: Stage artifacts for upload
+        run: |
+          set -ux
+          mkdir -v artifacts
+          cp -av \
+              u-boot/u-boot-nodtb.bin.gz \
+              u-boot/dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb \
+              u-boot/u-boot-nodtb.bin.gz-dtb \
+              u-boot/u-boot.bin \
+              u-boot/rb1-boot.img \
+              u-boot/u-boot-cap.bin \
+              u-boot/u-boot.cab \
+              artifacts
+
+      # u-boot-rb1-latest is only moved by the publish job, once the image
+      # below has booted
+      - name: Upload results to EFS
+        run: |
+          set -ux
+          export BUILD_DIR="/efs/${BUILD_ID}"
+          mkdir -vp "${BUILD_DIR}"
+          cp -av artifacts/* "${BUILD_DIR}"
+          # perhaps help NFS sync
+          sync
+
+  # the RB1 LAVA device flashes the whole eMMC tarball with QDL, and
+  # rb1-boot.img is part of it, so booting this image tests the new U-Boot;
+  # the capsule isn't tested
+  image:
+    needs: build
+    uses: $/.github/workflows/debos.yml
+    permissions:
+      contents: read
+    with:
+      suite: trixie
+      variant: console
+      u_boot_rb1: ${{ needs.build.outputs.build_id }}
+
+  test:
+    needs: image
+    uses: $/.github/workflows/test.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    secrets:
+      LAVATOKEN: ${{ secrets.LAVATOKEN }}
+    with:
+      url: ${{ needs.image.outputs.artifacts_url }}
+      suite: trixie
+      variant: console
+      # the boards tested come from .github/lava-boards.yml
+      kernel: u-boot-rb1
+      # only U-Boot changed, so booting is enough
+      premerge: false
+
+  publish-test-results:
+    if: always() && needs.test.result != 'skipped'
+    needs: test
+    uses: $/.github/workflows/publish-results.yml
+    permissions:
+      checks: write
+      contents: read
+      packages: read
+      pull-requests: write
+    secrets:
+      TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
+
+  # publish the build as u-boot-rb1-latest, which image builds take
+  # rb1-boot.img from, only once it has booted and only from main; manual
+  # runs from other branches test everything but never publish. both test
+  # and publish-test-results are needed: the boot jobs in test-distro.yml
+  # use continue-on-error, so only publish-test-results knows whether the
+  # board booted, while test still fails when one of its other jobs fails
+  publish:
+    needs: [build, test, publish-test-results]
+    if: >-
+      github.repository == 'qualcomm-linux/qcom-deb-images' &&
+      github.ref == 'refs/heads/main' &&
+      needs.test.result == 'success' &&
+      needs.publish-test-results.result == 'success'
+    permissions: {}
+    runs-on: [self-hosted, qcom-u2404, amd64]
+    container:
+      image: public.ecr.aws/debian/debian:trixie
+      volumes:
+        - /efsx/qli/qcom-deb-images:/efs
+    env:
+      BUILD_ID: ${{ needs.build.outputs.build_id }}
+    steps:
+      - name: Update u-boot-rb1-latest on EFS
+        run: |
+          set -ux
+          # create or update u-boot-rb1-latest symlink
+          ln -fnsv "${BUILD_ID}" /efs/u-boot-rb1-latest
+          # perhaps help NFS sync
+          sync
+
+      - name: Stage artifacts for upload
+        run: |
+          set -ux
+          mkdir -v artifacts
+          cp -av "/efs/${BUILD_ID}/"* artifacts
+
+      - name: Upload private artifacts
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        id: upload_artifacts
+        with:
+          path: artifacts
+          # these should be the defaults; or ought to reuse BUILD_ID
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/

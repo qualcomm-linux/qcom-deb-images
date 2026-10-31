@@ -1,0 +1,3 @@
+# fwupd metainfo template for the U-Boot firmware; its license tags describe
+# U-Boot and the metadata, not this project
+scripts/u-boot-rb1.metainfo.xml.in

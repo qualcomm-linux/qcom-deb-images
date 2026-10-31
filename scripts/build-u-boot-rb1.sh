@@ -4,10 +4,8 @@
 
 set -eu
 
-# patches in this repo/branch were submitted upstream here:
-# https://lore.kernel.org/u-boot/20250410080027.208674-1-sumit.garg@kernel.org/
-GIT_REPO="https://github.com/b49020/u-boot"
-GIT_BRANCH="qcom-mainline"
+GIT_REPO="https://github.com/qualcomm-linux/u-boot"
+GIT_BRANCH="qcom-next"
 CONFIG="qcom_defconfig"
 U_BOOT_DEVICE_TREE="qcom/qrb2210-rb1"
 ABOOT_BASE_ADDRESS="0x80000000"
@@ -15,6 +13,7 @@ ABOOT_PAGE_SIZE="4096"
 ABOOT_OUTPUT="rb1-boot.img"
 CAPSULE_OUTPUT="u-boot-cap.bin"
 CABINET_OUTPUT="u-boot.cab"
+METAINFO_TEMPLATE="$(cd "$(dirname "$0")" && pwd)/u-boot-rb1.metainfo.xml.in"
 
 log_i() {
     echo "I: $*" >&2
@@ -31,7 +30,7 @@ packages="git"
 # a cross-compiler on other architectures
 packages="${packages} crossbuild-essential-arm64"
 # u-boot build-dependencies
-packages="${packages} make bison flex bc libssl-dev gnutls-dev xxd"
+packages="${packages} make bison flex bc libssl-dev gnutls-dev uuid-dev xxd"
 # for nproc
 packages="${packages} coreutils"
 # needed to pack resulting u-boot binary into an Android boot image
@@ -99,19 +98,31 @@ mkbootimg --base "${ABOOT_BASE_ADDRESS}" \
 # bank capsule updates as well as support to update Qualcomm downstream boot
 # firmware too.
 
-# The GUID used below for U-Boot firmware can be generated dynamically via:
-# $ ./tools/mkeficapsule guidgen dts/upstream/src/arm64/qcom/qrb2210-rb1.dtb UBOOT_BOOT_PARTITION
-# Generating GUIDs for qcom,qrb2210-rb1 with namespace 8c9f137e-91dc-427b-b2d6-b420faebaf2a:
-# UBOOT_BOOT_PARTITION: 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5
+# The GUID used below for U-Boot firmware is not derived from the device tree
+# but fixed for all boards; see QCOM_UBOOT_IMAGE_TYPE_GUID in
+# arch/arm/mach-snapdragon/capsule_update.c.
+CAPSULE_GUID="400ffdcd-22e0-47e7-9a23-f16ed9382388"
 
 ./tools/mkeficapsule \
     --index 1 \
     --instance 0 \
-    --guid 77F90B51-588C-5EF0-AAB9-046AEB2AC8C5 \
+    --guid "${CAPSULE_GUID}" \
     "${ABOOT_OUTPUT}" \
     "${CAPSULE_OUTPUT}"
+
+# generate the fwupd metadata from a template here rather than relying on the
+# U-Boot tree shipping it for RB1
+log_i "Creating fwupd cabinet archive (${CABINET_OUTPUT})"
+version="$(make -s ubootversion)"
+date="$(git log -1 --format=%cs)"
+sed -e "s|@CAPSULE_GUID@|${CAPSULE_GUID}|g" \
+    -e "s|@GIT_REPO@|${GIT_REPO}|g" \
+    -e "s|@VERSION@|${version}|g" \
+    -e "s|@DATE@|${date}|g" \
+    -e "s|@CAPSULE_OUTPUT@|${CAPSULE_OUTPUT}|g" \
+    "${METAINFO_TEMPLATE}" >u-boot-cap.metainfo.xml
 rm -f "${CABINET_OUTPUT}"
 fwupdtool build-cabinet \
     "${CABINET_OUTPUT}" \
     "${CAPSULE_OUTPUT}" \
-    board/qualcomm/rb1/u-boot-cap.metainfo.xml
+    u-boot-cap.metainfo.xml
