@@ -57,7 +57,7 @@ permissions: {}
 jobs:
   publish:
     name: Publish test results
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # EnricoMi/publish-unit-test-result-action
       checks: write # EnricoMi/publish-unit-test-result-action

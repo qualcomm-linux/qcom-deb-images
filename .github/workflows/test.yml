@@ -81,7 +81,7 @@ env:
 jobs:
   select-boards:
     name: Select boards
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
     outputs:
@@ -156,7 +156,7 @@ jobs:
     name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
     needs: test
     if: always() && needs.test.result != 'skipped' && needs.test.result != 'cancelled'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read # actions/checkout
       packages: read # actions/download-artifact
