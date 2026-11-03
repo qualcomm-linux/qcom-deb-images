@@ -37,8 +37,8 @@ qcom-next:
     - qcs8300-ride
     - qrb2210-rb1
 
-qcom-7.2:
-  # the nightly qcom-7.2 build tests one board; see linux-qcom-7.2.yml
+qcom-7.3:
+  # the nightly qcom-7.3 build tests one board; see linux-qcom-7.3.yml
   boot:
     - glymur-crd
 
