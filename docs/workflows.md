@@ -11,7 +11,7 @@ as any change to them.
 |-------|---------|--------------------------------|----------------------------|
 | 19:00 | Sunday  | EFS Maintenance                | `efs-maintenance.yml`      |
 | 21:00 | daily   | Build (qcom-next QLI images)   | `build.yml`                |
-| 23:00 | daily   | qcom-7.2 linux build           | `linux-qcom-7.2.yml`       |
+| 23:00 | daily   | qcom-7.3 linux build           | `linux-qcom-7.3.yml`       |
 | 01:00 | daily   | arduino linux build            | `linux-arduino.yml`        |
 | 03:00 | daily   | qcom-laptops linux build       | `linux-qcom-laptops.yml`   |
 | 05:00 | daily   | linux-next linux build         | `linux-next.yml`           |
@@ -26,7 +26,7 @@ runner and without LAVA jobs, so it is not part of the sequence above.
 
 ## Why the schedule looks like this
 
-* The QLI images are preferred. The `qcom-next` and `qcom-7.2` images and their
+* The QLI images are preferred. The `qcom-next` and `qcom-7.3` images and their
   test results are shared with the test teams, who expect them around 8:00am IST
   (2:30am UTC). The LAVA tests in this repository run fully-featured test cases
   and can take a long time, so these builds start the evening before.
@@ -46,7 +46,7 @@ runner and without LAVA jobs, so it is not part of the sequence above.
 
 ## Changing the schedule
 
-* Keep the `qcom-next` and `qcom-7.2` results landing before the 2:30am UTC
+* Keep the `qcom-next` and `qcom-7.3` results landing before the 2:30am UTC
   deadline.
 * Keep the two hour gap between builds and don't overlap EFS maintenance.
 * Update the table above.

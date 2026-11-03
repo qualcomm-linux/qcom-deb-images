@@ -1,10 +1,10 @@
 # Builds & Tests QLI Debian images:
-#  - qcom-7.2 kernel (from QLI APT repo)
+#  - qcom-7.3 kernel (from QLI APT repo)
 #  - Qualcomm overlay repos and packages
 #
-# This workflow tracks the state of the qcom-7.2 kernel on supported boards.
+# This workflow tracks the state of the qcom-7.3 kernel on supported boards.
 
-name: qcom-7.2 linux build
+name: qcom-7.3 linux build
 
 on:
   schedule:
@@ -37,19 +37,19 @@ jobs:
           - suite: trixie
             variant: weston-multimedia
             profile: default
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
             variant: xfce
             profile: default
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
             variant: xfce
             profile: performance
-            kernelpackages: 'linux-image-qcom-7.2,linux-headers-qcom-7.2'
+            kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
             variant: xfce
             profile: debug
-            kernelpackages: 'linux-image-qcom-7.2-debug,linux-headers-qcom-7.2-debug'
+            kernelpackages: 'linux-image-qcom-7.3-debug,linux-headers-qcom-7.3-debug'
     uses: $/.github/workflows/debos.yml
     permissions:
       contents: read
@@ -92,7 +92,7 @@ jobs:
       suite: trixie
       variant: xfce
       # the boards tested come from .github/lava-boards.yml
-      kernel: qcom-7.2
+      kernel: qcom-7.3
 
   publish-test-results:
     if: always() && needs.test.result != 'skipped'
@@ -114,13 +114,13 @@ jobs:
   # the runs apart; don't rename, move or remove this job without updating
   # the internal CI configuration at the same time
   internal-ci-images-built:
-    name: Internal CI trigger (qcom-7.2 images built)
+    name: Internal CI trigger (qcom-7.3 images built)
     needs: build
     if: needs.build.result == 'success'
     runs-on: ubuntu-26.04
     permissions: {}
     steps:
-      - run: echo "qcom-7.2 images built"
+      - run: echo "qcom-7.3 images built"
 
   # trigger for the Qualcomm internal CI, as above, once every test has
   # passed, and skipped otherwise. both jobs are needed:
@@ -136,7 +136,7 @@ jobs:
   # skipped. don't rename, move or remove this job without updating the
   # internal CI configuration at the same time
   internal-ci-images-tested:
-    name: Internal CI trigger (qcom-7.2 images tested)
+    name: Internal CI trigger (qcom-7.3 images tested)
     needs: [test, publish-test-results]
     if: >-
       needs.test.result == 'success' &&
@@ -144,4 +144,4 @@ jobs:
     runs-on: ubuntu-26.04
     permissions: {}
     steps:
-      - run: echo "qcom-7.2 images tested"
+      - run: echo "qcom-7.3 images tested"
