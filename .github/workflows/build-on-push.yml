@@ -2,7 +2,9 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    # HACK: temporary, drop before merging: also build on pushes to the
+    # debos-no-fakemachine branch
+    branches: [main, wip/obbardc/debos-no-fakemachine]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
