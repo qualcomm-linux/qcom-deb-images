@@ -169,7 +169,8 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   10 second warning) and mapped onto the equivalent `variant` value. Setting
   any of these together with `variant`, or combining them in a way that
   doesn't correspond to a supported variant (e.g. two desktops at once, or
-  `multimedia` without `westonsession`), fails at render time.
+  `multimedia` without `westonsession` or `gnomedesktop`), fails at render
+  time.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
@@ -343,6 +344,8 @@ build on any other name:
 - `console`: the default; no graphical environment is installed.
 - `xfce`: an Xfce desktop environment.
 - `gnome`: a GNOME desktop environment.
+- `gnome-multimedia`: `gnome` plus the Qualcomm accelerated multimedia stack,
+  as in `weston-multimedia`.
 - `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
