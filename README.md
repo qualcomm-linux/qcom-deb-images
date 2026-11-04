@@ -201,7 +201,7 @@ For the image recipe:
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
-- `imagesize`: set the output disk image size; default: `8GiB`
+- `imagesize`: set the output disk image size; default: `10GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
   `default`. See the *Supported profiles* section below.
