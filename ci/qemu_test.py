@@ -51,6 +51,12 @@ def vm():
                 "-nographic",
                 "-bios",
                 "/usr/share/AAVMF/AAVMF_CODE.fd",
+                # systemd waits 90s by default for devices such as the ESP,
+                # which is too short under emulation. systemd-boot appends
+                # this SMBIOS string to the kernel cmdline (not under Secure
+                # Boot), so the test can raise it without changing the image.
+                "-smbios",
+                "type=11,value=io.systemd.boot.kernel-cmdline-extra=systemd.default_device_timeout_sec=300",
             ],
             # Emulated aarch64 (no KVM) on a loaded CI runner is slow, so give
             # every expect() a generous default. The initial boot still
