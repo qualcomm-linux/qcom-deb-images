@@ -18,7 +18,7 @@ as any change to them.
 | 07:00 | daily   | Build Debian                   | `build-debian.yml`         |
 | 09:00 | daily   | mainline linux build           | `linux-mainline.yml`       |
 | 11:00 | daily   | glymur laptops linux build     | `linux-glymur-laptops.yml` |
-| 11:00 | Monday  | Build U-Boot for RB1           | `u-boot.yml`               |
+| 11:00 | Monday  | Build U-Boot for RB1           | `build-u-boot-rb1.yml`     |
 
 `stale-issues.yaml` also runs daily at 01:30, but only on a GitHub-hosted
 runner and without LAVA jobs, so it is not part of the sequence above.
@@ -39,7 +39,9 @@ runner and without LAVA jobs, so it is not part of the sequence above.
   short-lived glymur-laptops build, which is the last daily build.
 * The weekly U-Boot build runs on Monday after the daily ones. It only starts
   once the daily builds are done with the runners and LAVA, so it doesn't add
-  its jobs on top.
+  its jobs on top. It also builds one image with the new U-Boot and submits a
+  single LAVA boot job on the RB1; U-Boot is only published, from `main`, once
+  that boots.
 * EFS maintenance runs before the first build, to prune old artifacts, which is
   best avoided while a build is publishing to EFS.
 
