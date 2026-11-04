@@ -192,7 +192,7 @@ jobs:
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
-      - name: Build UFS and SD card images with debos
+      - name: Build UFS image with debos
         run: |
           set -ux
           # debos tries KVM and UML as backends, and falls back to
@@ -202,6 +202,11 @@ jobs:
           # whole build is done from memory and the out of memory killer
           # gets triggered
           make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+
+      - name: Build SD card image with debos
+        run: |
+          set -ux
+          # use qemu backend explicitly; see the UFS image step above
           make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
