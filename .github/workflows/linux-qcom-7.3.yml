@@ -39,6 +39,10 @@ jobs:
             profile: default
             kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
+            variant: gnome-multimedia
+            profile: default
+            kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
+          - suite: trixie
             variant: gnome
             profile: default
             kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
