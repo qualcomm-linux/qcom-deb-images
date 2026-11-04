@@ -120,6 +120,101 @@ jobs:
       - name: Install debos and dependencies of the recipes and local tests
         run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs
 
+      # HACK: temporary, drop before merging: probe whether loop device
+      # partitions can work in this container without fakemachine
+      - name: Probe loop device partitions
+        run: |
+          # keep going after failures; GitHub runs bash with -e
+          set +e -x
+          apt -y install --no-install-recommends dosfstools fdisk mount util-linux
+          uname -a
+          cat /sys/module/loop/parameters/max_part
+          cat /sys/module/loop/parameters/max_loop
+          grep -w loop /proc/modules || echo "loop built in"
+          mount | grep -E ' /dev( |/)'
+          ls -l /dev/loop* /dev/mapper
+          losetup -l
+
+          truncate -s 128M probe.img
+          printf 'label: gpt\nsize=32M, type=uefi\ntype=linux\n' | sfdisk probe.img
+
+          mkdir -p probe-devtmpfs
+          mount -t devtmpfs devtmpfs probe-devtmpfs
+          show() {
+              dev="$1"; name="$(basename "$dev")"
+              losetup -l "$dev"
+              cat "/sys/block/${name}/loop/partscan"
+              grep "$name" /proc/partitions
+              ls -l /sys/block/"$name"/ | grep "$name"
+              ls -l "$dev"* "probe-devtmpfs/${name}"*
+          }
+
+          echo "### attach like debos (no partscan)"
+          dev="$(losetup --find --show probe.img)"
+          blockdev --rereadpt "$dev"
+          show "$dev"
+          echo "### partx -a (BLKPG) without partscan"
+          partx -a "$dev"
+          show "$dev"
+          losetup -d "$dev"
+
+          echo "### attach with partscan"
+          dev="$(losetup --find --show --partscan probe.img)"
+          udevadm settle
+          show "$dev"
+          name="$(basename "$dev")"
+          echo "### mkfs on container /dev node"
+          mkfs.vfat "${dev}p1"
+          echo "### mkfs on host devtmpfs node"
+          mkfs.vfat "probe-devtmpfs/${name}p1"
+          echo "### mkfs after mknod from sysfs"
+          if [ -e "/sys/block/${name}/${name}p1/dev" ]; then
+              IFS=: read -r maj min <"/sys/block/${name}/${name}p1/dev"
+              [ -e "${dev}p1" ] || mknod "${dev}p1" b "$maj" "$min"
+              mkfs.vfat "${dev}p1"
+              rm -f "${dev}p1"
+          fi
+          losetup -d "$dev"
+
+          echo "### attach 10 loop devices at once"
+          devs=""
+          mknods=""
+          for i in $(seq 1 10); do
+              echo "## loop device $i"
+              free="$(losetup --find)"
+              name="$(basename "$free")"
+              ls -l "/sys/block/${name}/dev" "$free"
+              # loop-control may hand out a device with no node in the
+              # container's /dev; create it from sysfs if so
+              if [ ! -e "$free" ] && [ -e "/sys/block/${name}/dev" ]; then
+                  IFS=: read -r maj min <"/sys/block/${name}/dev"
+                  mknod "$free" b "$maj" "$min" && mknods="$mknods $free"
+              fi
+              truncate -s 64M "probe-$i.img"
+              printf 'label: gpt\nsize=16M, type=uefi\ntype=linux\n' | sfdisk -q "probe-$i.img"
+              dev="$(losetup --show --partscan "$free" "probe-$i.img")" || continue
+              devs="$devs $dev"
+              udevadm settle
+              show "$dev"
+              mkfs.vfat "${dev}p1"
+          done
+          losetup -l
+          ls -l /dev/loop*
+          for dev in $devs; do
+              losetup -d "$dev"
+          done
+          for node in $mknods; do
+              rm -f "$node"
+          done
+          rm -f probe-*.img
+
+          umount probe-devtmpfs
+          rmdir probe-devtmpfs
+          rm -f probe.img
+          losetup -l
+          # stop the job here; only the probe output is of interest
+          exit 1
+
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
       - name: Install Syft
