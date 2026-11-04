@@ -359,7 +359,7 @@ publishes its artifacts without a variant suffix, e.g.
 variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`. The Xfce image,
 previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
 
-`build.yml` builds the `minimal`, `console`, `xfce`, `gnome` and
+`build.yml` builds the `minimal`, `console`, `gnome` and
 `weston-multimedia` variants (`minimal` for `trixie` and `forky` only), but
 for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
 workflow submits.
