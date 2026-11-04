@@ -190,6 +190,31 @@ def test_adds_advisory(tmp_path):
     assert digest.startswith("sha256:")
 
 
+def test_source_url_only_for_source_root(tmp_path):
+    # advisories outside of the security-tracker, e.g. the kernel CVEs of
+    # scripts/kernel-cves.py, keep their own references only
+    db = make_db(tmp_path)
+    root, paths = write_advisories(tmp_path, advisory())
+    outside = tmp_path / "kernel-osv" / "CVE-2026-2.osv.json"
+    outside.parent.mkdir()
+    outside.write_text(json.dumps(advisory(
+        "CVE-2026-2", source="linux-qcom-next",
+        references=[{"type": "ADVISORY",
+                     "url": "https://www.cve.org/CVERecord?id=CVE-2026-2"}])))
+    result = run(db, "--source-root", root, "--source-url",
+                 "https://example.com/blob/abc/", *paths, str(outside))
+    assert result.returncode == 0, result.stderr
+    refs = {name: json.loads(blob)["refs"] for name, blob in query(
+        db, "SELECT v.name, b.value FROM vulnerability_handles v "
+            "JOIN blobs b ON b.id = v.blob_id WHERE v.provider_id = 'qli'")}
+    assert refs == {
+        "QLI-2026-1": [{"url": "https://example.com/blob/abc/advisories/"
+                               "QLI-2026-1.osv.json", "tags": ["ADVISORY"]}],
+        "CVE-2026-2": [{"url": "https://www.cve.org/CVERecord?id=CVE-2026-2",
+                        "tags": ["ADVISORY"]}],
+    }
+
+
 @pytest.mark.parametrize("events,ranges", [
     # like the Debian provider's records of unfixed vulnerabilities
     ([{"introduced": "0"}],

@@ -351,10 +351,13 @@ def run(args):
                  datetime.now(timezone.utc).isoformat(sep=" "),
                  input_digest(args.advisories, args.source_root)))
             for path in args.advisories:
+                # only for those of the security-tracker; others, e.g. the
+                # kernel CVEs of scripts/kernel-cves.py, come with their own
                 source_url = None
-                if args.source_url:
-                    source_url = args.source_url + \
-                        os.path.relpath(path, args.source_root)
+                relpath = os.path.relpath(path, args.source_root)
+                if args.source_url and \
+                        not relpath.startswith(os.pardir + os.sep):
+                    source_url = args.source_url + relpath
                 # each advisory is added entirely, or not at all
                 db.execute("SAVEPOINT advisory")
                 try:
@@ -388,7 +391,8 @@ def main():
                         help="URL prefix of the advisories' published "
                              "location, followed by their path relative to "
                              "--source-root; reported by Grype as the data "
-                             "source of their findings")
+                             "source of their findings. Not for advisories "
+                             "outside of --source-root")
     parser.add_argument("--distro-info", default=DISTRO_INFO,
                         help="Debian releases of distro-info-data "
                              "(default: %(default)s)")
