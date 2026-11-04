@@ -10,9 +10,17 @@ on:
         default: 'mainline'
       overlays:
         description: >
-          Comma-separated list of rootfs overlays to apply from
-          debos-recipes/overlays/ (e.g. workaround-name); "none" or unset
+          Comma-separated list of rootfs overlays to apply, each the name
+          of a subdirectory of debos-recipes/overlays/; "none" or unset
           applies no overlay.
+        required: false
+        type: string
+        default: 'none'
+      workarounds:
+        description: >
+          Comma-separated list of temporary workarounds to apply, each the
+          name of a subdirectory of debos-recipes/workarounds/; "none" or
+          unset applies no workaround.
         required: false
         type: string
         default: 'none'
@@ -87,9 +95,16 @@ on:
         type: string
       overlays:
         description: >
-          Comma-separated list of rootfs overlays to apply from
-          debos-recipes/overlays/ (e.g. workaround-name); "none" or unset
+          Comma-separated list of rootfs overlays to apply, each the name
+          of a subdirectory of debos-recipes/overlays/; "none" or unset
           applies no overlay.
+        required: false
+        type: string
+      workarounds:
+        description: >
+          Comma-separated list of temporary workarounds to apply, each the
+          name of a subdirectory of debos-recipes/workarounds/; "none" or
+          unset applies no workaround.
         required: false
         type: string
       debos_extra_args:
@@ -224,6 +239,7 @@ jobs:
       suite: ${{ matrix.suite }}
       variant: ${{ inputs.variant || 'console' }}
       overlays: ${{ inputs.overlays || 'none' }}
+      workarounds: ${{ inputs.workarounds || 'none' }}
       kernelpackages: efs/${{ inputs.kernel_name || 'mainline' }}
       debos_extra_args: ${{ inputs.debos_extra_args }}
       skip_qemu_tests: ${{ inputs.skip_qemu_tests || false }}
