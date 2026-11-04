@@ -211,7 +211,10 @@ jobs:
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          # build on the host like the rootfs rather than in the slow
+          # qemu backend; the flash recipe only downloads files and runs
+          # commands outside of a chroot, so it needs no loop devices
+          make flash FAKEMACHINE_OPTS="--disable-fakemachine" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       # only generate the SBOM for the UFS image; the SD card image only
       # differs in sector size, so its contents are the same
