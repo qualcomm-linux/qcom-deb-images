@@ -135,6 +135,8 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
 * `rootfs-sbom.cyclonedx.json.gz`, `rootfs-sbom.spdx.json.gz`,
   `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
 * `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
+* `rootfs-kernel-apt.sources.gz`: the APT source the image's kernel comes
+  from, for images with a QLI kernel; see [Kernel CVEs](#kernel-cves)
 * `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
   findings from the QLI advisories

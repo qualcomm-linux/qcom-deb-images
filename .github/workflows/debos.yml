@@ -116,8 +116,9 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
+      # python3-apt is needed by scripts/kernel-apt-sources.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
@@ -255,6 +256,12 @@ jobs:
               -v \
               scan rootfs
 
+          # the APT source of the image's kernel, which the vulnerability scan
+          # downloads its -dbg package from; see docs/workflows.md#kernel-cves.
+          # The image doesn't depend on it, so it doesn't fail the build
+          scripts/kernel-apt-sources.py rootfs rootfs-kernel-apt.sources ||
+              echo "WARNING: cannot record the APT source of the kernel" >&2
+
           # remove the temporary rootfs
           rm -rf rootfs
 
@@ -285,9 +292,14 @@ jobs:
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # one SBOM archive per image, named like the images it describes,
           # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
-          # SBOMs in all formats and the license summary
+          # SBOMs in all formats, the license summary and, if any, the APT
+          # source of the kernel
+          set -- rootfs-sbom.*
+          if [ -s rootfs-kernel-apt.sources ]; then
+              set -- "$@" rootfs-kernel-apt.sources
+          fi
           tar -cv --use-compress-program=pigz \
-              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
+              -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" "$@"
           # generate sha256sums for all artifacts
           (cd "${dir}" && sha256sum * | tee "${ARTIFACT_PREFIX}-sha256sums.txt")
 
