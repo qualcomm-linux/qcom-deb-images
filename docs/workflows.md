@@ -108,6 +108,21 @@ assesses the kernel of each image:
   record as their data source, as not fixed: no version of the kernel's
   package is known to fix them. Its default rule for kernel headers hides the
   duplicates on the `linux-headers-*` packages
+* those whose fix changes no file compiled into the kernel get a
+  `not_affected` (`vulnerable_code_not_present`) statement in a VEX document
+  of the image, `rootfs-kernel.openvex.json`, which the scan takes along with
+  the security-tracker's. `scripts/kernel-compiled-sources.py` lists the
+  files compiled into the kernel from the debug info of its
+  `linux-image-*-dbg` package, which it downloads with apt from the APT
+  source the image installed the kernel from, whatever the image recipe
+  configured, e.g. a snapshot of the QLI repository: the image build records
+  it with `scripts/kernel-apt-sources.py`, from the image's own package lists,
+  as `rootfs-kernel-apt.sources` in the SBOM archive. Kconfig files and
+  Makefiles only count when a fix changes nothing else, and only those of
+  directories with compiled sources. Without that package, e.g. for kernels
+  built with `bindeb-pkg` or ones removed from the repository by now, or
+  without recorded APT source, the kernel is assessed by version alone, with
+  a warning
 
 The counts are in `rootfs-kernel-cves.txt` and in the job summary. The
 version check is conservative: release candidates and git snapshots count as
@@ -141,8 +156,9 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
   findings from the QLI advisories
 * `rootfs-vex-warnings.txt.gz`: the VEX coverage warnings
-* `rootfs-kernel-cves.txt.gz`: the counts of the kernel CVE assessment, for
-  images with a QLI kernel; see [Kernel CVEs](#kernel-cves)
+* `rootfs-kernel-cves.txt.gz`, `rootfs-kernel.openvex.json.gz`: the kernel CVE
+  assessment and its VEX statements, for images with a QLI kernel; see
+  [Kernel CVEs](#kernel-cves)
 
 along with an uncompressed `manifest.json` giving the build the data describes
 (`build.id`, `build.run_url`, `build.artifacts_url` where its images are), the

@@ -76,16 +76,21 @@ jobs:
       # pigz is needed to compress the reports for publishing
       # python3 is needed by the VEX, advisory, kernel CVE and summary scripts
       # zstd is needed by scripts/grype-db-cache.sh
+      # binutils (readelf) and python3-apt are needed by
+      #   scripts/kernel-compiled-sources.py, as is dpkg-deb, which the
+      #   container has already
       - name: Install dependencies
         run: |
           set -ux
           apt -y install --update --no-install-recommends \
+              binutils \
               ca-certificates \
               curl \
               distro-info-data \
               git \
               pigz \
               python3 \
+              python3-apt \
               zstd
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -192,20 +197,31 @@ jobs:
           echo "commit=$(git -C kernel-vulns rev-parse HEAD)" >>"$GITHUB_OUTPUT"
 
       # the CVEs affecting the version of each image's kernel, as OSV records
-      # for the next step. Debian's own kernel is left out, the Debian
-      # security tracker covers it; an image without a QLI kernel gets no
-      # assessment
+      # for the next step, and an OpenVEX document marking those whose fix
+      # changes no file compiled into it, from the debug info of its -dbg
+      # package in the APT source the image installed it from, which the
+      # image build records in the SBOM archive, as not affected. Debian's
+      # own kernel is left out, the Debian security tracker covers it
       - name: Assess kernel CVEs
         shell: bash
         run: |
           set -euxo pipefail
           for prefix in ${PREFIXES}; do
               dir="sboms/${prefix}"
-              scripts/kernel-cves.py \
-                  --vulns kernel-vulns \
-                  --sbom "${dir}/rootfs-sbom.syft.json" \
-                  --osv-dir kernel-osv |
-                      tee "${dir}/rootfs-kernel-cves.txt"
+              # images sharing a kernel share its list; an image without a
+              # QLI kernel gets no assessment
+              {
+                  scripts/kernel-compiled-sources.py \
+                      --sbom "${dir}/rootfs-sbom.syft.json" \
+                      --apt-sources "${dir}/rootfs-kernel-apt.sources" \
+                      --output compiled-sources
+                  scripts/kernel-cves.py \
+                      --vulns kernel-vulns \
+                      --sbom "${dir}/rootfs-sbom.syft.json" \
+                      --compiled-sources compiled-sources \
+                      --osv-dir kernel-osv \
+                      --vex "${dir}/rootfs-kernel.openvex.json"
+              } | tee "${dir}/rootfs-kernel-cves.txt"
           done
 
       # see docs/workflows.md#qli-advisories. "grype db import" records the
@@ -293,13 +309,18 @@ jobs:
           done
           for prefix in ${PREFIXES}; do
               dir="sboms/${prefix}"
+              # and the kernel CVE assessment of the image, if any
+              image_vex=("${vex[@]}")
+              if [ -f "${dir}/rootfs-kernel.openvex.json" ]; then
+                  image_vex+=(--vex "${dir}/rootfs-kernel.openvex.json")
+              fi
               "$GRYPE" \
                   --config .github/grype.yaml \
                   --output json="${dir}/rootfs-vulns.grype.json" \
                   --output table="${dir}/rootfs-vulns.grype.txt" \
                   --output cyclonedx-json="${dir}/rootfs-vulns.grype.cyclonedx.json" \
                   --by-cve \
-                  "${vex[@]}" \
+                  "${image_vex[@]}" \
                   --sort-by severity \
                   --verbose \
                   "sbom:${dir}/rootfs-sbom.syft.json"
@@ -309,15 +330,15 @@ jobs:
                   --config .github/grype-triage.yaml \
                   --output json="${dir}/rootfs-vulns-triage.grype.json" \
                   --by-cve \
-                  "${vex[@]}" \
+                  "${image_vex[@]}" \
                   "sbom:${dir}/rootfs-sbom.syft.json"
           done
 
       # one archive per image, named like the images it describes, e.g.
       # trixie-vulns.tar.gz next to trixie-rootfs.tar.gz and
       # trixie-sbom.tar.gz, holding the Grype reports, the VEX coverage
-      # warnings and, if any, the kernel CVE counts; the triage report only
-      # serves the summary
+      # warnings and, if any, the kernel CVE assessment; the triage report
+      # only serves the summary
       - name: Pack vulnerability reports for publishing
         shell: bash
         run: |
@@ -330,9 +351,11 @@ jobs:
                   rootfs-vulns.grype.json
                   rootfs-vulns.grype.txt
               )
-              if [ -s "sboms/${prefix}/rootfs-kernel-cves.txt" ]; then
-                  files+=(rootfs-kernel-cves.txt)
-              fi
+              for f in rootfs-kernel-cves.txt rootfs-kernel.openvex.json; do
+                  if [ -s "sboms/${prefix}/${f}" ]; then
+                      files+=("${f}")
+                  fi
+              done
               tar -cv --use-compress-program=pigz \
                   -f "reports/${prefix}-vulns.tar.gz" \
                   -C "sboms/${prefix}" \
