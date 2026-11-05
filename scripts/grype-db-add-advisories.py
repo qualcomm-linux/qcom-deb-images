@@ -191,6 +191,16 @@ def grype_range(introduced, kind, version):
     return {"version": version_spec, "fix": fix}
 
 
+def affected_version(version):
+    # the database's form of an affected version an OSV record lists: one
+    # without a fixed version, as the Debian provider records unfixed
+    # vulnerabilities
+    if not isinstance(version, str) or not VERSION_RE.fullmatch(version):
+        raise AdvisoryError(f"invalid Debian version {version!r}")
+    return {"version": {"type": "dpkg", "constraint": f"= {version}"},
+            "fix": {"state": "not-fixed"}}
+
+
 def severities(advisory):
     # Grype reports the first severity, so ours goes first
     severity = (advisory.get("database_specific") or {}).get("severity")
@@ -290,8 +300,10 @@ def add_advisory(db, advisory, releases, source_url, warn):
         entry_ranges = [grype_range(*pair)
                         for osv_range in entry.get("ranges") or []
                         for pair in range_pairs(osv_range)]
+        entry_ranges += [affected_version(version)
+                         for version in entry.get("versions") or []]
         if not entry_ranges:
-            raise AdvisoryError(f"{source}: no ranges")
+            raise AdvisoryError(f"{source}: no ranges or versions")
         for release in debian_releases(db, package.get("ecosystem"),
                                        releases):
             ranges.setdefault((release, source), []).extend(entry_ranges)

@@ -242,6 +242,36 @@ def test_ranges(tmp_path, events, ranges):
         [(TRIXIE, "userspace-resource-manager", ranges)]
 
 
+def test_affected_versions(tmp_path):
+    # e.g. the kernel CVEs of scripts/kernel-cves.py: exactly the versions
+    # listed, not fixed, like the Debian provider's records of unfixed
+    # vulnerabilities; along with the ranges of the entry
+    db = make_db(tmp_path)
+    doc = advisory(events=[{"introduced": "0"}, {"fixed": "1.0-2"}])
+    doc["affected"][0]["versions"] = ["7.2.0+git20261008~gb8f0c6b1ab06-0qli1"]
+    root, paths = write_advisories(tmp_path, doc)
+    result = run(db, "--source-root", root, *paths)
+    assert result.returncode == 0, result.stderr
+    (_, _, ranges), = handles(db, "QLI-2026-1")
+    assert ranges == [
+        {"version": {"type": "dpkg", "constraint": "< 1.0-2"},
+         "fix": {"version": "1.0-2", "state": "fixed"}},
+        {"version": {"type": "dpkg",
+                     "constraint": "= 7.2.0+git20261008~gb8f0c6b1ab06-0qli1"},
+         "fix": {"state": "not-fixed"}},
+    ]
+
+
+def test_invalid_affected_version(tmp_path):
+    db = make_db(tmp_path)
+    doc = advisory()
+    doc["affected"][0]["versions"] = ["not a version"]
+    root, paths = write_advisories(tmp_path, doc)
+    result = run(db, "--source-root", root, *paths)
+    assert result.returncode == 0, result.stderr
+    assert "skipped: invalid Debian version 'not a version'" in result.stdout
+
+
 @pytest.mark.parametrize("ecosystem,releases", [
     ("Debian", [BOOKWORM, TRIXIE, UNSTABLE, FORKY]),
     ("Debian:13", [TRIXIE]),
