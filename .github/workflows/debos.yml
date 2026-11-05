@@ -117,8 +117,9 @@ jobs:
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
       # python3-apt and python3-debian are needed by scripts/syft-apt-origins.py
+      #   and python3-apt by the tests of scripts/kernel-cves.py
       # python3-distro-info is needed by the tests of
-      #   scripts/grype-db-add-advisories.py
+      #   scripts/grype-db-add-advisories.py and scripts/kernel-cves.py
       - name: Install debos and dependencies of the recipes and local tests
         run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
 
