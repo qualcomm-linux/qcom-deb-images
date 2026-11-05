@@ -1,0 +1,10 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Regenerate the dtb_a/dtb_b partitions with the device trees of the newest
+# kernel, after a kernel is installed; see qcom-dtb-update.
+
+# /etc/kernel/postinst.d/ hooks are called with these args:
+#     KERNEL-VERSION [KERNEL-IMAGE]
+exec /usr/sbin/qcom-dtb-update "${1:?}"
