@@ -90,6 +90,30 @@ at the commit of the QLI security-tracker used, as their data source; the VEX
 statements apply to them too. Warnings, e.g. about advisories the Debian
 security-tracker covers by now, are listed once at the end of the job summary.
 
+### Kernel CVEs
+
+The Debian security-tracker only covers Debian's own kernel, source package
+`linux`, so Grype reports no CVE at all for the QLI kernels, e.g.
+`linux-qcom-next`. Their CVEs come from the Linux kernel CNA instead, whose
+records in [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git)
+give the mainline and stable versions each is fixed in, and the files its fix
+changes. `sbom-compliance-scan.yml` clones it, and `scripts/kernel-cves.py`
+assesses the kernel of each image:
+
+* the CVEs affecting the upstream version of the kernel package, e.g. 7.3.0
+  for `7.3.0+git20261030~gae2606baf50f-0qli1~bpo13+1`, become OSV records for
+  exactly that package version, which go into the Grype database along with
+  the QLI advisories. Grype reports them for every binary package of the
+  kernel, under the `qli:distro:debian:<release>` namespace, with the CVE
+  record as their data source, as not fixed: no version of the kernel's
+  package is known to fix them. Its default rule for kernel headers hides the
+  duplicates on the `linux-headers-*` packages
+
+The counts are in `rootfs-kernel-cves.txt` and in the job summary. The
+version check is conservative: release candidates and git snapshots count as
+before their release, and fixes backported outside of stable releases aren't
+known.
+
 ### Latest compliance data
 
 The SBOMs and vulnerability reports of the most recent build of each image are
@@ -115,6 +139,8 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
   findings from the QLI advisories
 * `rootfs-vex-warnings.txt.gz`: the VEX coverage warnings
+* `rootfs-kernel-cves.txt.gz`: the counts of the kernel CVE assessment, for
+  images with a QLI kernel; see [Kernel CVEs](#kernel-cves)
 
 along with an uncompressed `manifest.json` giving the build the data describes
 (`build.id`, `build.run_url`, `build.artifacts_url` where its images are), the
