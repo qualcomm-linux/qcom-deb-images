@@ -71,20 +71,26 @@ jobs:
       # distro-info-data is needed by scripts/grype-db-add-advisories.py to
       #   translate the Debian releases of the advisories
       # git is needed by actions/checkout to tell the commit of the
-      #   QLI security-tracker, which the advisories are published at
+      #   QLI security-tracker, which the advisories are published at, and
+      #   to fetch the kernel CNA's CVE records
       # pigz is needed to compress the reports for publishing
-      # python3 is needed by the VEX, advisory and summary scripts
+      # python3 is needed by the VEX, advisory, kernel CVE and summary scripts
       # zstd is needed by scripts/grype-db-cache.sh
+      # binutils (readelf) and python3-apt are needed by
+      #   scripts/kernel-compiled-sources.py, as is dpkg-deb, which the
+      #   container has already
       - name: Install dependencies
         run: |
           set -ux
           apt -y install --update --no-install-recommends \
+              binutils \
               ca-certificates \
               curl \
               distro-info-data \
               git \
               pigz \
               python3 \
+              python3-apt \
               zstd
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -159,33 +165,6 @@ jobs:
           "$GRYPE" db status
           "$GRYPE" db providers
 
-      # see docs/workflows.md#qli-advisories. "grype db import" records the
-      # new checksum of the modified database
-      - name: Add QLI advisories to the Grype vulnerability database
-        shell: bash
-        env:
-          GRYPE: ${{ steps.grype.outputs.cmd }}
-          GRYPE_DB_AUTO_UPDATE: 'false'
-          SOURCE_URL: >-
-            ${{ github.server_url }}/${{ github.repository }}/blob/${{
-            steps.security_tracker.outputs.commit || 'security-tracker' }}/
-        run: |
-          set -euxo pipefail
-          shopt -s nullglob globstar
-          db="$("$GRYPE" db status -o json |
-              python3 -c 'import json, sys; print(json.load(sys.stdin)["path"])')"
-          mv -v "$db" qli-vulnerability.db
-          scripts/grype-db-add-advisories.py \
-              --source-root .security-tracker \
-              --source-url "${SOURCE_URL}" \
-              qli-vulnerability.db \
-              .security-tracker/advisories/**/*.osv.json |
-                  tee advisories.txt
-          "$GRYPE" db import qli-vulnerability.db
-          rm -v qli-vulnerability.db
-          "$GRYPE" db status
-          "$GRYPE" db providers
-
       # unpack each archive into sboms/<prefix>/, where the reports of the
       # image are written too
       - name: Unpack SBOMs
@@ -205,6 +184,75 @@ jobs:
               exit 1
           fi
           echo "PREFIXES=${prefixes}" >>"$GITHUB_ENV"
+
+      # see docs/workflows.md#kernel-cves. Fetched afresh for every scan, it's
+      # small; the commit is reported in the job summary
+      - name: Fetch the kernel CNA's CVE records
+        id: kernel_vulns
+        run: |
+          set -eux
+          git clone --quiet --depth 1 --single-branch \
+              https://git.kernel.org/pub/scm/linux/security/vulns.git \
+              kernel-vulns
+          echo "commit=$(git -C kernel-vulns rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+
+      # the CVEs affecting the version of each image's kernel, as OSV records
+      # for the next step, and an OpenVEX document marking those whose fix
+      # changes no file compiled into it, from the debug info of its -dbg
+      # package in the APT source the image installed it from, which the
+      # image build records in the SBOM archive, as not affected. Debian's
+      # own kernel is left out, the Debian security tracker covers it
+      - name: Assess kernel CVEs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for prefix in ${PREFIXES}; do
+              dir="sboms/${prefix}"
+              # images sharing a kernel share its list; an image without a
+              # QLI kernel gets no assessment
+              {
+                  scripts/kernel-compiled-sources.py \
+                      --sbom "${dir}/rootfs-sbom.syft.json" \
+                      --apt-sources "${dir}/rootfs-kernel-apt.sources" \
+                      --output compiled-sources
+                  scripts/kernel-cves.py \
+                      --vulns kernel-vulns \
+                      --sbom "${dir}/rootfs-sbom.syft.json" \
+                      --compiled-sources compiled-sources \
+                      --osv-dir kernel-osv \
+                      --vex "${dir}/rootfs-kernel.openvex.json"
+              } | tee "${dir}/rootfs-kernel-cves.txt"
+          done
+
+      # see docs/workflows.md#qli-advisories. "grype db import" records the
+      # new checksum of the modified database
+      - name: Add QLI advisories to the Grype vulnerability database
+        shell: bash
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
+          GRYPE_DB_AUTO_UPDATE: 'false'
+          SOURCE_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/blob/${{
+            steps.security_tracker.outputs.commit || 'security-tracker' }}/
+        run: |
+          set -euxo pipefail
+          shopt -s nullglob globstar
+          db="$("$GRYPE" db status -o json |
+              python3 -c 'import json, sys; print(json.load(sys.stdin)["path"])')"
+          mv -v "$db" qli-vulnerability.db
+          # the kernel CVEs are many, so they aren't listed in the log
+          scripts/grype-db-add-advisories.py \
+              --source-root .security-tracker \
+              --source-url "${SOURCE_URL}" \
+              qli-vulnerability.db \
+              .security-tracker/advisories/**/*.osv.json \
+              kernel-osv/**/*.osv.json |
+                  sed '/^CVE-/d' |
+                  tee advisories.txt
+          "$GRYPE" db import qli-vulnerability.db
+          rm -v qli-vulnerability.db
+          "$GRYPE" db status
+          "$GRYPE" db providers
 
       # Static validation happens on security-tracker PRs. Only compare the
       # pre-validated assessments with the packages of each image here.
@@ -261,13 +309,18 @@ jobs:
           done
           for prefix in ${PREFIXES}; do
               dir="sboms/${prefix}"
+              # and the kernel CVE assessment of the image, if any
+              image_vex=("${vex[@]}")
+              if [ -f "${dir}/rootfs-kernel.openvex.json" ]; then
+                  image_vex+=(--vex "${dir}/rootfs-kernel.openvex.json")
+              fi
               "$GRYPE" \
                   --config .github/grype.yaml \
                   --output json="${dir}/rootfs-vulns.grype.json" \
                   --output table="${dir}/rootfs-vulns.grype.txt" \
                   --output cyclonedx-json="${dir}/rootfs-vulns.grype.cyclonedx.json" \
                   --by-cve \
-                  "${vex[@]}" \
+                  "${image_vex[@]}" \
                   --sort-by severity \
                   --verbose \
                   "sbom:${dir}/rootfs-sbom.syft.json"
@@ -277,26 +330,36 @@ jobs:
                   --config .github/grype-triage.yaml \
                   --output json="${dir}/rootfs-vulns-triage.grype.json" \
                   --by-cve \
-                  "${vex[@]}" \
+                  "${image_vex[@]}" \
                   "sbom:${dir}/rootfs-sbom.syft.json"
           done
 
       # one archive per image, named like the images it describes, e.g.
       # trixie-vulns.tar.gz next to trixie-rootfs.tar.gz and
-      # trixie-sbom.tar.gz, holding the Grype reports and the VEX coverage
-      # warnings; the triage report only serves the summary
+      # trixie-sbom.tar.gz, holding the Grype reports, the VEX coverage
+      # warnings and, if any, the kernel CVE assessment; the triage report
+      # only serves the summary
       - name: Pack vulnerability reports for publishing
+        shell: bash
         run: |
           set -ux
           mkdir -v reports
           for prefix in ${PREFIXES}; do
+              files=(
+                  rootfs-vex-warnings.txt
+                  rootfs-vulns.grype.cyclonedx.json
+                  rootfs-vulns.grype.json
+                  rootfs-vulns.grype.txt
+              )
+              for f in rootfs-kernel-cves.txt rootfs-kernel.openvex.json; do
+                  if [ -s "sboms/${prefix}/${f}" ]; then
+                      files+=("${f}")
+                  fi
+              done
               tar -cv --use-compress-program=pigz \
                   -f "reports/${prefix}-vulns.tar.gz" \
                   -C "sboms/${prefix}" \
-                  rootfs-vex-warnings.txt \
-                  rootfs-vulns.grype.cyclonedx.json \
-                  rootfs-vulns.grype.json \
-                  rootfs-vulns.grype.txt
+                  "${files[@]}"
           done
 
       - name: Upload vulnerability reports as private artifacts
@@ -323,6 +386,9 @@ jobs:
       # advisories, which apply to the vulnerability database, so to all of
       # them
       - name: Summarize vulnerabilities
+        shell: bash
+        env:
+          KERNEL_VULNS_COMMIT: ${{ steps.kernel_vulns.outputs.commit }}
         run: |
           set -ux
           for prefix in ${PREFIXES}; do
@@ -336,6 +402,19 @@ jobs:
                   --sbom "${dir}/rootfs-sbom.syft.json" \
                   --triage "${dir}/rootfs-vulns-triage.grype.json" \
                   >>"$GITHUB_STEP_SUMMARY"
+              if [ -s "${dir}/rootfs-kernel-cves.txt" ]; then
+                  {
+                      echo "<details>"
+                      echo "<summary>Kernel CVEs (vulns.git ${KERNEL_VULNS_COMMIT:0:12})</summary>"
+                      echo
+                      echo '```'
+                      cat "${dir}/rootfs-kernel-cves.txt"
+                      echo '```'
+                      echo
+                      echo "</details>"
+                      echo
+                  } >>"$GITHUB_STEP_SUMMARY"
+              fi
               if [ -s "${dir}/rootfs-vex-warnings.txt" ]; then
                   {
                       echo "<details>"
