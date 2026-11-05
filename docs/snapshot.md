@@ -258,7 +258,7 @@ When `snapshot` is non-empty, the following happens in order:
    Finally, `apt-snapshot-toggle enable` switches the build over to the snapshot
    sources.
 7. **Warn about unpinned sources.** When removing the legacy `sources.list` and
-   before `apt-get update && apt-get full-upgrade`, any non-snapshot source that
+   before `apt-get full-upgrade --update`, any non-snapshot source that
    is still `Enabled: yes` (i.e. one with no snapshot support) triggers a warning
    that its packages will be "the latest available".
 8. **All package installation** then happens against the snapshot archives.

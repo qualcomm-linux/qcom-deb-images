@@ -392,8 +392,7 @@ actions:
       done
 {{- end }}
       # APT update and upgrade to pickup changes from overlays
-      apt-get -y update
-      apt-get -y full-upgrade
+      apt-get -y full-upgrade --update
 
   - action: apt
     description: Install foundational packages
