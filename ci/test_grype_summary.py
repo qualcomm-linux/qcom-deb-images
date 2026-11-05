@@ -126,7 +126,7 @@ def test_summary_only_suppressed(tmp_path, severity):
 
 
 def test_summary_keeps_fix_state_of_ignore_rules(tmp_path):
-    # Grype's own ignore rules (e.g. for kernel headers) aren't VEX
+    # Grype's own ignore rules aren't VEX
     headers = grype_match("linux-libc-dev", fix_state="fixed",
                           versions=["6.12.1-1"])
     rule = {"match-type": "exact-indirect-match"}
@@ -211,3 +211,33 @@ def test_summary_does_not_silently_ignore_unreadable_triage(tmp_path):
     assert result.returncode != 0
     assert "cannot read triage scan" in result.stderr
     assert "Vulnerability summary" not in result.stdout
+
+
+def test_summary_skips_kernel_headers_duplicates(tmp_path):
+    # Grype's default rule for the kernel headers packages, as it reports it;
+    # the kernel package's match stays open, or a VEX statement suppresses it
+    rule = {"namespace": "", "match-type": "exact-indirect-match",
+            "package": {"name": "linux(-.*)?-headers-.*", "language": "",
+                        "type": "deb", "upstream-name": "linux.*"}}
+    image = grype_match("linux-image-qcom-next", vuln_id="CVE-2026-1")
+    headers = grype_match("linux-headers-qcom-next", vuln_id="CVE-2026-1")
+    vexed = grype_match("linux-image-qcom-next", vuln_id="CVE-2026-2")
+    vexed_headers = grype_match("linux-headers-qcom-next",
+                                vuln_id="CVE-2026-2")
+    data = {"matches": [image], "ignoredMatches": [
+        {"match": headers, "appliedIgnoreRules": [rule]},
+        {"match": vexed, "appliedIgnoreRules": [{"vex-status": "fixed"}]},
+        {"match": vexed_headers, "appliedIgnoreRules": [rule]},
+    ]}
+    result = script("grype-vulnerability-summary.py",
+                    write(tmp_path, "grype.json", data))
+    assert result.returncode == 0, result.stderr
+    assert "| Suppressed | 1 |" in result.stdout
+    rows = [line for line in result.stdout.splitlines()
+            if line.startswith("| CVE-")]
+    assert [row.split(" | ")[0] for row in rows] == [
+        "| CVE-2026-1", "| CVE-2026-2"]
+    # open, and suppressed by VEX, without the headers
+    assert "untriaged" in rows[0]
+    assert "VEX fixed" in rows[1]
+    assert "linux-headers" not in result.stdout
