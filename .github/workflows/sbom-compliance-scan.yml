@@ -78,8 +78,7 @@ jobs:
       - name: Install dependencies
         run: |
           set -ux
-          apt update
-          apt -y install --no-install-recommends \
+          apt -y install --update --no-install-recommends \
               ca-certificates \
               curl \
               distro-info-data \

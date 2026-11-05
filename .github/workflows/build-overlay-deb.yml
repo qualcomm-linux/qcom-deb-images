@@ -28,8 +28,7 @@ jobs:
       - name: Update OS packages
         run: |
           set -ux
-          apt update
-          DEBIAN_FRONTEND=noninteractive apt -y upgrade
+          DEBIAN_FRONTEND=noninteractive apt -y upgrade --update
           DEBIAN_FRONTEND=noninteractive apt -y full-upgrade
 
       - name: Checkout repository

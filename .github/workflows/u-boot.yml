@@ -49,8 +49,7 @@ jobs:
       - name: Update OS packages
         run: |
           set -ux
-          apt update
-          apt -y upgrade
+          apt -y upgrade --update
           apt -y full-upgrade
 
       - name: Build U-Boot Android boot image for RB1
