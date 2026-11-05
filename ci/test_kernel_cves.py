@@ -116,6 +116,29 @@ def test_cve_affects_without_mainline_fix():
         QLI_VERSION))
 
 
+@pytest.mark.parametrize("files, present", [
+    (["drivers/gpu/drm/amd/amdgpu/amdgpu.c"], []),
+    (["net/core/dev.c", "drivers/x.c"], ["net/core/dev.c"]),
+    (["include/linux/skbuff.h"], ["include/linux/skbuff.h"]),
+    (["include/linux/foo.h"], []),
+    (["Documentation/foo.rst", "drivers/x.c"], []),
+    # files other than code may be compiled, e.g. device trees
+    (["arch/arm64/boot/dts/qcom/x.dtsi"], ["arch/arm64/boot/dts/qcom/x.dtsi"]),
+    # build files don't matter along with code
+    (["drivers/hid/Kconfig", "drivers/hid/hid-rapoo.c"], []),
+    (["net/core/Makefile", "net/core/dev.c"], ["net/core/dev.c"]),
+    # else only those of directories with compiled sources
+    (["net/core/Kconfig"], ["net/core/Kconfig"]),
+    (["arch/riscv/Kconfig.errata"], []),
+    (["drivers/crypto/allwinner/Kconfig", "drivers/crypto/allwinner/Kbuild"],
+     []),
+])
+def test_compiled(files, present):
+    sources = kernel_cves.CompiledSources(
+        ["net/core/dev.c", "include/linux/skbuff.h"])
+    assert sources.present(files) == present
+
+
 def write_inputs(tmp_path, records, version=QLI_VERSION):
     for cve in records:
         cve_id = cve["cveMetadata"]["cveId"]
@@ -136,7 +159,15 @@ def write_inputs(tmp_path, records, version=QLI_VERSION):
     return sbom
 
 
+def write_sources(tmp_path):
+    # the compiled sources of the kernel
+    sources = tmp_path / "sources.txt"
+    sources.write_text("net/core/dev.c\ninclude/linux/skbuff.h\n")
+    return sources
+
+
 def test_run(tmp_path):
+    sources = write_sources(tmp_path)
     sbom = write_inputs(tmp_path, [
         record("CVE-2026-10", semver("5.4", mainline="7.3"),
                ["net/core/dev.c"], severity="HIGH"),
@@ -147,10 +178,13 @@ def test_run(tmp_path):
     ])
     result = subprocess.run(
         [sys.executable, SCRIPT, "--vulns", str(tmp_path / "vulns"),
-         "--sbom", str(sbom), "--osv-dir", str(tmp_path / "osv")],
+         "--sbom", str(sbom), "--compiled-sources", str(sources),
+         "--osv-dir", str(tmp_path / "osv"),
+         "--vex", str(tmp_path / "kernel.openvex.json")],
         check=True, capture_output=True, text=True)
     assert "3 kernel CVEs, 2 affect the version" in result.stdout
-    assert "2 open: 1 high, 1 unknown" in result.stdout
+    assert "1 of them change no compiled file" in result.stdout
+    assert "1 open: 1 high" in result.stdout
 
     osv_dir = tmp_path / "osv" / f"linux-qcom-7.2_{QLI_VERSION}"
     assert sorted(os.listdir(osv_dir)) == [
@@ -162,6 +196,18 @@ def test_run(tmp_path):
         "package": {"ecosystem": "Debian:13", "name": "linux-qcom-7.2"},
         "versions": [QLI_VERSION],
     }]
+
+    vex = json.loads((tmp_path / "kernel.openvex.json").read_text())
+    statement, = vex["statements"]
+    assert statement["vulnerability"] == {"name": "CVE-2026-11"}
+    assert statement["status"] == "not_affected"
+    assert statement["justification"] == "vulnerable_code_not_present"
+    assert statement["products"] == [{
+        "@id": "pkg:generic/qualcomm-linux-debian-rootfs",
+        "subcomponents": [
+            {"@id": f"pkg:deb/debian/linux-headers-qcom-7.2@{QLI_VERSION}"},
+            {"@id": f"pkg:deb/debian/linux-image-qcom-7.2@{QLI_VERSION}"},
+        ]}]
 
 
 def run_script(*args):
@@ -186,6 +232,41 @@ def test_run_with_debian_kernel(tmp_path, source):
     assert result.stdout == ""
     assert "no kernel to assess" in result.stderr
     assert not (tmp_path / "osv").exists()
+
+
+def test_compiled_sources_directory(tmp_path):
+    # the lists of scripts/kernel-compiled-sources.py, named after the kernels
+    sources = write_sources(tmp_path)
+    sbom = write_inputs(tmp_path, [
+        record("CVE-2026-11", semver("5.4", mainline="7.3"),
+               ["drivers/gpu/drm/amd/amdgpu/amdgpu.c"])])
+    lists = tmp_path / "compiled-sources"
+    lists.mkdir()
+    sources.rename(lists / f"linux-qcom-7.2_{QLI_VERSION}"
+                   ".compiled-sources.txt")
+    vex = tmp_path / "kernel.openvex.json"
+    result = run_script("--vulns", tmp_path / "vulns", "--sbom", sbom,
+                        "--compiled-sources", lists, "--vex", vex)
+    assert result.returncode == 0, result.stderr
+    assert "1 of them change no compiled file" in result.stdout
+    assert len(json.loads(vex.read_text())["statements"]) == 1
+
+
+def test_compiled_sources_missing(tmp_path):
+    # without a list, e.g. without -dbg package, by version only, and no VEX
+    sbom = write_inputs(tmp_path, [
+        record("CVE-2026-11", semver("5.4", mainline="7.3"),
+               ["drivers/gpu/drm/amd/amdgpu/amdgpu.c"])])
+    lists = tmp_path / "compiled-sources"
+    lists.mkdir()
+    vex = tmp_path / "kernel.openvex.json"
+    result = run_script("--vulns", tmp_path / "vulns", "--sbom", sbom,
+                        "--compiled-sources", lists, "--vex", vex)
+    assert result.returncode == 0, result.stderr
+    assert f"warning: no compiled sources for linux-qcom-7.2 {QLI_VERSION}" \
+        in result.stdout
+    assert "1 open: 1 unknown" in result.stdout
+    assert not vex.exists()
 
 
 def test_needs_vulns(tmp_path):
