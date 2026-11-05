@@ -1,11 +1,11 @@
 {
   "id": "QLI-2026-99999",
   "published": "2026-10-26T00:00:00Z",
-  "modified": "2026-10-26T00:00:00Z",
+  "modified": "2026-11-04T00:00:00Z",
   "summary": "DEMO ENTRY, NOT A REAL VULNERABILITY: example advisory for userspace-resource-manager",
-  "details": "DEMO ENTRY, NOT A REAL VULNERABILITY. It only demonstrates how a vulnerability in a QLI overlay package of Debian forky, which the Debian security tracker doesn't cover, is recorded, reported by Grype for every binary of the source package, and suppressed by an OpenVEX statement (see vex/demo.openvex.json). Remove it once real advisories exist.",
+  "details": "DEMO ENTRY, NOT A REAL VULNERABILITY. It only demonstrates how a vulnerability in a QLI overlay package of Debian Trixie, which the Debian security tracker doesn't cover, is recorded, reported by Grype for every binary of the source package, and suppressed by an OpenVEX statement (see vex/demo.openvex.json). Remove it once real advisories exist.",
   "database_specific": {
-    "severity": "High"
+    "severity": "Critical"
   },
   "affected": [
     {
