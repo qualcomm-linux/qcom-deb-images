@@ -1,0 +1,123 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso,
+# and after 0100-dtb-loader.hook.binary has wrapped the kernels in Stubble.
+#
+# Replaces live-build's grub.cfg with our own menu:
+#
+#   - "Live system (GNOME|Xfce)" - only when live/filesystem.squashfs
+#     exists, then the default. build-installer.sh puts its kernel and
+#     initrd in live/.
+#   - "Graphical installer" - the default without a live system.
+#   - "Text installer"
+#   - "Automated install" - the graphical installer at critical priority,
+#     preseeded from automated-install-preseed.cfg at the root of the image,
+#     which users edit on the USB stick. auto-install/enable delays the
+#     locale and keyboard questions until that file is loaded.
+#
+# Every installer entry boots install/vmlinuz (0100-dtb-loader.hook.binary
+# removed the duplicate install/gtk/vmlinuz), with live-build's fixed
+# initrd paths.
+#
+# d-i's grub-installer copies the args after "---" (bar its own, e.g.
+# preseed/file=) into the target's GRUB config, so CUSTOM_BOOT_ARGS goes
+# after "---" for the installed system to boot with them too.
+#
+# No "search" for the stick: GRUB found grub.cfg on it through /.disk/info,
+# so $root is already the stick. "search" probes every firmware block
+# device, and on the T14s that hangs.
+#
+# Finally, removes live-build's unused install.cfg, install_start.cfg and
+# root efi.img.
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$HOOK_DIR/../.."
+
+GRUB_CFG="boot/grub/grub.cfg"
+
+die() {
+    echo "0110-grub-menu: $*" >&2
+    exit 1
+}
+
+for f in install/vmlinuz install/initrd.gz install/gtk/initrd.gz; do
+    [ -f "$f" ] || die "$f not found"
+done
+
+# The kernel/kernel-cmdline args, on one line.
+CUSTOM_BOOT_ARGS="$(grep -v '^#' "$CONFIG_DIR/kernel-cmdline" | xargs)"
+
+# The live system (the live variants only), first so it's the default.
+# live-boot finds live/filesystem.squashfs on the stick by itself.
+# 0100-dtb-loader.hook.binary checked there's exactly one live kernel.
+LIVE_ENTRY=""
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    LIVE_KERNEL="${LIVE_KERNELS[0]}"
+    LIVE_INITRD="live/initrd.img-${LIVE_KERNEL#live/vmlinuz-}"
+    [ -f "$LIVE_INITRD" ] || die "$LIVE_INITRD not found"
+    LIVE_DESKTOP="$(cat "$CONFIG_DIR/live-desktop")"
+
+    LIVE_ENTRY="menuentry 'Live system ($LIVE_DESKTOP)' {
+    linux /$LIVE_KERNEL boot=live components $CUSTOM_BOOT_ARGS
+    initrd /$LIVE_INITRD
+}
+
+"
+fi
+
+AUTO_ARGS="auto-install/enable=true priority=critical preseed/file=/cdrom/automated-install-preseed.cfg"
+
+# live-build's theme.cfg only selects the live-theme when
+# /boot/grub/splash.png exists, which binary_bootloader_splash doesn't
+# create for hdd images; select it here. The theme draws bg.png.
+cat > "$GRUB_CFG" <<EOF
+source /boot/grub/config.cfg
+
+if [ -e /boot/grub/live-theme/theme.txt ]; then
+	set theme=/boot/grub/live-theme/theme.txt
+fi
+
+# Boot the default entry after 10s; the theme's __timeout__ progress bar
+# shows the countdown.
+set timeout=10
+set default=0
+
+${LIVE_ENTRY}menuentry 'Graphical installer' {
+    linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS
+    initrd /install/gtk/initrd.gz
+}
+
+menuentry 'Text installer' {
+    linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS
+    initrd /install/initrd.gz
+}
+
+menuentry 'Automated install' {
+    linux /install/vmlinuz --- $CUSTOM_BOOT_ARGS $AUTO_ARGS
+    initrd /install/gtk/initrd.gz
+}
+
+if [ "\${grub_platform}" = "efi" ]; then
+	menuentry "UEFI Firmware Settings" --hotkey=f {
+		fwsetup
+	}
+fi
+EOF
+
+cat "$GRUB_CFG"
+
+# Drop live-build's leftovers that nothing on the ISO uses:
+# - install.cfg and install_start.cfg: the stock menus, which still
+#   reference the removed install/gtk/vmlinuz
+# - efi.img: binary_grub-efi's intermediate image (plain grub-mkimage
+#   bootaa64.efi), copied to the root along with the rest of its temp dir;
+#   the ISO boots boot/grub/efi.img
+rm -f boot/grub/install.cfg boot/grub/install_start.cfg efi.img
+
+echo "0110-grub-menu: done"

@@ -1,0 +1,139 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after binary_grub_cfg but before binary_iso.
+# Uses the DTBs that build-installer.sh extracts from the kernel .deb into config/dtbs/,
+# the AArch64 stubs from the systemd-boot-efi and stubble arm64 packages in
+# the pool (dtb-loader.list.binary), and stubblify and the HWID database from the
+# build host's stubble package. Like the dtb-loader overlay's kernel hook, it
+# prefers systemd-stub to Stubble's own stub.
+#
+# Wraps the installer kernel (install/vmlinuz) in place in a DTB-loading EFI
+# stub bundling every DTB that has a Stubble HWID entry, selected automatically at
+# boot via HWID matching. For the live variants (when
+# live/filesystem.squashfs exists), also wraps the live system's kernel,
+# which build-installer.sh puts in live/ (lb doesn't, with --linux-packages none), in
+# the same stub. 0110-grub-menu.hook.binary adds the GRUB entries that boot
+# them.
+#
+# The graphical and text installers only differ in their initrd and args:
+# replace-di-kernel.sh puts the same kernel in install/vmlinuz and
+# install/gtk/vmlinuz. So only install/vmlinuz is wrapped, and the duplicate
+# install/gtk/vmlinuz is removed.
+set -euo pipefail
+
+DTB_SRC_DIR="../config/dtbs"
+HWIDS="/usr/share/stubble/hwids"
+STUBBLIFY="/usr/bin/stubblify"
+FINDDTBS="/usr/libexec/stubble/finddtbs.py"
+
+die() {
+    echo "0100-dtb-loader: $*" >&2
+    exit 1
+}
+
+# Extracts the given file from the pool's only package matching the given
+# glob to stdout.
+extract_from_pool() {
+    local glob="$1" file="$2" debs
+
+    mapfile -t debs < <(compgen -G "$glob" || true)
+    [ "${#debs[@]}" -eq 1 ] ||
+        die "expected exactly one $glob, found: ${debs[*]}"
+    dpkg-deb --fsys-tarfile "${debs[0]}" | tar -xO "$file"
+}
+
+# The AArch64 stubs, from the target's packages in the pool: the host
+# packages' stubs match the build host's architecture, not the target's.
+extract_from_pool "pool/*/*/*/systemd-boot-efi_*_arm64.deb" \
+    ./usr/lib/systemd/boot/efi/linuxaa64.efi.stub \
+    > ../config/linuxaa64.efi.stub
+extract_from_pool "pool/*/*/*/stubble_*_arm64.deb" \
+    ./usr/lib/stubble/stubble.efi \
+    > ../config/stubble-aa64.efi
+STUB="../config/linuxaa64.efi.stub"
+[ -s "$STUB" ] || STUB="../config/stubble-aa64.efi"
+
+[ -d "$DTB_SRC_DIR" ] || die "$DTB_SRC_DIR not found (build-installer.sh extracts it from the kernel .deb)"
+for f in "$STUB" "$STUBBLIFY" "$FINDDTBS"; do
+    [ -e "$f" ] || die "$f not found (see docs/installer.md)"
+done
+[ -d "$HWIDS" ] || die "$HWIDS not found (see docs/installer.md)"
+
+# Only bundle DTBs whose root compatible has a Stubble HWID entry; the rest
+# could never be selected.
+mapfile -t STUBBLE_DTBS < <("$FINDDTBS" "$DTB_SRC_DIR" "$HWIDS" | sort)
+[ "${#STUBBLE_DTBS[@]}" -gt 0 ] || die "no DTBs in $DTB_SRC_DIR match $HWIDS"
+
+echo "Stubble DTBs:"
+printf '  %s\n' "${STUBBLE_DTBS[@]##*/}"
+
+BOOT_KERNEL="install/vmlinuz"
+GTK_KERNEL="install/gtk/vmlinuz"
+[ -f "$BOOT_KERNEL" ] || die "$BOOT_KERNEL not found"
+if [ -f "$GTK_KERNEL" ] && ! cmp -s "$GTK_KERNEL" "$BOOT_KERNEL"; then
+    die "$GTK_KERNEL differs from $BOOT_KERNEL, so can't be dropped"
+fi
+
+DTB_ARGS=()
+for dtb in "${STUBBLE_DTBS[@]}"; do
+    DTB_ARGS+=("--devicetree-auto=$dtb")
+done
+
+KERNEL_TMP=""
+trap 'rm -f "$KERNEL_TMP"' EXIT HUP INT TERM
+
+# Wraps the given kernel in place, as the dtb-loader overlay's kernel hook
+# does. It's not a full UKI, as the empty --os-release suppresses the .osrel
+# section and there is no --initrd or --cmdline, so it stays an ordinary
+# kernel image for GRUB. It's built beside the kernel and moved over it, so
+# a failure leaves the original in place.
+dtb_loader_wrap() {
+    local kernel="$1"
+
+    # Wrapping an already wrapped image would nest a second stub, and a
+    # real UKI (.osrel) is not ours to post-process.
+    if "$STUBBLIFY" inspect "$kernel" 2>/dev/null |
+        grep -Eq '^\.(hwids|osrel):'; then
+        die "wrapper already present on $kernel"
+    fi
+
+    echo "DTB loader: $kernel"
+
+    KERNEL_TMP="$kernel.dtb-loader.tmp"
+    "$STUBBLIFY" build \
+        --efi-arch=aa64 \
+        --stub="$STUB" \
+        --linux="$kernel" \
+        --os-release= \
+        --hwids="$HWIDS" \
+        "${DTB_ARGS[@]}" \
+        --output="$KERNEL_TMP"
+
+    # stubblify creates it 0600; keep the kernel's mode.
+    chmod --reference="$kernel" "$KERNEL_TMP"
+    mv "$KERNEL_TMP" "$kernel"
+    KERNEL_TMP=""
+}
+
+dtb_loader_wrap "$BOOT_KERNEL"
+
+# The live system's kernel (the live variants only). build-installer.sh puts it
+# in live/.
+if [ -f live/filesystem.squashfs ]; then
+    LIVE_KERNELS=(live/vmlinuz-*)
+    if [ "${#LIVE_KERNELS[@]}" -ne 1 ] || [ ! -f "${LIVE_KERNELS[0]}" ]; then
+        die "expected exactly one live/vmlinuz-*, found: ${LIVE_KERNELS[*]}"
+    fi
+
+    dtb_loader_wrap "${LIVE_KERNELS[0]}"
+fi
+
+# Only live-build's install.cfg (replaced by 0110-grub-menu.hook.binary's
+# menu) boots it now.
+rm -f "$GTK_KERNEL"
+
+echo "0100-dtb-loader: done"

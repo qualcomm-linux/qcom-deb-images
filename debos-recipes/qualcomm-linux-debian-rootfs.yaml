@@ -598,25 +598,6 @@ actions:
 
 {{- end }}
 
-  # Disable initramfs generation until just before the recipe finishes (see
-  # "Generate the initramfs for all installed kernels" below). Every later
-  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
-  # generating it once at the end, after DKMS, ensures DKMS modules are
-  # included in it.
-  - action: run
-    description: Disable initramfs generation until all packages are installed
-    chroot: true
-    command: |
-      set -eux
-{{- if eq $suite "trixie" }}
-      # Fixes error when running outside qemu
-      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
-      ln -s /usr/bin/true /usr/sbin/update-initramfs
-{{- else }}
-      dpkg-divert --local --rename --add /usr/bin/dracut
-      ln -s /usr/bin/true /usr/bin/dracut
-{{- end }}
-
   # usually these packages are pulled by Pre-Depends/Depends/Recommends of
   # Debian's linux-image, but kernel packages generated with the upstream
   # deb-pkg target don't have these dependencies, so install these before
@@ -633,6 +614,40 @@ actions:
 {{- end }}
       - kmod
       - linux-base
+
+  # Disable initramfs generation until just before the recipe finishes (see
+  # "Generate the initramfs for all installed kernels" below). Every later
+  # package install (desktop, DKMS) would otherwise trigger a rebuild, and
+  # generating it once at the end, after DKMS, ensures DKMS modules are
+  # included in it.
+  - action: run
+    description: Disable initramfs generation until all packages are installed
+    chroot: true
+    command: |
+      set -eux
+      dpkg-divert --local --rename --add /usr/sbin/update-initramfs
+      ln -s /usr/bin/true /usr/sbin/update-initramfs
+      # dracut's /etc/kernel/postinst.d hook calls dracut directly rather
+      # than update-initramfs, so divert dracut itself too
+      if [ -e /usr/bin/dracut ]; then
+          dpkg-divert --local --rename --add /usr/bin/dracut
+          ln -s /usr/bin/true /usr/bin/dracut
+      fi
+
+  # dracut's 50-dracut.install builds an additional hostonly initrd whenever
+  # kernel-install runs; including during systemd-boot installation and kernel
+  # upgrades. Mask it so that 55-initrd.install uses the existing
+  # /boot/initrd.img-<version> as it does with initramfs-tools.
+  # see: https://bugs.debian.org/1095646
+  - action: run
+    description: Mask dracut kernel-install plugin
+    chroot: true
+    command: |
+      set -eux
+      if [ -e /usr/lib/kernel/install.d/50-dracut.install ]; then
+          mkdir -p /etc/kernel/install.d
+          ln -s /dev/null /etc/kernel/install.d/50-dracut.install
+      fi
 
   - action: apt
     description: Install kernel and firmware packages
@@ -818,15 +833,20 @@ actions:
     chroot: true
     command: |
       set -eux
-{{- if eq $suite "trixie" }}
       rm /usr/sbin/update-initramfs
       dpkg-divert --rename --remove /usr/sbin/update-initramfs
+      if [ -e /usr/bin/dracut ]; then
+          rm /usr/bin/dracut
+          dpkg-divert --rename --remove /usr/bin/dracut
+          # dracut defaults to hostonly mode, which would take the build
+          # chroot as the host and drop drivers and firmware the target
+          # needs (e.g. qcom_q6v5_pas and the ADSP/CDSP firmware); enable
+          # dracut's stock generic config while building the initrds
+          ln -s /usr/lib/dracut/dracut.conf.d/generic/11-generic.conf \
+              /etc/dracut.conf.d/11-generic.conf
+      fi
       update-initramfs -c -k all
-{{- else }}
-      rm /usr/bin/dracut
-      dpkg-divert --rename --remove /usr/bin/dracut
-      dracut --regenerate-all --force
-{{- end }}
+      rm -f /etc/dracut.conf.d/11-generic.conf
 
 {{- if ne $aptlocalrepo "none" }}
   - action: run
