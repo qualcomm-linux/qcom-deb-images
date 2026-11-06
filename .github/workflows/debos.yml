@@ -116,8 +116,9 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
+      # python3-apt and python3-debian are needed by scripts/syft-apt-origins.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
@@ -255,6 +256,13 @@ jobs:
               -v \
               scan rootfs
 
+          # list the APT archives of each package, which dpkg doesn't record
+          # and hence aren't in the SBOMs, from the APT lists of the rootfs;
+          # fail rather than ship a broken list, which consumers rely on
+          scripts/syft-apt-origins.py rootfs-sbom.syft.json rootfs \
+              >syft-apt-origins.json.tmp || exit 1
+          mv syft-apt-origins.json.tmp rootfs-sbom.syft-apt-origins.json
+
           # remove the temporary rootfs
           rm -rf rootfs
 
@@ -285,7 +293,7 @@ jobs:
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # one SBOM archive per image, named like the images it describes,
           # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
-          # SBOMs in all formats and the license summary
+          # SBOMs in all formats, the license summary and the APT origins
           tar -cv --use-compress-program=pigz \
               -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
           # generate sha256sums for all artifacts

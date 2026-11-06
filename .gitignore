@@ -14,5 +14,6 @@ flash_*/
 *.cyclonedx.json
 *.spdx.json
 *.syft-license-summary.csv.txt
+*.syft-apt-origins.json
 *.syft.json
 *sbom.syft.txt
