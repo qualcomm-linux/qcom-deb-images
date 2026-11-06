@@ -53,7 +53,8 @@ runner and without LAVA jobs, so it is not part of the sequence above.
 ## SBOM compliance scan
 
 `debos.yml` generates the SBOMs of each image it builds and packs them, with
-the license summary, into a `<prefix>-sbom.tar.gz` archive, which is published
+the license summary and the APT archive of each package, which the SBOMs don't
+record, into a `<prefix>-sbom.tar.gz` archive, which is published
 next to the images and uploaded as an artifact of the same name.
 `sbom-compliance-scan.yml` then checks the VEX coverage of all the SBOMs of a
 workflow run and scans them for vulnerabilities with Grype, in a single job,
@@ -111,6 +112,8 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
 * `rootfs-sbom.cyclonedx.json.gz`, `rootfs-sbom.spdx.json.gz`,
   `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
 * `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
+* `rootfs-sbom.syft-apt-origins.csv.txt.gz`: the binary and source package and
+  the APT archives (`<Origin>/<Suite>`) of each package
 * `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
   findings from the QLI advisories

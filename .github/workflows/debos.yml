@@ -255,6 +255,11 @@ jobs:
               -v \
               scan rootfs
 
+          # list the APT archive of each package, which dpkg doesn't record
+          # and hence isn't in the SBOMs, from the APT lists of the rootfs
+          scripts/syft-apt-origins.py rootfs-sbom.syft.json \
+              rootfs/var/lib/apt/lists >rootfs-sbom.syft-apt-origins.csv.txt
+
           # remove the temporary rootfs
           rm -rf rootfs
 
@@ -285,7 +290,7 @@ jobs:
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # one SBOM archive per image, named like the images it describes,
           # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
-          # SBOMs in all formats and the license summary
+          # SBOMs in all formats, the license summary and the APT origins
           tar -cv --use-compress-program=pigz \
               -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
           # generate sha256sums for all artifacts
