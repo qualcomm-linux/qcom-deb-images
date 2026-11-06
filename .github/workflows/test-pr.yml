@@ -103,6 +103,7 @@ jobs:
       build_id: ${{ github.event.workflow_run.id }}
       kernel: qcom-next
       suite: trixie
+      variant: console
       pr_number: ${{ needs.retrieve-build-url.outputs.pr_number }}
       pr_url: ${{ needs.retrieve-build-url.outputs.pr_url }}
       # this run is on the base branch, the results belong to the pull request

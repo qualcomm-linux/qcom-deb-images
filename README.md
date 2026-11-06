@@ -353,11 +353,9 @@ packages on top: Bluetooth, PipeWire, fwupd, the DSP binaries and FastRPC
 support, adbd, thermald, the Debian `important` and `standard` packages and
 some command-line tools.
 
-CI also builds `console` when no variant is passed to the workflow, and
-publishes its artifacts without a variant suffix, e.g.
-`trixie-disk-ufs.img.gz`. Artifacts of any other variant are suffixed with the
-variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`. The Xfce image,
-previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
+Every published artifact is named after the suite, the variant and,
+unless it is `default`, the profile, e.g. `trixie-console-disk-ufs.img.gz`
+or `trixie-xfce-performance-disk-ufs.img.gz`.
 
 `build.yml` builds the `minimal`, `console`, `xfce`, `gnome` and
 `weston-multimedia` variants (`minimal` for `trixie` and `forky` only), but

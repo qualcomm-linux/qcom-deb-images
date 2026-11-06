@@ -118,6 +118,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: console
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
 
