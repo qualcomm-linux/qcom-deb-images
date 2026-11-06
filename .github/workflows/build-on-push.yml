@@ -18,6 +18,7 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      variant: console
       # QLI targets qcom-next; install the kernel from the QLI APT repository
       kernelpackages: 'linux-image-qcom-next,linux-headers-qcom-next'
 
@@ -48,6 +49,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: console
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-next
 
