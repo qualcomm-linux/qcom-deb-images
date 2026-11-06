@@ -37,9 +37,6 @@ jobs:
     with:
       kernel_name: qcom-next
       build_linux_deb_extra_args: '--qcom-next prune.config qcom.config'
-      # reference build: we want the debs and the LAVA results to compare
-      # against, but its failures must not gate qcom-deb-images work
-      lava_report_test_results_externally: false
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
       TEST_REPORTING_APP_TOKEN: ${{ secrets.TEST_REPORTING_APP_TOKEN }}
