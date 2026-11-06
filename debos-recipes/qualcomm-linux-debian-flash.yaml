@@ -15,10 +15,10 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/80e52fcde1cbae7d725692dea98a27cb479c5a2c.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/5c88b992acab58e97e64a1c7c9c0667836607580.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: 4fe113e20fa8feffdd962612f17cb03e60e6e7f460738bbcf897c7c9c631ad06
+    sha256sum: d4b370b6e2b8d36489ccfea26e264d53700ec06a7d94c2f32221c6088dede770
     unpack: true
 
   - action: download
@@ -375,7 +375,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
     "soc_id" "qcs8275"
-    "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
+    "ptool_platforms" (list "iq-8275-evk-emmc/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip"
@@ -478,7 +478,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
     "soc_id" "qcm2290"
-    "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
+    "ptool_platforms" (list "qrb2210-unoq/emmc")
     "boot_binaries_download" (dict
         "description" "UNO Q boot binaries"
         "url" "https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip"
