@@ -139,7 +139,8 @@ Each image directory holds the files of its `<prefix>-sbom.tar.gz` and
   `rootfs-sbom.syft.json.gz`, `rootfs-sbom.syft.txt.gz`: the SBOMs, from Syft
 * `rootfs-sbom.syft-license-summary.csv.txt.gz`: the license summary
 * `rootfs-sbom.syft-apt-origins.json.gz`: the APT archives (vendor, URI, suite
-  and component) providing each package, from the APT lists of the image
+  and component) providing each package, from the APT lists of the image, and
+  the image's APT sources, with the keyring files they name
 * `rootfs-vulns.grype.json.gz`, `rootfs-vulns.grype.cyclonedx.json.gz`,
   `rootfs-vulns.grype.txt.gz`: the Grype vulnerability reports, including the
   findings from the QLI advisories
