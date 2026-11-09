@@ -68,8 +68,8 @@ jobs:
     steps:
       # ca-certificates is needed by Grype to download its database
       # curl is needed by download-grype to install Grype
-      # distro-info-data is needed by scripts/grype-db-add-advisories.py to
-      #   translate the Debian releases of the advisories
+      # python3-distro-info is needed by scripts/grype-db-add-advisories.py
+      #   to translate the Debian releases of the advisories
       # git is needed by actions/checkout to tell the commit of the
       #   QLI security-tracker, which the advisories are published at
       # pigz is needed to compress the reports for publishing
@@ -81,10 +81,10 @@ jobs:
           apt -y install --update --no-install-recommends \
               ca-certificates \
               curl \
-              distro-info-data \
               git \
               pigz \
               python3 \
+              python3-distro-info \
               zstd
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

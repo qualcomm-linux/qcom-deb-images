@@ -32,19 +32,8 @@ CREATE TABLE `unaffected_package_handles` (`id` integer PRIMARY KEY AUTOINCREMEN
 # operating system IDs
 BOOKWORM, TRIXIE, UNSTABLE, NOBLE, FORKY = 1, 2, 3, 4, 5
 
-# an excerpt of distro-info-data's debian.csv
-DISTRO_INFO = """\
-version,codename,series,created,release,eol,eol-lts,eol-elts
-2.0,Hamm,hamm,1997-06-05,1998-07-24,2000-03-09
-12,Bookworm,bookworm,2021-08-14,2023-06-10,2026-07-11,2028-06-30,2033-06-30
-13,Trixie,trixie,2023-06-10,2025-08-09,2028-08-09,2030-06-30,2035-06-30
-14,Forky,forky,2025-08-09
-,Sid,sid,1993-08-16
-"""
-
 
 def make_db(tmp_path, model=6):
-    (tmp_path / "debian.csv").write_text(DISTRO_INFO)
     path = str(tmp_path / "vulnerability.db")
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
@@ -110,10 +99,9 @@ def write_advisories(tmp_path, *docs):
     return str(root), paths
 
 
-def run(db, *args):
-    distro_info = os.path.join(os.path.dirname(db), "debian.csv")
-    return subprocess.run([sys.executable, SCRIPT, "--distro-info",
-                           distro_info, db, *args],
+def run(db, *args, env=None):
+    # the Debian releases are those of distro-info-data, as installed
+    return subprocess.run([sys.executable, SCRIPT, db, *args], env=env,
                           capture_output=True, text=True, check=False)
 
 
@@ -447,9 +435,16 @@ def test_rejects_unsupported_databases(tmp_path):
 
 
 def test_needs_distro_info(tmp_path):
+    # e.g. without distro-info-data
     db = make_db(tmp_path)
     _, paths = write_advisories(tmp_path, advisory())
-    result = run(db, "--distro-info", str(tmp_path / "missing.csv"), *paths)
+    fake = tmp_path / "fake"
+    fake.mkdir()
+    (fake / "distro_info.py").write_text(
+        "class DebianDistroInfo:\n"
+        "    def __init__(self):\n"
+        "        raise FileNotFoundError('debian.csv')\n")
+    result = run(db, *paths, env={**os.environ, "PYTHONPATH": str(fake)})
     assert result.returncode == 1
     assert "cannot read the Debian releases of distro-info-data" in \
         result.stderr

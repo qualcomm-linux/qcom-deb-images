@@ -21,7 +21,6 @@
 # "warning:".
 
 import argparse
-import csv
 import hashlib
 import json
 import os
@@ -30,10 +29,10 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
+from distro_info import DebianDistroInfo
+
 PROVIDER = "qli"
 MODEL_VERSION = 6
-# from distro-info-data
-DISTRO_INFO = "/usr/share/distro-info/debian.csv"
 
 # the tables and columns written or read here
 COLUMNS = {
@@ -96,15 +95,12 @@ def check_schema(db):
                             "already")
 
 
-def load_debian_releases(path):
-    # the Debian releases of distro-info-data (debian.csv), as the OSV Debian
-    # ecosystem names them: by version, e.g. "13", or by series for those
-    # without one, e.g. "sid"; mapped to their series, e.g. "trixie"
-    releases = {}
-    with open(path, encoding="utf-8", newline="") as f:
-        for row in csv.DictReader(f):
-            releases[row["version"] or row["series"]] = row["series"]
-    return releases
+def load_debian_releases():
+    # the Debian releases of python3-distro-info, as the OSV Debian ecosystem
+    # names them: by version, e.g. "13", or by series for those without one,
+    # e.g. "sid"; mapped to their series, e.g. "trixie"
+    info = DebianDistroInfo()
+    return {info.version(series) or series: series for series in info.all}
 
 
 def debian_releases(db, ecosystem, releases):
@@ -348,8 +344,8 @@ def run(args):
     releases = {}
     if args.advisories:
         try:
-            releases = load_debian_releases(args.distro_info)
-        except (OSError, KeyError, csv.Error) as error:
+            releases = load_debian_releases()
+        except (OSError, KeyError, ValueError) as error:
             raise AdvisoryError(f"cannot read the Debian releases of "
                                 f"distro-info-data: {error}") from error
     db = sqlite3.connect(args.db)
@@ -405,9 +401,6 @@ def main():
                              "--source-root; reported by Grype as the data "
                              "source of their findings. Not for advisories "
                              "outside of --source-root")
-    parser.add_argument("--distro-info", default=DISTRO_INFO,
-                        help="Debian releases of distro-info-data "
-                             "(default: %(default)s)")
     parser.add_argument("--source-root", default=".",
                         help="the directory --source-url points at "
                              "(default: the current one)")
