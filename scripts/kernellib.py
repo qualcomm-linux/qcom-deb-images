@@ -16,6 +16,9 @@ KERNEL_IMAGES = "/boot/vmlinuz-* or /usr/lib/modules/*/vmlinuz"
 # the vendor of the archives of the kernels the Debian security tracker
 # covers, see scripts/syft-apt-origins.py
 DEBIAN_VENDOR = "Debian"
+# of the lists of the files compiled into a kernel, from
+# scripts/kernel-compiled-sources.py, <source>_<version> followed by this
+COMPILED_SOURCES_SUFFIX = ".compiled-sources.txt"
 
 
 def deb_source(artifact):
