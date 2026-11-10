@@ -15,10 +15,10 @@ architecture: arm64
 actions:
   - action: download
     description: Download qcom-ptool
-    url: https://github.com/qualcomm-linux/qcom-ptool/archive/80e52fcde1cbae7d725692dea98a27cb479c5a2c.tar.gz
+    url: https://github.com/qualcomm-linux/qcom-ptool/archive/321a2ecef058bf17cfcaf076dfd83fa1870a66f9.tar.gz
     name: qcom-ptool
     filename: qcom-ptool.tar.gz
-    sha256sum: 4fe113e20fa8feffdd962612f17cb03e60e6e7f460738bbcf897c7c9c631ad06
+    sha256sum: 60584c4130a05a64b26cc715a7ceb52eed2d504b15f9db950dfd60056897935e
     unpack: true
 
   - action: download
@@ -375,7 +375,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "monaco-evk"
     "soc_id" "qcs8275"
-    "ptool_platforms" (list "iq-8275-evk/emmc" "iq-8275-evk/ufs")
+    "ptool_platforms" (list "iq-8275-evk-emmc/emmc" "iq-8275-evk/ufs")
     "boot_binaries_download" (dict
         "description" "QCS8300 boot binaries"
         "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/QCS8300_bootbinaries.1.0/qcs8300_bootbinaries.1.0-test-device-public/00135/QCS8300_bootbinaries.zip"
@@ -478,7 +478,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
     "soc_id" "qcm2290"
-    "ptool_platforms" (list "qrb2210-unoq/emmc-16GB")
+    "ptool_platforms" (list "qrb2210-unoq/emmc")
     "boot_binaries_download" (dict
         "description" "UNO Q boot binaries"
         "url" "https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip"
@@ -487,6 +487,26 @@ actions:
         "sha256sum" "c606e95d0107f8c58d0dd9494e00624d1db7c4361cca20513bc78ef02ca28dd1"
     )
     "dtb" "qcom/qrb2210-arduino-imola.dtb"
+)}}
+{{- $boards = append $boards (dict
+    "name" "maili-mtp"
+    "soc_id" "sm8950"
+    "ptool_platforms" (list "maili-mtp/ufs")
+    "boot_binaries_download" (dict
+        "description" "Maili boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Maili_bootbinaries.1.0/maili_bootbinaries.1.0-test-device-public/00004/maili_bootbinaries_00004.zip"
+        "name" "maili-mtp_boot-binaries"
+        "filename" "maili-mtp_boot-binaries.zip"
+        "sha256sum" "75cf0c4e75c61ab6247620ffc8591ad9d48e1a8ebd9a56c49d94ca92ec3307a0"
+    )
+    "abl2esp_download" (dict
+        "description" "abl2esp"
+        "url" "https://github.com/qualcomm/abl2esp/releases/download/v1.0/abl2esp-v7.elf"
+        "name" "abl2esp-v7"
+        "filename" "abl2esp-v7.elf"
+        "sha256sum" "0e96701001770671e8ea48278a10f3672a015fcf262a3a563f3776248c069ac6"
+    )
+    "dtb" "qcom/maili-mtp.dtb"
 )}}
 
 {{- range $board := $boards }}
@@ -512,6 +532,19 @@ actions:
     chroot: false
     command:
       echo "{{ $board.cdt_download.sha256sum }} ${ROOTDIR}/../{{ $board.cdt_download.filename }}" |
+          sha256sum --strict -c -
+  {{- end }}
+  {{- if $board.abl2esp_download }}
+  - action: download
+    description: Download of {{ $board.abl2esp_download.description }}
+    url: {{ $board.abl2esp_download.url }}
+    name: {{ $board.abl2esp_download.name }}
+    filename: {{ $board.abl2esp_download.filename }}
+  - action: run
+    description: Verify SHA256 sum of {{ $board.abl2esp_download.description }}
+    chroot: false
+    command:
+      echo "{{ $board.abl2esp_download.sha256sum }} ${ROOTDIR}/../{{ $board.abl2esp_download.filename }}" |
           sha256sum --strict -c -
   {{- end }}
 {{- end }}
@@ -635,10 +668,12 @@ actions:
       # Board metadata table: one record per board, fields separated by '|'.
       # Fields (in order):
       #   name|soc_id|dtb|dtb_bin_type|boot_binaries_filename|
-      #   cdt_download_filename|cdt_filename|u_boot_file|platforms
+      #   cdt_download_filename|cdt_filename|u_boot_file|abl2esp_filename|
+      #   platforms
       # The optional fields (cdt_download_filename, cdt_filename,
-      # u_boot_file) are empty when they don't apply. "platforms" is a
-      # space-separated list and comes last so "read" captures all of it.
+      # u_boot_file, abl2esp_filename) are empty when they don't apply.
+      # "platforms" is a space-separated list and comes last so "read"
+      # captures all of it.
       #
       # This table is rendered once from the templated $boards list and then
       # iterated in shell, so the (long) per-board/per-platform logic below is
@@ -647,13 +682,13 @@ actions:
       boards_table="build/boards.txt"
       : >"${boards_table}"
 {{- range $board := $boards }}
-      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ with $board.u_boot_file }}{{ . }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
+      printf '%s\n' '{{ $board.name }}|{{ $board.soc_id }}|{{ $board.dtb }}|{{ or $board.dtb_bin_type "combineddtb" }}|{{ $board.boot_binaries_download.filename }}|{{ with $board.cdt_download }}{{ .filename }}{{ end }}|{{ if $board.cdt_download }}{{ $board.cdt_filename }}{{ end }}|{{ with $board.u_boot_file }}{{ . }}{{ end }}|{{ with $board.abl2esp_download }}{{ .filename }}{{ end }}|{{ range $p := $board.ptool_platforms }}{{ $p }} {{ end }}' >>"${boards_table}"
 {{- end }}
 
       while IFS='|' read -r board_name board_soc_id board_dtb \
           board_dtb_bin_type boot_binaries_filename \
           board_cdt_download_filename board_cdt_filename board_u_boot_file \
-          board_platforms; do
+          board_abl2esp_filename board_platforms; do
       # skip blank lines produced by template whitespace
       [ -n "${board_name}" ] || continue
 
@@ -780,6 +815,13 @@ actions:
               # files use filename=boot.img for boot_a and boot_b partitions
               cp --preserve=mode,timestamps -v \
                   "${ARTIFACTDIR}/${board_u_boot_file}" "${flash_dir}/boot.img"
+          fi
+
+          if [ -n "${board_abl2esp_filename}" ]; then
+              # copy abl2esp for boards whose boot binaries don't ship it; the
+              # qcom-ptool layout flashes it by this filename
+              cp --preserve=mode,timestamps -v \
+                  "${ROOTDIR}/../${board_abl2esp_filename}" "${flash_dir}"
           fi
 
           if [ -n "$board_cdt_filename" ]; then

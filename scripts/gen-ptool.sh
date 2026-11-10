@@ -27,7 +27,13 @@ DTB_TYPE="${6:-combineddtb}"
 # the multidtb dtb type
 SOC="${7:-}"
 
-PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
+# PLATFORM is "<board>/<storage-id>"; boards migrated to the single
+# platforms/boards/<board>.yaml format no longer ship a per-storage
+# partitions.conf, so detect that file and switch generation modes.
+BOARD="${PLATFORM%%/*}"
+STORAGE_ID="${PLATFORM#*/}"
+BOARD_YAML="${QCOM_PTOOL}/platforms/boards/${BOARD}.yaml"
+echo "BOARD_YAML=${BOARD_YAML}"
 
 case "$DISK_TYPE" in
   emmc|nvme)
@@ -71,7 +77,7 @@ esac
 # |--------|--------------|-------------------|-----------------|
 # | data   | ptool name   | ptool filename    | debos filename  |
 # |--------|--------------|-------------------|-----------------|
-# | ESP    | efi          | efi.bin           | disk-media.img1 |
+# | ESP    | efi or boot  | efi.bin           | disk-media.img1 |
 # | rootfs | rootfs       | rootfs.img        | disk-media.img2 |
 # | DTBs   | dtb_a, dtb_b | dtb.bin           | dtb.bin         |
 # | CDTs   | cdt          | unset / per board | from download   |
@@ -79,7 +85,6 @@ esac
 partition_map="cdt=$(basename "${CDT_FILENAME}")"
 partition_map="${partition_map},dtb_a=${dtb}"
 partition_map="${partition_map},dtb_b=${dtb}"
-partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
 # qcom-ptool ships as the "qcom_ptool" Python package; run its scripts as
@@ -87,13 +92,51 @@ partition_map="${partition_map},rootfs=${rootfs}"
 # without a pip install
 export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
 
-# generate ptool-partitions.xml from partitions.conf
-python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
-    -o ptool-partitions.xml \
-    -m "${partition_map}"
+# --board mode has no per-storage selection; it always writes every storage
+# the board declares to its own <outdir>/<storage-id>/ dir, so generate into a
+# scratch dir and copy out just the one this call needs
+board_gen="$(mktemp -d)"
+trap 'rm -rf "${board_gen}"' EXIT
+
+# generate ptool-partitions.xml with the given partition map: use
+# platforms/boards/<board>.yaml via --board mode when it exists, otherwise
+# fall back to the legacy per-storage partitions.conf
+gen_partitions() {
+    if [ -e "$BOARD_YAML" ]; then
+        python3 -m qcom_ptool.gen_partition \
+            --board "${BOARD_YAML}" \
+            -C "${board_gen}" \
+            -m "$1"
+        cp "${board_gen}/${STORAGE_ID}/partitions.xml" ptool-partitions.xml
+    else
+        python3 -m qcom_ptool.gen_partition \
+            -i "${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf" \
+            -o ptool-partitions.xml \
+            -m "$1"
+    fi
+}
+
+# the ESP image goes to the partition the layout fills with efi.bin; that is
+# efi on most boards, but boot on boards that flash abl2esp to efi, where UEFI
+# loads ABL from (e.g. hawi-mtp)
+gen_partitions "${partition_map}"
+esp_label="$(sed -n 's/.*label="\([^"]*\)".*filename="efi\.bin".*/\1/p' \
+    ptool-partitions.xml | head -n 1)"
+gen_partitions "${partition_map},${esp_label:-efi}=${esp}"
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
+# templates spanning several storages live at the board level; like
+# qcom-ptool, use them for the storage named by their first chipid
+BOARD_CONTENTS="${QCOM_PTOOL}/platforms/${BOARD}/contents.xml.in"
+if [ ! -e "$CONTENTS" ] && [ -e "$BOARD_CONTENTS" ]; then
+    template_storage="$(sed -n \
+        's/.*<chipid[^>]*storage_type="\([A-Za-z]*\)".*/\1/p' \
+        "$BOARD_CONTENTS" | head -n 1 | tr 'A-Z' 'a-z')"
+    if [ "$template_storage" = "$DISK_TYPE" ]; then
+        CONTENTS="$BOARD_CONTENTS"
+    fi
+fi
 if [ -e "$CONTENTS" ]; then
     python3 -m qcom_ptool.gen_contents -p ptool-partitions.xml \
         -t "$CONTENTS" \
