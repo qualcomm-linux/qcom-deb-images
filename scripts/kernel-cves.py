@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Assess the kernel CVEs of the Linux kernel CNA against the kernel packages
-# of an image, from their version; see
-# https://github.com/qualcomm-linux/qcom-deb-images/issues/705.
+# of an image, from their version and, optionally, the source files compiled
+# into them; see https://github.com/qualcomm-linux/qcom-deb-images/issues/705.
 #
 # Grype doesn't report any CVE for our kernel packages: their source packages,
 # e.g. linux-qcom-next, aren't in the Debian security tracker, and the Debian
@@ -34,13 +34,20 @@
 #   upstream version of the package, e.g. 7.3.0 for 7.3.0+git20261030~g...;
 # - writes them to --osv-dir, as OSV records for that exact package version,
 #   which scripts/grype-db-add-advisories.py adds to Grype's database, so that
-#   Grype reports them for every binary package of the source package, as
-#   not fixed: no version of the package is known to fix them.
+#   Grype reports them for every binary package of the source package;
+# - with --compiled-sources, writes an OpenVEX document to --vex with a
+#   not_affected statement for each of those CVEs whose fix changes no source
+#   file compiled into the kernel: Grype moves their findings to
+#   ignoredMatches, with the justification. scripts/kernel-compiled-sources.py
+#   lists them from the -dbg package of the kernel.
 #
 # The version check is conservative: release candidates and git snapshots
 # count as before their release, so a fix merged in 7.3-rc2 still counts as
 # missing in 7.3.0-rc4 snapshots, and backports outside of stable releases
-# are not known.
+# are not known. Files other than C, assembly or Rust sources and headers
+# count as compiled, e.g. device trees; documentation never does, and Kconfig
+# files and Makefiles only when a fix changes nothing else, and only those of
+# directories with compiled sources.
 
 import argparse
 import glob
@@ -48,19 +55,20 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 import apt_pkg
 from distro_info import DebianDistroInfo
 
-# the kernel images the kernel packages install, e.g.
-# /boot/vmlinuz-7.3.0+qcom-next-20261030-gae2606baf50f or
-# /usr/lib/modules/7.2.12+deb13-arm64/vmlinuz
-KERNEL_IMAGE_RE = re.compile(
-    r"/boot/vmlinuz-[^/]+|(?:/usr)?/lib/modules/[^/]+/vmlinuz")
-KERNEL_IMAGES = "/boot/vmlinuz-* or /usr/lib/modules/*/vmlinuz"
-# the vendor of the archives of the kernels the Debian security tracker
-# covers, see scripts/syft-apt-origins.py
-DEBIAN_VENDOR = "Debian"
+import kernellib
+
+PRODUCT = "pkg:generic/qualcomm-linux-debian-rootfs"
+AUTHOR = "Qualcomm Linux Debian images maintainers"
+VEX_ID = "https://github.com/qualcomm-linux/qcom-deb-images/vex/generated/"
+CODE_RE = re.compile(r".*\.(c|h|S|rs)")
+DOCUMENTATION_PREFIXES = ("Documentation/",)
+BUILD_FILE_RE = re.compile(r"(?:.*/)?(?:Kconfig[^/]*|Makefile|Kbuild)")
+
 # the products of the CVE records of the kernel CNA; another one is an error,
 # so that it gets reviewed rather than its CVEs silently ignored
 KNOWN_PRODUCTS = {"Linux"}
@@ -205,6 +213,33 @@ def cve_affects(record, version):
     return bool(statuses) and statuses != {"unaffected"}
 
 
+def program_files(record):
+    return sorted({name
+                   for affected in record["containers"]["cna"].get(
+                       "affected", [])
+                   for name in affected.get("programFiles", [])})
+
+
+class CompiledSources:
+    # the source files compiled into a kernel
+    def __init__(self, files):
+        self.files = set(files)
+        self.directories = {os.path.dirname(name) for name in self.files}
+
+    def present(self, files):
+        # the files of a fix which are (or may be) compiled into the kernel:
+        # its code, or else its build files; a Kconfig change for a driver
+        # which isn't built doesn't matter, nor one for another architecture
+        files = [name for name in files
+                 if not name.startswith(DOCUMENTATION_PREFIXES)]
+        code = [name for name in files if not BUILD_FILE_RE.fullmatch(name)]
+        if code:
+            return [name for name in code
+                    if not CODE_RE.fullmatch(name) or name in self.files]
+        return [name for name in files
+                if os.path.dirname(name) in self.directories]
+
+
 def severity(record):
     for metric in record["containers"]["cna"].get("metrics", []):
         for key, value in metric.items():
@@ -244,45 +279,6 @@ def osv_record(record, source, release, deb_version):
     return {key: value for key, value in advisory.items() if value}
 
 
-def deb_source(artifact):
-    return (artifact.get("metadata") or {}).get("source") or artifact["name"]
-
-
-def sbom_kernels(sbom):
-    # {(source package, Debian version): ([kernel image packages],
-    # [binary packages])} of the packages installing a kernel image, per
-    # the files the SBOM records them to contain, and of every other binary
-    # package of their source package
-    debs = {a["id"]: a for a in sbom.get("artifacts", [])
-            if a.get("type") == "deb"}
-    files = {f["id"]: f.get("location", {}).get("path", "")
-             for f in sbom.get("files", [])}
-    images = {debs[r["parent"]]["name"]: debs[r["parent"]]
-              for r in sbom.get("artifactRelationships", [])
-              if r.get("type") == "contains" and r.get("parent") in debs
-              and KERNEL_IMAGE_RE.fullmatch(files.get(r.get("child"), ""))}
-    kernels = {}
-    for image in images.values():
-        key = (deb_source(image), image["version"])
-        kernels.setdefault(key, ([], []))[0].append(image["name"])
-    for (source, version), (image_packages, binaries) in kernels.items():
-        image_packages.sort()
-        binaries.extend(sorted({a["name"] for a in debs.values()
-                                if deb_source(a) == source
-                                and a["version"] == version}))
-    return kernels
-
-
-def load_vendors(path):
-    # {(package, version): {vendors of the archives providing it}}, from
-    # scripts/syft-apt-origins.py
-    with open(path, encoding="utf-8") as f:
-        origins = json.load(f)
-    return {(row["package"], row["version"]):
-            {archive["vendor"] for archive in row["archives"]}
-            for row in origins["packages"]}
-
-
 def sbom_release(sbom):
     # the Debian release of an SBOM, as the OSV Debian ecosystem names it,
     # like scripts/grype-db-add-advisories.py: by version, e.g. 13, or by
@@ -296,13 +292,53 @@ def sbom_release(sbom):
     return version or DebianDistroInfo().version(series) or series
 
 
+def vex_statement(cve_id, binaries, deb_version, files, source):
+    return {
+        "vulnerability": {"name": cve_id},
+        "products": [{
+            "@id": PRODUCT,
+            "subcomponents": [{"@id": f"pkg:deb/debian/{name}@{deb_version}"}
+                              for name in binaries],
+        }],
+        "status": "not_affected",
+        "justification": "vulnerable_code_not_present",
+        "impact_statement":
+            f"None of the files the fix changes ({', '.join(files)}) are "
+            f"compiled into {source} {deb_version}, per the DWARF debug "
+            "info of its vmlinux and modules (generated by "
+            "scripts/kernel-cves.py).",
+    }
+
+
+def load_compiled_sources(path, source, deb_version):
+    # the compiled sources of a kernel, from a list or from a directory of
+    # lists named after the kernels; None when there is none
+    if os.path.isdir(path):
+        path = os.path.join(path, f"{source}_{deb_version}"
+                            f"{kernellib.COMPILED_SOURCES_SUFFIX}")
+        if not os.path.exists(path):
+            return None
+    with open(path, encoding="utf-8") as f:
+        return CompiledSources(line.strip() for line in f if line.strip())
+
+
 def assess(args, records, release, source, deb_version, binaries):
-    # the CVEs of a kernel
+    # the VEX statements about the CVEs of a kernel
     version = deb_kernel_version(deb_version)
+    sources = None
+    if args.compiled_sources:
+        sources = load_compiled_sources(args.compiled_sources, source,
+                                        deb_version)
+        if sources is None:
+            print(f"warning: no compiled sources for {source} "
+                  f"{deb_version}, not checking them")
     affected = [r for r in records if cve_affects(r, version)]
+    statements = []
+    not_present = 0
     open_severities = {}
     for record in affected:
         cve_id = record["cveMetadata"]["cveId"]
+        files = program_files(record)
         if args.osv_dir:
             path = os.path.join(args.osv_dir, f"{source}_{deb_version}",
                                 f"{cve_id}.osv.json")
@@ -311,36 +347,43 @@ def assess(args, records, release, source, deb_version, binaries):
                 json.dump(osv_record(record, source, release, deb_version),
                           f, indent=2)
                 f.write("\n")
-        level = severity(record)[0]
-        open_severities[level] = open_severities.get(level, 0) + 1
+        if sources is not None and files and not sources.present(files):
+            not_present += 1
+            statements.append(vex_statement(cve_id, binaries, deb_version,
+                                            files, source))
+        else:
+            level = severity(record)[0]
+            open_severities[level] = open_severities.get(level, 0) + 1
     print(f"{source} {deb_version} (kernel {version}, "
           f"{', '.join(binaries)}):")
     print(f"  {len(records)} kernel CVEs, {len(affected)} affect the "
           "version")
-    print(f"  {len(affected)} open: " + ", ".join(
+    if sources is not None:
+        print(f"  {not_present} of them change no compiled file: "
+              "not_affected")
+    print(f"  {len(affected) - not_present} open: " + ", ".join(
         f"{count} {level}" for level, count in sorted(
             open_severities.items(), key=lambda item: -item[1])))
+    return statements
 
 
 def run(args):
     with open(args.sbom, encoding="utf-8") as f:
         sbom = json.load(f)
-    kernels = sbom_kernels(sbom)
+    kernels = kernellib.sbom_kernels(sbom)
     if not kernels:
         raise ValueError(f"no kernel in {args.sbom}: no package installs "
-                         f"{KERNEL_IMAGES}")
+                         f"{kernellib.KERNEL_IMAGES}")
     if not os.path.exists(args.apt_origins):
         # the SBOM of an image built before they were recorded
         print(f"warning: no APT origins of the image, {args.apt_origins}; "
               "not assessing its kernel CVEs")
         return
-    vendors = load_vendors(args.apt_origins)
-    for (source, version), (image_packages, _) in list(kernels.items()):
-        kernel_vendors = set().union(*(vendors.get((package, version), set())
-                                       for package in image_packages))
-        if kernel_vendors == {DEBIAN_VENDOR}:
-            del kernels[(source, version)]
-        elif not kernel_vendors:
+    with open(args.apt_origins, encoding="utf-8") as f:
+        selected = kernellib.non_debian_kernels(kernels, json.load(f))
+    kernels = {key: kernels[key] for key in selected}
+    for (source, version), (_, archives) in sorted(selected.items()):
+        if not archives:
             print(f"warning: {source} {version}: from no known APT archive, "
                   "assessing it like a QLI kernel")
     if not kernels:
@@ -350,8 +393,27 @@ def run(args):
     release = sbom_release(sbom)
 
     records = list(load_cves(args.vulns))
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    statements = []
     for (source, deb_version), (_, binaries) in sorted(kernels.items()):
-        assess(args, records, release, source, deb_version, binaries)
+        statements.extend(assess(args, records, release, source, deb_version,
+                                 binaries))
+
+    # an OpenVEX document needs statements
+    if args.vex and statements:
+        document = {
+            "@context": "https://openvex.dev/ns/v0.2.0",
+            "@id": VEX_ID + "-".join(
+                f"{source}-{version}" for source, version in sorted(kernels)),
+            "author": AUTHOR,
+            "timestamp": timestamp,
+            "version": 1,
+            "tooling": "scripts/kernel-cves.py",
+            "statements": statements,
+        }
+        with open(args.vex, "w", encoding="utf-8") as f:
+            json.dump(document, f, indent=2)
+            f.write("\n")
 
 
 def main():
@@ -365,12 +427,24 @@ def main():
     parser.add_argument("--apt-origins", required=True,
                         help="APT origins of the packages of the image, from "
                              "scripts/syft-apt-origins.py")
+    parser.add_argument("--compiled-sources",
+                        help="list of the source files compiled into the "
+                             "kernel, from "
+                             "scripts/kernel-compiled-sources.py, or a "
+                             "directory of them named <source>_<version>"
+                             f"{kernellib.COMPILED_SOURCES_SUFFIX}")
     parser.add_argument("--osv-dir",
                         help="directory to write OSV records of the CVEs "
                              "affecting the kernel to, in a <source>_"
                              "<version> subdirectory per kernel, for "
                              "scripts/grype-db-add-advisories.py")
+    parser.add_argument("--vex",
+                        help="OpenVEX document to write the not_affected "
+                             "statements to, unless there are none; needs "
+                             "--compiled-sources")
     args = parser.parse_args()
+    if args.vex and not args.compiled_sources:
+        parser.error("--vex needs --compiled-sources")
     try:
         run(args)
     except (OSError, KeyError, ValueError) as error:

@@ -113,6 +113,33 @@ def test_origins(tmp_path):
     assert rows["linux-image-7.3.0-rc4"]["archives"] == []
 
 
+def test_sources(tmp_path):
+    # the deb stanzas, enabled or not, as apt reads them, but local ones, and
+    # the keyring files they name, through the links of the root filesystem,
+    # not the host's
+    keyring = "/usr/share/keyrings/debian-archive-keyring.gpg"
+    debian = f"Types: deb\nURIs: {DEBIAN}\nSuites: trixie\n" \
+        f"Components: main\nSigned-By: {keyring}\n"
+    root, lists, sbom = rootfs(tmp_path, {
+        "debian.sources": debian,
+        "qli.sources": stanza(QLI + "/", "trixie", enabled=False),
+        "local.sources": "Types: deb\nURIs: file:///media/local\nSuites: /\n",
+    }, [deb("bash", "5.2.37-2")])
+    archive_lists(lists, DEBIAN, "trixie", "Debian",
+                  [("bash", "5.2.37-2", "arm64")])
+    (root / "usr/share/keyrings").mkdir(parents=True)
+    (root / "usr/share/keyrings/debian-archive-keyring.pgp").write_bytes(
+        b"\x99key")
+    (root / keyring[1:]).symlink_to(
+        "/usr/share/keyrings/debian-archive-keyring.pgp")
+    result = run(sbom, root)
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output["sources"] == {
+        DEBIAN: debian, QLI: stanza(QLI + "/", "trixie", enabled=False)}
+    assert output["keyrings"] == {keyring: "mWtleQ=="}
+
+
 def test_snapshot_origins(tmp_path):
     # the image recipe removes the snapshot sources of snapshot builds after
     # their last APT update: their lists are those the packages come from

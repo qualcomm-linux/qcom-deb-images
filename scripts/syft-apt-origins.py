@@ -15,7 +15,21 @@
 #    "archives": [{"vendor": "Qualcomm",
 #                  "uri": "https://deb.debusine.qualcomm.com/qualcomm/qli",
 #                  "suite": "trixie", "component": "main"}]},
-#   ...]}
+#   ...],
+#  "sources": {
+#   "https://deb.debusine.qualcomm.com/qualcomm/qli":
+#    "Types: deb\nURIs: https://deb.debusine.qualcomm.com/qualcomm/qli\n...",
+#   ...},
+#  "keyrings": {
+#   "/usr/share/keyrings/debian-archive-keyring.gpg": "mQINBF...",
+#   ...}}
+#
+# along with the deb source stanzas of the image's
+# /etc/apt/sources.list.d/*.sources, enabled or not, as apt reads them, e.g.
+# with their Signed-By key inline, keyed by their URIs, and the keyring files
+# their Signed-By names, base64-encoded, keyed by their paths, for tools to
+# download more from an archive, e.g. the -dbg package of the kernel. Local
+# sources (file:) are left out, there's nothing to download from them.
 #
 # dpkg doesn't record which archive a package was installed from, so an
 # archive providing the installed version is the best there is; a package
@@ -45,6 +59,7 @@
 # Needs python3-apt and python3-debian.
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -72,15 +87,15 @@ def load_syft_json(file_path):
         return json.load(f)
 
 
-def source_uris(rootfs):
-    # {list file name prefix: URI} of the deb sources of
-    # /etc/apt/sources.list.d, enabled or not, without credentials, e.g.
-    # {"deb.debian.org_debian_": "http://deb.debian.org/debian"}
+def source_stanzas(rootfs):
+    # {URI: stanza} of the deb sources of /etc/apt/sources.list.d, enabled or
+    # not, by their URIs without credentials, e.g.
+    # {"http://deb.debian.org/debian": Deb822(...)}; the first stanza of a URI
     directory = os.path.join(rootfs, "etc/apt/sources.list.d")
     names = sorted(name for name in os.listdir(directory)
                    if name.endswith(".sources")) \
         if os.path.isdir(directory) else []
-    uris = {}
+    stanzas = {}
     for name in names:
         with open(os.path.join(directory, name), encoding="utf-8") as f:
             for fields in deb822.Deb822.iter_paragraphs(f):
@@ -90,8 +105,56 @@ def source_uris(rootfs):
                     parts = urlsplit(uri.rstrip("/"))
                     uri = parts._replace(
                         netloc=parts.netloc.rsplit("@", 1)[-1]).geturl()
-                    uris.setdefault(apt_pkg.uri_to_filename(uri + "/"), uri)
-    return uris
+                    stanzas.setdefault(uri, fields)
+    return stanzas
+
+
+def rootfs_file(rootfs, path):
+    # the path of a file of the root filesystem, following its symbolic
+    # links within it, rather than those of the host
+    parts = [part for part in path.split("/") if part]
+    resolved = ""
+    links = 0
+    while parts:
+        part = parts.pop(0)
+        if part == ".":
+            continue
+        if part == "..":
+            resolved = os.path.dirname(resolved)
+            continue
+        candidate = f"{resolved}/{part}"
+        if os.path.islink(rootfs + candidate):
+            links += 1
+            if links > 40:
+                raise OSError(f"{path}: too many levels of symbolic links")
+            target = os.readlink(rootfs + candidate)
+            if target.startswith("/"):
+                resolved = ""
+            parts = [part for part in target.split("/") if part] + parts
+            continue
+        resolved = candidate
+    return rootfs + resolved
+
+
+def source_keyrings(rootfs, stanzas):
+    # {path: base64 contents} of the keyring files the Signed-By of the
+    # stanzas names, rather than holding the key inline; Signed-By also takes
+    # fingerprints, and a list of those and paths
+    keyrings = {}
+    for stanza in stanzas:
+        signed_by = stanza.get("Signed-By", "")
+        if "-----BEGIN PGP PUBLIC KEY BLOCK-----" in signed_by:
+            continue
+        for path in signed_by.replace(",", " ").split():
+            if not path.startswith("/") or path in keyrings:
+                continue
+            try:
+                with open(rootfs_file(rootfs, path), "rb") as f:
+                    keyrings[path] = base64.b64encode(f.read()).decode()
+            except OSError as error:
+                print(f"warning: keyring of an APT source: {error}",
+                      file=sys.stderr)
+    return keyrings
 
 
 def list_archive(name):
@@ -132,10 +195,12 @@ def archive_vendor(uri, origin, path):
     return vendor
 
 
-def archive_packages(rootfs):
+def archive_packages(rootfs, stanzas):
     # (package, version, architecture): the archives listing it
     lists_dir = os.path.join(rootfs, "var/lib/apt/lists")
-    uris = source_uris(rootfs)
+    # the URIs of the sources, by their list file name prefix, e.g.
+    # {"deb.debian.org_debian_": "http://deb.debian.org/debian"}
+    uris = {apt_pkg.uri_to_filename(uri + "/"): uri for uri in stanzas}
     packages = defaultdict(list)
     for name in sorted(os.listdir(lists_dir)):
         if not name.endswith("_Packages"):
@@ -197,14 +262,22 @@ def main():
     apt_pkg.init_config()
     try:
         syft_data = load_syft_json(args.syft_json)
-        rows = package_origins(syft_data, archive_packages(args.rootfs))
+        stanzas = source_stanzas(args.rootfs)
+        rows = package_origins(syft_data,
+                               archive_packages(args.rootfs, stanzas))
     except (OSError, ValueError, SystemError, OriginError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     if not any(row["archives"] for row in rows):
         print("error: no package found in the APT lists", file=sys.stderr)
         return 1
-    json.dump({"packages": rows}, sys.stdout, indent=1)
+    stanzas = {uri: stanza for uri, stanza in sorted(stanzas.items())
+               if urlsplit(uri).scheme != "file"}
+    json.dump({"packages": rows,
+               "sources": {uri: stanza.dump()
+                           for uri, stanza in stanzas.items()},
+               "keyrings": source_keyrings(args.rootfs, stanzas.values())},
+              sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
 
