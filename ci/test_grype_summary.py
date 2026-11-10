@@ -119,10 +119,10 @@ def test_summary_only_suppressed(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "| Suppressed | 1 |" in result.stdout
     assert "| CVE-2026-12345 |" in result.stdout
-    assert "No critical severity vulnerabilities found" in \
-        result.stdout
-    assert result.stdout.index("No critical") < result.stdout.index(
-        "1 critical severity suppressed vulnerabilities")
+    # nothing open to list
+    assert "critical severity vulnerabilities</summary>" not in result.stdout
+    assert "No critical" not in result.stdout
+    assert "1 critical severity suppressed vulnerabilities" in result.stdout
     assert "\U0001F534</span> not-fixed" in result.stdout
 
 
@@ -146,7 +146,8 @@ def test_summary_counts_only_lower_suppressed(tmp_path, severity):
         result.stdout
 
 
-def test_summary_no_critical_or_high_suppressed(tmp_path):
+def test_summary_no_critical_suppressed(tmp_path):
+    # only counted, nothing to list
     data = {"matches": [], "ignoredMatches": [{
         "match": grype_match(severity="Low"),
         "appliedIgnoreRules": [{"vex-status": "not_affected"}],
@@ -155,8 +156,8 @@ def test_summary_no_critical_or_high_suppressed(tmp_path):
                     write(tmp_path, "grype.json", data))
     assert result.returncode == 0, result.stderr
     assert "| Suppressed | 1 |" in result.stdout
-    assert "No critical severity vulnerabilities suppressed." in \
-        result.stdout
+    assert "suppressed vulnerabilities" not in result.stdout
+    assert "suppressed." not in result.stdout
     assert "| CVE-2026-12345 |" not in result.stdout
 
 
