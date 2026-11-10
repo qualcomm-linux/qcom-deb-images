@@ -210,6 +210,8 @@ def test_summary_triage_escapes_markdown_table_text(tmp_path):
                if line.startswith("| CVE-"))
     assert row.count("|") == 6
     assert "affected: patch &#124; investigate<br>&lt;next&gt;" in row
+    # not fixed, but triaged
+    assert "\U0001F7E0</span> triaged" in row
     assert "Untriaged (no VEX statement): **0**" in result.stdout
 
 
@@ -235,6 +237,8 @@ def test_summary_triage_per_package(tmp_path):
             if line.startswith("| CVE-")}
     assert rows["CVE-2026-12345"].endswith(
         "| untriaged; under_investigation |")
+    # only when triaged for every package
+    assert "\U0001F534</span> not-fixed" in rows["CVE-2026-12345"]
     assert rows["CVE-2026-1111"].endswith("| affected: x |")
     assert rows["CVE-2026-99999"].endswith("| untriaged |")
     assert "Untriaged (no VEX statement): **2**" in result.stdout

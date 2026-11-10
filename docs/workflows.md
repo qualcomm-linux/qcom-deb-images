@@ -123,6 +123,11 @@ or `/usr/lib/modules/*/vmlinuz`, unless it comes from a Debian archive, per
   directories with compiled sources. Without that package, e.g. for kernels
   built with `bindeb-pkg`, from no known archive, or ones removed from the
   archive by now, the kernel is assessed by version alone, with a warning
+* those left open which an upstream release fixes, the stable release of the
+  kernel's branch or the mainline one, get an `affected` statement in that
+  document naming the releases, which the job summary shows as 🟠 triaged
+  rather than not fixed. The releases are also added to the end of each CVE's
+  description, so Grype's reports show them too
 
 The counts are in `rootfs-kernel-cves.txt` and in the job summary. The
 version check is conservative: release candidates and git snapshots count as
