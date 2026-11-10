@@ -13,6 +13,8 @@ import pytest
 
 SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
 SCRIPT = os.path.join(SCRIPTS, "kernel-cves.py")
+# for kernellib, which the script imports
+sys.path.insert(0, SCRIPTS)
 
 spec = importlib.util.spec_from_file_location("kernel_cves", SCRIPT)
 kernel_cves = importlib.util.module_from_spec(spec)

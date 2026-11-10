@@ -52,15 +52,8 @@ import sys
 import apt_pkg
 from distro_info import DebianDistroInfo
 
-# the kernel images the kernel packages install, e.g.
-# /boot/vmlinuz-7.3.0+qcom-next-20261030-gae2606baf50f or
-# /usr/lib/modules/7.2.12+deb13-arm64/vmlinuz
-KERNEL_IMAGE_RE = re.compile(
-    r"/boot/vmlinuz-[^/]+|(?:/usr)?/lib/modules/[^/]+/vmlinuz")
-KERNEL_IMAGES = "/boot/vmlinuz-* or /usr/lib/modules/*/vmlinuz"
-# the vendor of the archives of the kernels the Debian security tracker
-# covers, see scripts/syft-apt-origins.py
-DEBIAN_VENDOR = "Debian"
+import kernellib
+
 # the products of the CVE records of the kernel CNA; another one is an error,
 # so that it gets reviewed rather than its CVEs silently ignored
 KNOWN_PRODUCTS = {"Linux"}
@@ -244,45 +237,6 @@ def osv_record(record, source, release, deb_version):
     return {key: value for key, value in advisory.items() if value}
 
 
-def deb_source(artifact):
-    return (artifact.get("metadata") or {}).get("source") or artifact["name"]
-
-
-def sbom_kernels(sbom):
-    # {(source package, Debian version): ([kernel image packages],
-    # [binary packages])} of the packages installing a kernel image, per
-    # the files the SBOM records them to contain, and of every other binary
-    # package of their source package
-    debs = {a["id"]: a for a in sbom.get("artifacts", [])
-            if a.get("type") == "deb"}
-    files = {f["id"]: f.get("location", {}).get("path", "")
-             for f in sbom.get("files", [])}
-    images = {debs[r["parent"]]["name"]: debs[r["parent"]]
-              for r in sbom.get("artifactRelationships", [])
-              if r.get("type") == "contains" and r.get("parent") in debs
-              and KERNEL_IMAGE_RE.fullmatch(files.get(r.get("child"), ""))}
-    kernels = {}
-    for image in images.values():
-        key = (deb_source(image), image["version"])
-        kernels.setdefault(key, ([], []))[0].append(image["name"])
-    for (source, version), (image_packages, binaries) in kernels.items():
-        image_packages.sort()
-        binaries.extend(sorted({a["name"] for a in debs.values()
-                                if deb_source(a) == source
-                                and a["version"] == version}))
-    return kernels
-
-
-def load_vendors(path):
-    # {(package, version): {vendors of the archives providing it}}, from
-    # scripts/syft-apt-origins.py
-    with open(path, encoding="utf-8") as f:
-        origins = json.load(f)
-    return {(row["package"], row["version"]):
-            {archive["vendor"] for archive in row["archives"]}
-            for row in origins["packages"]}
-
-
 def sbom_release(sbom):
     # the Debian release of an SBOM, as the OSV Debian ecosystem names it,
     # like scripts/grype-db-add-advisories.py: by version, e.g. 13, or by
@@ -325,22 +279,20 @@ def assess(args, records, release, source, deb_version, binaries):
 def run(args):
     with open(args.sbom, encoding="utf-8") as f:
         sbom = json.load(f)
-    kernels = sbom_kernels(sbom)
+    kernels = kernellib.sbom_kernels(sbom)
     if not kernels:
         raise ValueError(f"no kernel in {args.sbom}: no package installs "
-                         f"{KERNEL_IMAGES}")
+                         f"{kernellib.KERNEL_IMAGES}")
     if not os.path.exists(args.apt_origins):
         # the SBOM of an image built before they were recorded
         print(f"warning: no APT origins of the image, {args.apt_origins}; "
               "not assessing its kernel CVEs")
         return
-    vendors = load_vendors(args.apt_origins)
-    for (source, version), (image_packages, _) in list(kernels.items()):
-        kernel_vendors = set().union(*(vendors.get((package, version), set())
-                                       for package in image_packages))
-        if kernel_vendors == {DEBIAN_VENDOR}:
-            del kernels[(source, version)]
-        elif not kernel_vendors:
+    with open(args.apt_origins, encoding="utf-8") as f:
+        selected = kernellib.non_debian_kernels(kernels, json.load(f))
+    kernels = {key: kernels[key] for key in selected}
+    for (source, version), (_, archives) in sorted(selected.items()):
+        if not archives:
             print(f"warning: {source} {version}: from no known APT archive, "
                   "assessing it like a QLI kernel")
     if not kernels:
