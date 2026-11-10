@@ -116,6 +116,17 @@ fi
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
+# templates spanning several storages live at the board level; like
+# qcom-ptool, use them for the storage named by their first chipid
+BOARD_CONTENTS="${QCOM_PTOOL}/platforms/${BOARD}/contents.xml.in"
+if [ ! -e "$CONTENTS" ] && [ -e "$BOARD_CONTENTS" ]; then
+    template_storage="$(sed -n \
+        's/.*<chipid[^>]*storage_type="\([A-Za-z]*\)".*/\1/p' \
+        "$BOARD_CONTENTS" | head -n 1 | tr 'A-Z' 'a-z')"
+    if [ "$template_storage" = "$DISK_TYPE" ]; then
+        CONTENTS="$BOARD_CONTENTS"
+    fi
+fi
 if [ -e "$CONTENTS" ]; then
     python3 -m qcom_ptool.gen_contents -p ptool-partitions.xml \
         -t "$CONTENTS" \
