@@ -33,6 +33,7 @@ jobs:
       contents: read
     with:
       suite: ${{ matrix.suite }}
+      variant: console
       # plain Debian kernel: the Debian kernel and none of the Qualcomm overlays
       # so that we simply test the state of upstream Debian
       overlays: none
@@ -76,6 +77,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      variant: console
       # the boards tested come from .github/lava-boards.yml
       kernel: debian
       # failures here are about upstream Debian, not about qcom-deb-images;

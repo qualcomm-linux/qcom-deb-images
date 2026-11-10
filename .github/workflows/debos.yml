@@ -31,10 +31,9 @@ on:
           Name of the image variant to build (e.g. gnome); it selects
           which packages are installed in the image and is appended to the
           name of every published artifact, so that variants of the same
-          suite don't overwrite each other, except for "console" which
-          is not appended.
+          suite don't overwrite each other.
+        required: true
         type: string
-        default: console
       # useful if for some reason the kernel/image can't start in QEMU
       skip_qemu_tests:
         description: Skip QEMU tests
@@ -68,18 +67,17 @@ env:
   DEBOS_EXTRA_ARGS: >-
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
-    -t variant:${{ inputs.variant || 'console' }}
+    -t variant:${{ inputs.variant }}
     ${{ inputs.debos_extra_args }}
   # Filename prefix for all published artifacts:
-  # "<suite>[-<variant>][-<profile>]".
+  # "<suite>-<variant>[-<profile>]".
   #
-  # The variant is omitted from the filename when "console" and the profile
-  # when "default".
+  # The profile is omitted from the filename when "default".
   ARTIFACT_PREFIX: >-
     ${{ format(
-      '{0}{1}{2}',
+      '{0}-{1}{2}',
       inputs.suite,
-      (inputs.variant && inputs.variant != 'console') && format('-{0}', inputs.variant) || '',
+      inputs.variant,
       (inputs.profile && inputs.profile != 'default') && format('-{0}', inputs.profile) || '')
     }}
 
@@ -284,8 +282,9 @@ jobs:
           # create tarballs with support for all UFS and all eMMC boards
           scripts/bundle-flash-dirs.sh "${dir}" "${ARTIFACT_PREFIX}"
           # one SBOM archive per image, named like the images it describes,
-          # e.g. trixie-sbom.tar.gz next to trixie-rootfs.tar.gz, holding the
-          # SBOMs in all formats and the license summary
+          # e.g. trixie-console-sbom.tar.gz next to
+          # trixie-console-rootfs.tar.gz, holding the SBOMs in all formats
+          # and the license summary
           tar -cv --use-compress-program=pigz \
               -f "${dir}/${ARTIFACT_PREFIX}-sbom.tar.gz" rootfs-sbom.*
           # generate sha256sums for all artifacts

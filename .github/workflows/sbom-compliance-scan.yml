@@ -282,9 +282,9 @@ jobs:
           done
 
       # one archive per image, named like the images it describes, e.g.
-      # trixie-vulns.tar.gz next to trixie-rootfs.tar.gz and
-      # trixie-sbom.tar.gz, holding the Grype reports and the VEX coverage
-      # warnings; the triage report only serves the summary
+      # trixie-console-vulns.tar.gz next to trixie-console-rootfs.tar.gz
+      # and trixie-console-sbom.tar.gz, holding the Grype reports and the
+      # VEX coverage warnings; the triage report only serves the summary
       - name: Pack vulnerability reports for publishing
         run: |
           set -ux
