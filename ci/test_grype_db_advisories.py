@@ -32,19 +32,8 @@ CREATE TABLE `unaffected_package_handles` (`id` integer PRIMARY KEY AUTOINCREMEN
 # operating system IDs
 BOOKWORM, TRIXIE, UNSTABLE, NOBLE, FORKY = 1, 2, 3, 4, 5
 
-# an excerpt of distro-info-data's debian.csv
-DISTRO_INFO = """\
-version,codename,series,created,release,eol,eol-lts,eol-elts
-2.0,Hamm,hamm,1997-06-05,1998-07-24,2000-03-09
-12,Bookworm,bookworm,2021-08-14,2023-06-10,2026-07-11,2028-06-30,2033-06-30
-13,Trixie,trixie,2023-06-10,2025-08-09,2028-08-09,2030-06-30,2035-06-30
-14,Forky,forky,2025-08-09
-,Sid,sid,1993-08-16
-"""
-
 
 def make_db(tmp_path, model=6):
-    (tmp_path / "debian.csv").write_text(DISTRO_INFO)
     path = str(tmp_path / "vulnerability.db")
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
@@ -110,10 +99,9 @@ def write_advisories(tmp_path, *docs):
     return str(root), paths
 
 
-def run(db, *args):
-    distro_info = os.path.join(os.path.dirname(db), "debian.csv")
-    return subprocess.run([sys.executable, SCRIPT, "--distro-info",
-                           distro_info, db, *args],
+def run(db, *args, env=None):
+    # the Debian releases are those of distro-info-data, as installed
+    return subprocess.run([sys.executable, SCRIPT, db, *args], env=env,
                           capture_output=True, text=True, check=False)
 
 
@@ -190,6 +178,31 @@ def test_adds_advisory(tmp_path):
     assert digest.startswith("sha256:")
 
 
+def test_source_url_only_for_source_root(tmp_path):
+    # advisories outside of the security-tracker, e.g. the kernel CVEs of
+    # scripts/kernel-cves.py, keep their own references only
+    db = make_db(tmp_path)
+    root, paths = write_advisories(tmp_path, advisory())
+    outside = tmp_path / "kernel-osv" / "CVE-2026-2.osv.json"
+    outside.parent.mkdir()
+    outside.write_text(json.dumps(advisory(
+        "CVE-2026-2", source="linux-qcom-next",
+        references=[{"type": "ADVISORY",
+                     "url": "https://www.cve.org/CVERecord?id=CVE-2026-2"}])))
+    result = run(db, "--source-root", root, "--source-url",
+                 "https://example.com/blob/abc/", *paths, str(outside))
+    assert result.returncode == 0, result.stderr
+    refs = {name: json.loads(blob)["refs"] for name, blob in query(
+        db, "SELECT v.name, b.value FROM vulnerability_handles v "
+            "JOIN blobs b ON b.id = v.blob_id WHERE v.provider_id = 'qli'")}
+    assert refs == {
+        "QLI-2026-1": [{"url": "https://example.com/blob/abc/advisories/"
+                               "QLI-2026-1.osv.json", "tags": ["ADVISORY"]}],
+        "CVE-2026-2": [{"url": "https://www.cve.org/CVERecord?id=CVE-2026-2",
+                        "tags": ["ADVISORY"]}],
+    }
+
+
 @pytest.mark.parametrize("events,ranges", [
     # like the Debian provider's records of unfixed vulnerabilities
     ([{"introduced": "0"}],
@@ -215,6 +228,36 @@ def test_ranges(tmp_path, events, ranges):
     assert result.returncode == 0, result.stderr
     assert handles(db, "QLI-2026-1") == \
         [(TRIXIE, "userspace-resource-manager", ranges)]
+
+
+def test_affected_versions(tmp_path):
+    # e.g. the kernel CVEs of scripts/kernel-cves.py: exactly the versions
+    # listed, not fixed, like the Debian provider's records of unfixed
+    # vulnerabilities; along with the ranges of the entry
+    db = make_db(tmp_path)
+    doc = advisory(events=[{"introduced": "0"}, {"fixed": "1.0-2"}])
+    doc["affected"][0]["versions"] = ["7.2.0+git20261008~gb8f0c6b1ab06-0qli1"]
+    root, paths = write_advisories(tmp_path, doc)
+    result = run(db, "--source-root", root, *paths)
+    assert result.returncode == 0, result.stderr
+    (_, _, ranges), = handles(db, "QLI-2026-1")
+    assert ranges == [
+        {"version": {"type": "dpkg", "constraint": "< 1.0-2"},
+         "fix": {"version": "1.0-2", "state": "fixed"}},
+        {"version": {"type": "dpkg",
+                     "constraint": "= 7.2.0+git20261008~gb8f0c6b1ab06-0qli1"},
+         "fix": {"state": "not-fixed"}},
+    ]
+
+
+def test_invalid_affected_version(tmp_path):
+    db = make_db(tmp_path)
+    doc = advisory()
+    doc["affected"][0]["versions"] = ["not a version"]
+    root, paths = write_advisories(tmp_path, doc)
+    result = run(db, "--source-root", root, *paths)
+    assert result.returncode == 0, result.stderr
+    assert "skipped: invalid Debian version 'not a version'" in result.stdout
 
 
 @pytest.mark.parametrize("ecosystem,releases", [
@@ -392,9 +435,16 @@ def test_rejects_unsupported_databases(tmp_path):
 
 
 def test_needs_distro_info(tmp_path):
+    # e.g. without distro-info-data
     db = make_db(tmp_path)
     _, paths = write_advisories(tmp_path, advisory())
-    result = run(db, "--distro-info", str(tmp_path / "missing.csv"), *paths)
+    fake = tmp_path / "fake"
+    fake.mkdir()
+    (fake / "distro_info.py").write_text(
+        "class DebianDistroInfo:\n"
+        "    def __init__(self):\n"
+        "        raise FileNotFoundError('debian.csv')\n")
+    result = run(db, *paths, env={**os.environ, "PYTHONPATH": str(fake)})
     assert result.returncode == 1
     assert "cannot read the Debian releases of distro-info-data" in \
         result.stderr

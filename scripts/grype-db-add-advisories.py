@@ -21,7 +21,6 @@
 # "warning:".
 
 import argparse
-import csv
 import hashlib
 import json
 import os
@@ -30,10 +29,10 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
+from distro_info import DebianDistroInfo
+
 PROVIDER = "qli"
 MODEL_VERSION = 6
-# from distro-info-data
-DISTRO_INFO = "/usr/share/distro-info/debian.csv"
 
 # the tables and columns written or read here
 COLUMNS = {
@@ -96,15 +95,12 @@ def check_schema(db):
                             "already")
 
 
-def load_debian_releases(path):
-    # the Debian releases of distro-info-data (debian.csv), as the OSV Debian
-    # ecosystem names them: by version, e.g. "13", or by series for those
-    # without one, e.g. "sid"; mapped to their series, e.g. "trixie"
-    releases = {}
-    with open(path, encoding="utf-8", newline="") as f:
-        for row in csv.DictReader(f):
-            releases[row["version"] or row["series"]] = row["series"]
-    return releases
+def load_debian_releases():
+    # the Debian releases of python3-distro-info, as the OSV Debian ecosystem
+    # names them: by version, e.g. "13", or by series for those without one,
+    # e.g. "sid"; mapped to their series, e.g. "trixie"
+    info = DebianDistroInfo()
+    return {info.version(series) or series: series for series in info.all}
 
 
 def debian_releases(db, ecosystem, releases):
@@ -189,6 +185,16 @@ def grype_range(introduced, kind, version):
     if constraints:
         version_spec["constraint"] = ", ".join(constraints)
     return {"version": version_spec, "fix": fix}
+
+
+def affected_version(version):
+    # the database's form of an affected version an OSV record lists: one
+    # without a fixed version, as the Debian provider records unfixed
+    # vulnerabilities
+    if not isinstance(version, str) or not VERSION_RE.fullmatch(version):
+        raise AdvisoryError(f"invalid Debian version {version!r}")
+    return {"version": {"type": "dpkg", "constraint": f"= {version}"},
+            "fix": {"state": "not-fixed"}}
 
 
 def severities(advisory):
@@ -290,8 +296,10 @@ def add_advisory(db, advisory, releases, source_url, warn):
         entry_ranges = [grype_range(*pair)
                         for osv_range in entry.get("ranges") or []
                         for pair in range_pairs(osv_range)]
+        entry_ranges += [affected_version(version)
+                         for version in entry.get("versions") or []]
         if not entry_ranges:
-            raise AdvisoryError(f"{source}: no ranges")
+            raise AdvisoryError(f"{source}: no ranges or versions")
         for release in debian_releases(db, package.get("ecosystem"),
                                        releases):
             ranges.setdefault((release, source), []).extend(entry_ranges)
@@ -336,8 +344,8 @@ def run(args):
     releases = {}
     if args.advisories:
         try:
-            releases = load_debian_releases(args.distro_info)
-        except (OSError, KeyError, csv.Error) as error:
+            releases = load_debian_releases()
+        except (OSError, KeyError, ValueError) as error:
             raise AdvisoryError(f"cannot read the Debian releases of "
                                 f"distro-info-data: {error}") from error
     db = sqlite3.connect(args.db)
@@ -351,10 +359,13 @@ def run(args):
                  datetime.now(timezone.utc).isoformat(sep=" "),
                  input_digest(args.advisories, args.source_root)))
             for path in args.advisories:
+                # only for those of the security-tracker; others, e.g. the
+                # kernel CVEs of scripts/kernel-cves.py, come with their own
                 source_url = None
-                if args.source_url:
-                    source_url = args.source_url + \
-                        os.path.relpath(path, args.source_root)
+                relpath = os.path.relpath(path, args.source_root)
+                if args.source_url and \
+                        not relpath.startswith(os.pardir + os.sep):
+                    source_url = args.source_url + relpath
                 # each advisory is added entirely, or not at all
                 db.execute("SAVEPOINT advisory")
                 try:
@@ -388,10 +399,8 @@ def main():
                         help="URL prefix of the advisories' published "
                              "location, followed by their path relative to "
                              "--source-root; reported by Grype as the data "
-                             "source of their findings")
-    parser.add_argument("--distro-info", default=DISTRO_INFO,
-                        help="Debian releases of distro-info-data "
-                             "(default: %(default)s)")
+                             "source of their findings. Not for advisories "
+                             "outside of --source-root")
     parser.add_argument("--source-root", default=".",
                         help="the directory --source-url points at "
                              "(default: the current one)")
