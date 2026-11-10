@@ -77,7 +77,7 @@ esac
 # |--------|--------------|-------------------|-----------------|
 # | data   | ptool name   | ptool filename    | debos filename  |
 # |--------|--------------|-------------------|-----------------|
-# | ESP    | efi          | efi.bin           | disk-media.img1 |
+# | ESP    | efi or boot  | efi.bin           | disk-media.img1 |
 # | rootfs | rootfs       | rootfs.img        | disk-media.img2 |
 # | DTBs   | dtb_a, dtb_b | dtb.bin           | dtb.bin         |
 # | CDTs   | cdt          | unset / per board | from download   |
@@ -85,7 +85,6 @@ esac
 partition_map="cdt=$(basename "${CDT_FILENAME}")"
 partition_map="${partition_map},dtb_a=${dtb}"
 partition_map="${partition_map},dtb_b=${dtb}"
-partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
 # qcom-ptool ships as the "qcom_ptool" Python package; run its scripts as
@@ -93,26 +92,37 @@ partition_map="${partition_map},rootfs=${rootfs}"
 # without a pip install
 export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
 
-# generate ptool-partitions.xml: use platforms/boards/<board>.yaml via
-# --board mode when it exists, otherwise fall back to the legacy
-# per-storage partitions.conf
-if [ -e "$BOARD_YAML" ]; then
-    # --board mode has no per-storage selection; it always writes every
-    # storage the board declares to its own <outdir>/<storage-id>/ dir, so
-    # generate into a scratch dir and copy out just the one this call needs
-    board_gen="$(mktemp -d)"
-    trap 'rm -rf "${board_gen}"' EXIT
-    python3 -m qcom_ptool.gen_partition \
-        --board "${BOARD_YAML}" \
-        -C "${board_gen}" \
-        -m "${partition_map}"
-    cp "${board_gen}/${STORAGE_ID}/partitions.xml" ptool-partitions.xml
-else
-    python3 -m qcom_ptool.gen_partition \
-        -i "${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf" \
-        -o ptool-partitions.xml \
-        -m "${partition_map}"
-fi
+# --board mode has no per-storage selection; it always writes every storage
+# the board declares to its own <outdir>/<storage-id>/ dir, so generate into a
+# scratch dir and copy out just the one this call needs
+board_gen="$(mktemp -d)"
+trap 'rm -rf "${board_gen}"' EXIT
+
+# generate ptool-partitions.xml with the given partition map: use
+# platforms/boards/<board>.yaml via --board mode when it exists, otherwise
+# fall back to the legacy per-storage partitions.conf
+gen_partitions() {
+    if [ -e "$BOARD_YAML" ]; then
+        python3 -m qcom_ptool.gen_partition \
+            --board "${BOARD_YAML}" \
+            -C "${board_gen}" \
+            -m "$1"
+        cp "${board_gen}/${STORAGE_ID}/partitions.xml" ptool-partitions.xml
+    else
+        python3 -m qcom_ptool.gen_partition \
+            -i "${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf" \
+            -o ptool-partitions.xml \
+            -m "$1"
+    fi
+}
+
+# the ESP image goes to the partition the layout fills with efi.bin; that is
+# efi on most boards, but boot on boards that flash abl2esp to efi, where UEFI
+# loads ABL from (e.g. hawi-mtp)
+gen_partitions "${partition_map}"
+esp_label="$(sed -n 's/.*label="\([^"]*\)".*filename="efi\.bin".*/\1/p' \
+    ptool-partitions.xml | head -n 1)"
+gen_partitions "${partition_map},${esp_label:-efi}=${esp}"
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
