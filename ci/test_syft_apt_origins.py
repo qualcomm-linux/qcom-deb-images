@@ -13,6 +13,7 @@ import pytest
 apt_pkg = pytest.importorskip("apt_pkg")
 
 SCRIPT = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                      "compliance",
                       "syft-apt-origins.py")
 
 DEBIAN = "http://deb.debian.org/debian"

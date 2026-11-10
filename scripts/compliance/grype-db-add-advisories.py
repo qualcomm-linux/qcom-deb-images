@@ -360,7 +360,7 @@ def run(args):
                  input_digest(args.advisories, args.source_root)))
             for path in args.advisories:
                 # only for those of the security-tracker; others, e.g. the
-                # kernel CVEs of scripts/kernel-cves.py, come with their own
+                # kernel CVEs of kernel-cves.py, come with their own
                 source_url = None
                 relpath = os.path.relpath(path, args.source_root)
                 if args.source_url and \

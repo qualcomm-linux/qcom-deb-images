@@ -21,7 +21,7 @@
 #             expected to prune themselves, files in there are also pruned by
 #             age, like build directories, in case a cache stops being used
 #             /grype-db: Grype vulnerability databases, see
-#                 scripts/grype-db-cache.sh
+#                 scripts/compliance/grype-db-cache.sh
 #     /u-boot-rb1-latest => symlink to artifacts directory for the last
 #         successful u-boot workflow build
 #     /mainline, /linux-next, /qcom-next...: symlinks to the artifacts

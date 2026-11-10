@@ -6,22 +6,22 @@
 # debug info of its vmlinux and modules, as shipped by its linux-image-*-dbg
 # package (the debug symbols; the -debug variants are kernels of their own,
 # with -dbg packages of their own); one path per line, relative to the root of
-# the kernel source tree, sorted, for scripts/kernel-cves.py.
+# the kernel source tree, sorted, for kernel-cves.py.
 #
 # Either from debug files at hand, printing the list, or, with --sbom, for the
-# kernels of an image, as scripts/kernellib.py tells them, like for
-# scripts/kernel-cves.py: this downloads the -dbg package of each from the APT
+# kernels of an image, as kernellib.py tells them, like for
+# kernel-cves.py: this downloads the -dbg package of each from the APT
 # archive the image installed the kernel from, per the APT origins of the image
-# (--apt-origins, from scripts/syft-apt-origins.py), and writes the list to
+# (--apt-origins, from syft-apt-origins.py), and writes the list to
 # --output as <source>_<version>.compiled-sources.txt. The download is with
 # python3-apt, which checks the signature of the archive, with the key of the
 # image's source of it, or of the source it's under, e.g. of the QLI repository
 # for a snapshot of it, inline or from the keyring files of the image, which
-# scripts/syft-apt-origins.py records too, and the checksum of the package;
+# syft-apt-origins.py records too, and the checksum of the package;
 # Check-Valid-Until is that of the source too. A kernel without -dbg package
 # there, e.g. one removed from the archive by now, from no known archive, or of
 # an image without APT origins, is only reported with a warning on stdout,
-# prefixed with "warning:"; scripts/kernel-cves.py then assesses its CVEs by
+# prefixed with "warning:"; kernel-cves.py then assesses its CVEs by
 # version alone. Debian's own kernel is left out, like there.
 #
 # The files are those debugedit lists, as rpm's find-debuginfo does for
@@ -315,7 +315,7 @@ def main():
                              "compiled sources of its kernels instead")
     parser.add_argument("--apt-origins",
                         help="the APT origins of the image, from "
-                             "scripts/syft-apt-origins.py, with --sbom")
+                             "syft-apt-origins.py, with --sbom")
     parser.add_argument("--output",
                         help="directory to write the lists to, with --sbom")
     parser.add_argument("--prefix", action="append", default=[],

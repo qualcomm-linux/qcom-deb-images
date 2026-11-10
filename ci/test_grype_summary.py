@@ -11,7 +11,8 @@ import sys
 
 import pytest
 
-SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
+SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                       "compliance")
 
 PRODUCT = "pkg:generic/qualcomm-linux-debian-rootfs"
 

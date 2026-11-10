@@ -15,9 +15,10 @@ import sys
 import pytest
 
 TOP = os.path.join(os.path.dirname(__file__), os.pardir)
-SCRIPT = os.path.join(TOP, "scripts", "kernel-compiled-sources.py")
+SCRIPT = os.path.join(TOP, "scripts", "compliance",
+                      "kernel-compiled-sources.py")
 # for kernellib, which the script imports
-sys.path.insert(0, os.path.join(TOP, "scripts"))
+sys.path.insert(0, os.path.join(TOP, "scripts", "compliance"))
 
 spec = importlib.util.spec_from_file_location("kernel_compiled_sources",
                                               SCRIPT)

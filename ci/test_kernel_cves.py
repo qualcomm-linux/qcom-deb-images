@@ -11,7 +11,8 @@ import sys
 
 import pytest
 
-SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
+SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                       "compliance")
 SCRIPT = os.path.join(SCRIPTS, "kernel-cves.py")
 # for kernellib, which the script imports
 sys.path.insert(0, SCRIPTS)
@@ -175,7 +176,7 @@ def write_inputs(tmp_path, records, version=QLI_VERSION, vendor="Qualcomm",
 
 
 def write_sources(tmp_path):
-    # the compiled sources of the kernel, as scripts/kernel-compiled-sources.py
+    # the compiled sources of the kernel, as kernel-compiled-sources.py
     # names them
     sources = tmp_path / "compiled-sources"
     sources.mkdir()

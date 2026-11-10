@@ -68,18 +68,20 @@ jobs:
     steps:
       # ca-certificates is needed by Grype to download its database
       # curl is needed by download-grype to install Grype
-      # python3-distro-info is needed by scripts/grype-db-add-advisories.py
-      #   and scripts/kernel-cves.py to translate Debian releases
+      # python3-distro-info is needed by
+      #   scripts/compliance/grype-db-add-advisories.py and
+      #   scripts/compliance/kernel-cves.py to translate Debian releases
       # git is needed by actions/checkout to tell the commit of the
       #   QLI security-tracker, which the advisories are published at, and
       #   to fetch the kernel CNA's CVE records
       # pigz is needed to compress the reports for publishing
       # python3 is needed by the VEX, advisory, kernel CVE and summary scripts
-      # python3-apt is needed by scripts/kernel-cves.py for Debian versions
-      # zstd is needed by scripts/grype-db-cache.sh
+      # python3-apt is needed by scripts/compliance/kernel-cves.py for Debian
+      #   versions
+      # zstd is needed by scripts/compliance/grype-db-cache.sh
       # binutils (readelf), debugedit, python3-apt and python3-debian are
-      #   needed by scripts/kernel-compiled-sources.py, as is dpkg-deb, which
-      #   the container has already
+      #   needed by scripts/compliance/kernel-compiled-sources.py, as is
+      #   dpkg-deb, which the container has already
       - name: Install dependencies
         run: |
           set -ux
@@ -141,7 +143,7 @@ jobs:
       #
       # installing the database takes minutes and it's only rebuilt upstream
       # about once a day, so it's shared through a cache on EFS; see
-      # scripts/grype-db-cache.sh
+      # scripts/compliance/grype-db-cache.sh
       #
       # only runs from the main repository's main branch (or manual runs)
       # publish to the cache; other runs, e.g. for PRs, only read from it
@@ -164,7 +166,7 @@ jobs:
           if [ "$UPDATE_CACHE" != true ]; then
               set -- --read-only
           fi
-          scripts/grype-db-cache.sh "$@" "$GRYPE" /efs/.cache/grype-db
+          scripts/compliance/grype-db-cache.sh "$@" "$GRYPE" /efs/.cache/grype-db
           "$GRYPE" db status
           "$GRYPE" db providers
 
@@ -214,11 +216,11 @@ jobs:
               # images sharing a kernel share its list; an image without a
               # QLI kernel gets no assessment
               {
-                  scripts/kernel-compiled-sources.py \
+                  scripts/compliance/kernel-compiled-sources.py \
                       --sbom "${dir}/rootfs-sbom.syft.json" \
                       --apt-origins "${dir}/rootfs-sbom.syft-apt-origins.json" \
                       --output compiled-sources
-                  scripts/kernel-cves.py \
+                  scripts/compliance/kernel-cves.py \
                       --vulns kernel-vulns \
                       --sbom "${dir}/rootfs-sbom.syft.json" \
                       --apt-origins "${dir}/rootfs-sbom.syft-apt-origins.json" \
@@ -245,7 +247,7 @@ jobs:
               python3 -c 'import json, sys; print(json.load(sys.stdin)["path"])')"
           mv -v "$db" qli-vulnerability.db
           # the kernel CVEs are many, so they aren't listed in the log
-          scripts/grype-db-add-advisories.py \
+          scripts/compliance/grype-db-add-advisories.py \
               --source-root .security-tracker \
               --source-url "${SOURCE_URL}" \
               qli-vulnerability.db \
@@ -401,7 +403,7 @@ jobs:
                   echo "# ${prefix}"
                   echo
               } >>"$GITHUB_STEP_SUMMARY"
-              scripts/grype-vulnerability-summary.py \
+              scripts/compliance/grype-vulnerability-summary.py \
                   "${dir}/rootfs-vulns.grype.json" \
                   --sbom "${dir}/rootfs-sbom.syft.json" \
                   --triage "${dir}/rootfs-vulns-triage.grype.json" \
@@ -459,7 +461,7 @@ jobs:
       # and the build and scan they come from. S3 has no symlinks, so rather
       # than being copied there, the archives are pointed at by the manifest,
       # in the build and scan run directories; see
-      # scripts/compliance-manifest.py
+      # scripts/compliance/compliance-manifest.py
       - name: Stage latest compliance data for publishing
         id: stage_latest
         if: >-
@@ -511,7 +513,7 @@ jobs:
                   done
               done
               mkdir -v "latest-manifests/${prefix}"
-              scripts/compliance-manifest.py \
+              scripts/compliance/compliance-manifest.py \
                   --channel "${CHANNEL}" \
                   --image "${prefix}" \
                   --sbom "${dir}/rootfs-sbom.syft.json" \
