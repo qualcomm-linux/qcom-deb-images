@@ -1,0 +1,16 @@
+architecture: arm64
+
+actions:
+  # systemd recommends systemd-tpm, but it isn't used; on Snapdragon
+  # Windows-on-ARM laptops, the firmware advertises a TPM2 in the EFI
+  # variables but no device is exposed for it ("TPM2 Support: firmware
+  # only, driver unavailable" in bootctl status), so its units wait for a
+  # long timeout on boot; see #717
+  - action: run
+    description: Purge systemd-tpm if installed
+    chroot: true
+    command: |
+      set -eux
+      if dpkg-query -W -f='${Status}' systemd-tpm 2>/dev/null | grep -q "ok installed"; then
+          apt-get -y purge systemd-tpm
+      fi
