@@ -11,7 +11,8 @@ import sys
 
 import pytest
 
-SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
+SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                       "compliance")
 SCRIPT = os.path.join(SCRIPTS, "kernel-cves.py")
 # for kernellib, which the script imports
 sys.path.insert(0, SCRIPTS)
@@ -175,7 +176,7 @@ def write_inputs(tmp_path, records, version=QLI_VERSION, vendor="Qualcomm",
 
 
 def write_sources(tmp_path):
-    # the compiled sources of the kernel, as scripts/kernel-compiled-sources.py
+    # the compiled sources of the kernel, as kernel-compiled-sources.py
     # names them
     sources = tmp_path / "compiled-sources"
     sources.mkdir()
@@ -210,6 +211,7 @@ def test_run(tmp_path):
         "CVE-2026-10.osv.json", "CVE-2026-11.osv.json"]
     osv = json.loads((osv_dir / "CVE-2026-10.osv.json").read_text())
     assert osv["summary"] == "foo: fix bar"
+    assert osv["details"].endswith("\n\nFixed upstream in 7.3.")
     assert osv["database_specific"] == {"severity": "high"}
     assert osv["affected"] == [{
         "package": {"ecosystem": "Debian:13", "name": "linux-qcom-7.2"},
@@ -217,8 +219,13 @@ def test_run(tmp_path):
     }]
 
     vex = json.loads((tmp_path / "kernel.openvex.json").read_text())
-    statement, = vex["statements"]
-    assert statement["vulnerability"] == {"name": "CVE-2026-11"}
+    statements = {s["vulnerability"]["name"]: s for s in vex["statements"]}
+    assert sorted(statements) == ["CVE-2026-10", "CVE-2026-11"]
+    # open, but fixed upstream
+    assert statements["CVE-2026-10"]["status"] == "affected"
+    assert statements["CVE-2026-10"]["action_statement"].startswith(
+        "Fixed upstream in 7.3 (")
+    statement = statements["CVE-2026-11"]
     assert statement["status"] == "not_affected"
     assert statement["justification"] == "vulnerable_code_not_present"
     assert statement["products"] == [{
@@ -350,7 +357,7 @@ def test_cve_version_invalid(value):
 
 
 def test_compiled_sources_missing(tmp_path):
-    # without a list, e.g. without -dbg package, by version only, and no VEX
+    # without a list, e.g. without -dbg package, by version only
     sbom = write_inputs(tmp_path, [
         record("CVE-2026-11", semver("5.4", mainline="7.3"),
                ["drivers/gpu/drm/amd/amdgpu/amdgpu.c"])])
@@ -363,7 +370,8 @@ def test_compiled_sources_missing(tmp_path):
     assert f"warning: no compiled sources for linux-qcom-7.2 {QLI_VERSION}" \
         in result.stdout
     assert "1 open: 1 unknown" in result.stdout
-    assert not vex.exists()
+    assert [s["status"] for s in json.loads(vex.read_text())["statements"]] \
+        == ["affected"]
 
 
 def test_needs_vulns(tmp_path):
@@ -421,3 +429,16 @@ def test_release_without_version(tmp_path, codename, ecosystem):
     osv = json.loads((tmp_path / "osv" / f"linux-qcom-7.2_{QLI_VERSION}" /
                       "CVE-2026-10.osv.json").read_text())
     assert osv["affected"][0]["package"]["ecosystem"] == ecosystem
+
+
+@pytest.mark.parametrize("version, fixes", [
+    # the stable release of the kernel's branch, then the mainline one
+    ("7.2.0", ["7.2.5", "7.3"]),
+    # no stable fix for the branch
+    ("7.1.0", ["7.3"]),
+])
+def test_upstream_fixes(version, fixes):
+    cve = record("CVE-2026-40", semver("5.19", "6.6.79", "7.2.5",
+                                       mainline="7.3"), ["io_uring/kbuf.c"])
+    kernel = kernel_cves.KernelVersion(map(int, version.split(".")), None)
+    assert kernel_cves.upstream_fixes(cve, kernel) == fixes

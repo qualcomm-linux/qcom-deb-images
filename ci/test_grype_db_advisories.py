@@ -12,6 +12,7 @@ import sys
 import pytest
 
 SCRIPT = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                      "compliance",
                       "grype-db-add-advisories.py")
 
 # the tables of a Grype v6 database the script uses, as Grype creates them
@@ -180,7 +181,7 @@ def test_adds_advisory(tmp_path):
 
 def test_source_url_only_for_source_root(tmp_path):
     # advisories outside of the security-tracker, e.g. the kernel CVEs of
-    # scripts/kernel-cves.py, keep their own references only
+    # kernel-cves.py, keep their own references only
     db = make_db(tmp_path)
     root, paths = write_advisories(tmp_path, advisory())
     outside = tmp_path / "kernel-osv" / "CVE-2026-2.osv.json"
@@ -231,7 +232,7 @@ def test_ranges(tmp_path, events, ranges):
 
 
 def test_affected_versions(tmp_path):
-    # e.g. the kernel CVEs of scripts/kernel-cves.py: exactly the versions
+    # e.g. the kernel CVEs of kernel-cves.py: exactly the versions
     # listed, not fixed, like the Debian provider's records of unfixed
     # vulnerabilities; along with the ranges of the entry
     db = make_db(tmp_path)

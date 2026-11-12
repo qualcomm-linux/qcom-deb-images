@@ -62,7 +62,7 @@ including the QLI advisories, see below.
 It packs the reports and the VEX coverage warnings of each image into a
 `<prefix>-vulns.tar.gz` archive, which is published next to the images too and
 uploaded in a `vulns` artifact. It installs the Grype vulnerability database
-through a cache on EFS, see `scripts/grype-db-cache.sh`.
+through a cache on EFS, see `scripts/compliance/grype-db-cache.sh`.
 
 Every workflow building images runs it after its build jobs, even when some
 builds failed. The test jobs don't wait for it, and its failures don't fail the
@@ -82,25 +82,25 @@ recorded as OSV advisories in `advisories/` on the QLI security-tracker instead,
 see its `advisories/README.md`.
 
 Grype can't load extra vulnerability data, so before scanning,
-`sbom-compliance-scan.yml` adds the advisories to the database installed for
-the job (not to the cache on EFS), as another Debian data source, provider
-`qli`, with `scripts/grype-db-add-advisories.py`. Grype then matches them like
-the Debian security-tracker's data and reports their findings in its regular
-reports, under the `qli:distro:debian:<release>` namespace, with the advisory,
-at the commit of the QLI security-tracker used, as their data source; the VEX
-statements apply to them too. Warnings, e.g. about advisories the Debian
+`sbom-compliance-scan.yml` adds the advisories to the database installed for the
+job (not to the cache on EFS), as another Debian data source, provider `qli`,
+with `scripts/compliance/grype-db-add-advisories.py`. Grype then matches them
+like the Debian security-tracker's data and reports their findings in its
+regular reports, under the `qli:distro:debian:<release>` namespace, with the
+advisory, at the commit of the QLI security-tracker used, as their data source;
+the VEX statements apply to them too. Warnings, e.g. about advisories the Debian
 security-tracker covers by now, are listed once at the end of the job summary.
 
 ### Kernel CVEs
 
-The Debian security-tracker only covers Debian's own kernel, so Grype reports
-no CVE at all for the QLI kernels, e.g. `linux-qcom-next`. Their CVEs come from
-the Linux kernel CNA instead, whose records in
+The Debian security-tracker only covers Debian's own kernel, so Grype reports no
+CVE at all for the QLI kernels, e.g. `linux-qcom-next`. Their CVEs come from the
+Linux kernel CNA instead, whose records in
 [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git) give the
 mainline and stable versions each is fixed in, and the files its fix changes.
-`sbom-compliance-scan.yml` clones it, and `scripts/kernel-cves.py` assesses the
-kernel of each image: the package installing its `/boot/vmlinuz-*` or
-`/usr/lib/modules/*/vmlinuz`, unless it comes from a Debian archive, per
+`sbom-compliance-scan.yml` clones it, and `scripts/compliance/kernel-cves.py`
+assesses the kernel of each image: the package installing its `/boot/vmlinuz-*`
+or `/usr/lib/modules/*/vmlinuz`, unless it comes from a Debian archive, per
 `rootfs-sbom.syft-apt-origins.json`. An image without kernel is an error.
 
 * the CVEs affecting the upstream version of the kernel package, e.g. 7.3.0
@@ -111,19 +111,23 @@ kernel of each image: the package installing its `/boot/vmlinuz-*` or
   record as their data source, as not fixed: no version of the kernel's
   package is known to fix them. Its default rule for kernel headers hides the
   duplicates on the `linux-headers-*` packages
-* those whose fix changes no file compiled into the kernel get a
-  `not_affected` (`vulnerable_code_not_present`) statement in a VEX document
-  of the image, `rootfs-kernel.openvex.json`, which the scan takes along with
-  the security-tracker's. `scripts/kernel-compiled-sources.py` lists the
-  files compiled into the kernel from the debug info of its
-  `linux-image-*-dbg` package, which it downloads with apt from the APT
-  archive the image installed the kernel from, per
-  `rootfs-sbom.syft-apt-origins.json`, e.g. a snapshot of the QLI repository,
-  with the key of the image's source of it. Kconfig files and Makefiles only
-  count when a fix changes nothing else, and only those of directories with
-  compiled sources. Without that package, e.g. for kernels built with
-  `bindeb-pkg`, from no known archive, or ones removed from the archive by
-  now, the kernel is assessed by version alone, with a warning
+* those whose fix changes no file compiled into the kernel get a `not_affected`
+  (`vulnerable_code_not_present`) statement in a VEX document of the image,
+  `rootfs-kernel.openvex.json`, which the scan takes along with the
+  security-tracker's. `scripts/compliance/kernel-compiled-sources.py` lists the
+  files compiled into the kernel from the debug info of its `linux-image-*-dbg`
+  package, which it downloads with apt from the APT archive the image installed
+  the kernel from, per `rootfs-sbom.syft-apt-origins.json`, e.g. a snapshot of
+  the QLI repository, with the key of the image's source of it. Kconfig files
+  and Makefiles only count when a fix changes nothing else, and only those of
+  directories with compiled sources. Without that package, e.g. for kernels
+  built with `bindeb-pkg`, from no known archive, or ones removed from the
+  archive by now, the kernel is assessed by version alone, with a warning
+* those left open which an upstream release fixes, the stable release of the
+  kernel's branch or the mainline one, get an `affected` statement in that
+  document naming the releases, which the job summary shows as 🟠 triaged
+  rather than not fixed. The releases are also added to the end of each CVE's
+  description, so Grype's reports show them too
 
 The counts are in `rootfs-kernel-cves.txt` and in the job summary. The
 version check is conservative: release candidates and git snapshots count as
@@ -170,7 +174,7 @@ the archives aren't copied there: `archives.sbom.url` and `archives.vulns.url`
 point at them in the directories of the build and scan runs, with their
 SHA-256 too. The files are overwritten in place, and the manifest last, so
 tooling should check the files against the manifest and retry on a mismatch.
-See `scripts/compliance-manifest.py`.
+See `scripts/compliance/compliance-manifest.py`.
 
 This data is only published for the main repository, by runs of its `main`
 branch or manual runs, like the Grype database cache. Images whose build failed

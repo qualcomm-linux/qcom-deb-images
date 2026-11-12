@@ -20,7 +20,7 @@
 # package, e.g. linux-image-7.3.0+qcom-next-... along with
 # linux-headers-7.3.0+qcom-next-... and linux-image-qcom-next. Kernels from a
 # Debian archive, per the APT origins of the image (--apt-origins, from
-# scripts/syft-apt-origins.py), are left out: the Debian security tracker
+# syft-apt-origins.py), are left out: the Debian security tracker
 # covers them already, and Grype reports their CVEs from its data, for the
 # binary packages of the source package linux, e.g. linux-modules-*; those of
 # linux-signed-*, e.g. the signed kernel image, get none. So are the images
@@ -33,13 +33,19 @@
 # - reads the CVE records of vulns.git and keeps those which affect the
 #   upstream version of the package, e.g. 7.3.0 for 7.3.0+git20261030~g...;
 # - writes them to --osv-dir, as OSV records for that exact package version,
-#   which scripts/grype-db-add-advisories.py adds to Grype's database, so that
+#   which grype-db-add-advisories.py adds to Grype's database, so that
 #   Grype reports them for every binary package of the source package;
 # - with --compiled-sources, writes an OpenVEX document to --vex with a
 #   not_affected statement for each of those CVEs whose fix changes no source
 #   file compiled into the kernel: Grype moves their findings to
-#   ignoredMatches, with the justification. scripts/kernel-compiled-sources.py
+#   ignoredMatches, with the justification. kernel-compiled-sources.py
 #   lists them from the -dbg package of the kernel.
+#
+# The CVEs open remain not fixed, as no version of the package is known to fix
+# them; the upstream releases fixing them, the stable release of the kernel's
+# branch and the mainline one, are at the end of their description, and with
+# --vex in an affected statement, whose action names them, for the triage scan
+# and grype-vulnerability-summary.py to show.
 #
 # The version check is conservative: release candidates and git snapshots
 # count as before their release, so a fix merged in 7.3-rc2 still counts as
@@ -248,7 +254,25 @@ def severity(record):
     return "unknown", None
 
 
-def osv_record(record, source, release, deb_version):
+def upstream_fixes(record, version):
+    # the upstream releases fixing a CVE: the stable release of the kernel's
+    # branch, if any, then the mainline one, e.g. 7.2.5 and 7.3 for 7.2.0
+    branch = ".".join(map(str, version.numbers[:2]))
+    stable, mainline = [], []
+    for affected in record["containers"]["cna"].get("affected", []):
+        if affected.get("product") != "Linux":
+            continue
+        for entry in affected.get("versions", []):
+            if entry.get("status") != "unaffected":
+                continue
+            if entry.get("versionType") == "original_commit_for_fix":
+                mainline.append(entry["version"])
+            elif entry.get("lessThanOrEqual") == f"{branch}.*":
+                stable.append(entry["version"])
+    return list(dict.fromkeys(stable + mainline))
+
+
+def osv_record(record, source, release, deb_version, fixes=()):
     cve_id = record["cveMetadata"]["cveId"]
     cna = record["containers"]["cna"]
     description = next((d["value"] for d in cna.get("descriptions", [])
@@ -261,7 +285,8 @@ def osv_record(record, source, release, deb_version):
         "modified": record["cveMetadata"].get("dateUpdated"),
         "summary": description.split("\n\n", 2)[1].strip()
         if description.count("\n\n") >= 1 else "",
-        "details": description,
+        "details": "\n\n".join(filter(None, [
+            description, fixes and f"Fixed upstream in {', '.join(fixes)}."])),
         "affected": [{
             "package": {"ecosystem": f"Debian:{release}", "name": source},
             # exactly the version assessed, which no package version is known
@@ -281,7 +306,7 @@ def osv_record(record, source, release, deb_version):
 
 def sbom_release(sbom):
     # the Debian release of an SBOM, as the OSV Debian ecosystem names it,
-    # like scripts/grype-db-add-advisories.py: by version, e.g. 13, or by
+    # like grype-db-add-advisories.py: by version, e.g. 13, or by
     # series for those without one, e.g. sid. Testing has no version in its
     # os-release yet, e.g. forky, which python3-distro-info knows as 14 though
     distro = sbom.get("distro") or {}
@@ -292,21 +317,37 @@ def sbom_release(sbom):
     return version or DebianDistroInfo().version(series) or series
 
 
+def vex_products(binaries, deb_version):
+    return [{
+        "@id": PRODUCT,
+        "subcomponents": [{"@id": f"pkg:deb/debian/{name}@{deb_version}"}
+                          for name in binaries],
+    }]
+
+
+def affected_statement(cve_id, binaries, deb_version, fixes):
+    # a CVE left open which upstream releases fix
+    return {
+        "vulnerability": {"name": cve_id},
+        "products": vex_products(binaries, deb_version),
+        "status": "affected",
+        "action_statement":
+            f"Fixed upstream in {', '.join(fixes)} (generated by "
+            "kernel-cves.py).",
+    }
+
+
 def vex_statement(cve_id, binaries, deb_version, files, source):
     return {
         "vulnerability": {"name": cve_id},
-        "products": [{
-            "@id": PRODUCT,
-            "subcomponents": [{"@id": f"pkg:deb/debian/{name}@{deb_version}"}
-                              for name in binaries],
-        }],
+        "products": vex_products(binaries, deb_version),
         "status": "not_affected",
         "justification": "vulnerable_code_not_present",
         "impact_statement":
             f"None of the files the fix changes ({', '.join(files)}) are "
             f"compiled into {source} {deb_version}, per the DWARF debug "
             "info of its vmlinux and modules (generated by "
-            "scripts/kernel-cves.py).",
+            "kernel-cves.py).",
     }
 
 
@@ -334,18 +375,19 @@ def assess(args, records, release, source, deb_version, binaries):
                   f"{deb_version}, not checking them")
     affected = [r for r in records if cve_affects(r, version)]
     statements = []
-    not_present = 0
+    not_present, fixed_upstream = 0, 0
     open_severities = {}
     for record in affected:
         cve_id = record["cveMetadata"]["cveId"]
         files = program_files(record)
+        fixes = upstream_fixes(record, version)
         if args.osv_dir:
             path = os.path.join(args.osv_dir, f"{source}_{deb_version}",
                                 f"{cve_id}.osv.json")
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(osv_record(record, source, release, deb_version),
-                          f, indent=2)
+                json.dump(osv_record(record, source, release, deb_version,
+                                     fixes), f, indent=2)
                 f.write("\n")
         if sources is not None and files and not sources.present(files):
             not_present += 1
@@ -354,6 +396,10 @@ def assess(args, records, release, source, deb_version, binaries):
         else:
             level = severity(record)[0]
             open_severities[level] = open_severities.get(level, 0) + 1
+            if fixes:
+                fixed_upstream += 1
+                statements.append(affected_statement(cve_id, binaries,
+                                                     deb_version, fixes))
     print(f"{source} {deb_version} (kernel {version}, "
           f"{', '.join(binaries)}):")
     print(f"  {len(records)} kernel CVEs, {len(affected)} affect the "
@@ -364,6 +410,7 @@ def assess(args, records, release, source, deb_version, binaries):
     print(f"  {len(affected) - not_present} open: " + ", ".join(
         f"{count} {level}" for level, count in sorted(
             open_severities.items(), key=lambda item: -item[1])))
+    print(f"  {fixed_upstream} of the open ones fixed upstream: affected")
     return statements
 
 
@@ -408,7 +455,7 @@ def run(args):
             "author": AUTHOR,
             "timestamp": timestamp,
             "version": 1,
-            "tooling": "scripts/kernel-cves.py",
+            "tooling": "kernel-cves.py",
             "statements": statements,
         }
         with open(args.vex, "w", encoding="utf-8") as f:
@@ -426,25 +473,23 @@ def main():
                         help="Syft JSON SBOM of the image")
     parser.add_argument("--apt-origins", required=True,
                         help="APT origins of the packages of the image, from "
-                             "scripts/syft-apt-origins.py")
+                             "syft-apt-origins.py")
     parser.add_argument("--compiled-sources",
                         help="list of the source files compiled into the "
                              "kernel, from "
-                             "scripts/kernel-compiled-sources.py, or a "
+                             "kernel-compiled-sources.py, or a "
                              "directory of them named <source>_<version>"
                              f"{kernellib.COMPILED_SOURCES_SUFFIX}")
     parser.add_argument("--osv-dir",
                         help="directory to write OSV records of the CVEs "
                              "affecting the kernel to, in a <source>_"
                              "<version> subdirectory per kernel, for "
-                             "scripts/grype-db-add-advisories.py")
+                             "grype-db-add-advisories.py")
     parser.add_argument("--vex",
                         help="OpenVEX document to write the not_affected "
-                             "statements to, unless there are none; needs "
-                             "--compiled-sources")
+                             "and affected statements to, unless there are "
+                             "none")
     args = parser.parse_args()
-    if args.vex and not args.compiled_sources:
-        parser.error("--vex needs --compiled-sources")
     try:
         run(args)
     except (OSError, KeyError, ValueError) as error:

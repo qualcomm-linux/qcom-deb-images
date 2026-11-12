@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # The kernels of an image, from its Syft SBOM and its APT origins, for
-# scripts/kernel-cves.py and scripts/kernel-compiled-sources.py, so that both
+# kernel-cves.py and kernel-compiled-sources.py, so that both
 # tell them the same way; see docs/workflows.md#kernel-cves.
 
 import re
@@ -14,10 +14,10 @@ KERNEL_IMAGE_RE = re.compile(
     r"/boot/vmlinuz-[^/]+|(?:/usr)?/lib/modules/[^/]+/vmlinuz")
 KERNEL_IMAGES = "/boot/vmlinuz-* or /usr/lib/modules/*/vmlinuz"
 # the vendor of the archives of the kernels the Debian security tracker
-# covers, see scripts/syft-apt-origins.py
+# covers, see syft-apt-origins.py
 DEBIAN_VENDOR = "Debian"
 # of the lists of the files compiled into a kernel, from
-# scripts/kernel-compiled-sources.py, <source>_<version> followed by this
+# kernel-compiled-sources.py, <source>_<version> followed by this
 COMPILED_SOURCES_SUFFIX = ".compiled-sources.txt"
 
 
@@ -54,7 +54,7 @@ def non_debian_kernels(kernels, origins):
     # {(source package, Debian version): (architecture, [archives])} of the
     # kernels of sbom_kernels() but those from a Debian archive, which the
     # Debian security tracker covers, per the APT origins of the image, from
-    # scripts/syft-apt-origins.py: with the other archives of their kernel
+    # syft-apt-origins.py: with the other archives of their kernel
     # image packages, none for a kernel from no known archive, e.g. a
     # bindeb-pkg build from a local APT repository
     rows = {(row["package"], row["version"]): row

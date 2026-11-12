@@ -116,10 +116,12 @@ jobs:
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
-      # python3-apt and python3-debian are needed by scripts/syft-apt-origins.py
-      #   and python3-apt by the tests of scripts/kernel-cves.py
+      # python3-apt and python3-debian are needed by
+      #   scripts/compliance/syft-apt-origins.py and python3-apt by the tests of
+      #   scripts/compliance/kernel-cves.py
       # python3-distro-info is needed by the tests of
-      #   scripts/grype-db-add-advisories.py and scripts/kernel-cves.py
+      #   scripts/compliance/grype-db-add-advisories.py and
+      #   scripts/compliance/kernel-cves.py
       - name: Install debos and dependencies of the recipes and local tests
         run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
 
@@ -262,7 +264,7 @@ jobs:
           # list the APT archives of each package, which dpkg doesn't record
           # and hence aren't in the SBOMs, from the APT lists of the rootfs;
           # fail rather than ship a broken list, which consumers rely on
-          scripts/syft-apt-origins.py rootfs-sbom.syft.json rootfs \
+          scripts/compliance/syft-apt-origins.py rootfs-sbom.syft.json rootfs \
               >syft-apt-origins.json.tmp || exit 1
           mv syft-apt-origins.json.tmp rootfs-sbom.syft-apt-origins.json
 
@@ -272,7 +274,7 @@ jobs:
       - name: Generate license summary from Syft report
         run: |
           set -ux
-          scripts/syft-license-summary.py rootfs-sbom.syft.json |
+          scripts/compliance/syft-license-summary.py rootfs-sbom.syft.json |
               tee rootfs-sbom.syft-license-summary.csv.txt
 
       - name: Stage debos artifacts for publishing

@@ -11,7 +11,8 @@ import sys
 
 import pytest
 
-SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
+SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                       "compliance")
 
 PRODUCT = "pkg:generic/qualcomm-linux-debian-rootfs"
 
@@ -118,10 +119,10 @@ def test_summary_only_suppressed(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "| Suppressed | 1 |" in result.stdout
     assert "| CVE-2026-12345 |" in result.stdout
-    assert "No critical severity vulnerabilities found" in \
-        result.stdout
-    assert result.stdout.index("No critical") < result.stdout.index(
-        "1 critical severity suppressed vulnerabilities")
+    # nothing open to list
+    assert "critical severity vulnerabilities</summary>" not in result.stdout
+    assert "No critical" not in result.stdout
+    assert "1 critical severity suppressed vulnerabilities" in result.stdout
     assert "\U0001F534</span> not-fixed" in result.stdout
 
 
@@ -145,7 +146,8 @@ def test_summary_counts_only_lower_suppressed(tmp_path, severity):
         result.stdout
 
 
-def test_summary_no_critical_or_high_suppressed(tmp_path):
+def test_summary_no_critical_suppressed(tmp_path):
+    # only counted, nothing to list
     data = {"matches": [], "ignoredMatches": [{
         "match": grype_match(severity="Low"),
         "appliedIgnoreRules": [{"vex-status": "not_affected"}],
@@ -154,8 +156,8 @@ def test_summary_no_critical_or_high_suppressed(tmp_path):
                     write(tmp_path, "grype.json", data))
     assert result.returncode == 0, result.stderr
     assert "| Suppressed | 1 |" in result.stdout
-    assert "No critical severity vulnerabilities suppressed." in \
-        result.stdout
+    assert "suppressed vulnerabilities" not in result.stdout
+    assert "suppressed." not in result.stdout
     assert "| CVE-2026-12345 |" not in result.stdout
 
 
@@ -208,6 +210,8 @@ def test_summary_triage_escapes_markdown_table_text(tmp_path):
                if line.startswith("| CVE-"))
     assert row.count("|") == 6
     assert "affected: patch &#124; investigate<br>&lt;next&gt;" in row
+    # not fixed, but triaged
+    assert "\U0001F7E0</span> triaged" in row
     assert "Untriaged (no VEX statement): **0**" in result.stdout
 
 
@@ -233,6 +237,8 @@ def test_summary_triage_per_package(tmp_path):
             if line.startswith("| CVE-")}
     assert rows["CVE-2026-12345"].endswith(
         "| untriaged; under_investigation |")
+    # only when triaged for every package
+    assert "\U0001F534</span> not-fixed" in rows["CVE-2026-12345"]
     assert rows["CVE-2026-1111"].endswith("| affected: x |")
     assert rows["CVE-2026-99999"].endswith("| untriaged |")
     assert "Untriaged (no VEX statement): **2**" in result.stdout
