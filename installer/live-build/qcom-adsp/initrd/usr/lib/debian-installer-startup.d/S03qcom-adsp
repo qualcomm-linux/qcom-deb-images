@@ -11,6 +11,11 @@
 # d-i starts udev in /sbin/init, before these startup scripts run, so the
 # driver is blacklisted in modprobe.d/qcom-adsp.conf to keep udev from
 # autoloading it, and is loaded here by name.
+#
+# Unlike in the initramfs, udev has already found the install media by now,
+# and it drops off with the reset. remoteproc boots the ADSP asynchronously,
+# so udevadm settle alone returns before the ADSP is up and the Type-C ports
+# come back, and cdrom-detect would then find no media. Wait for both.
 
 # Platforms where the ADSP gates the Type-C bus.
 adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
@@ -18,7 +23,37 @@ adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
 grep -q -E "${adsp_compatibles}" \
 	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null || exit 0
 
+# Whether a USB disk (which may be the install media) is there to come back.
+had_usb_disk=
+for disk in /sys/block/sd*; do
+	[ -e "${disk}" ] && had_usb_disk=1
+done
+
 modprobe qcom_q6v5_pas || true
 
-# Let the devices that drop off with the reset come back.
+# Wait up to 30s for the ADSP to boot.
+tries=0
+while [ "${tries}" -lt 30 ]; do
+	running=
+	for rproc in /sys/class/remoteproc/remoteproc*; do
+		grep -q -E "${adsp_compatibles}" "${rproc}/device/modalias" \
+			2>/dev/null || continue
+		[ "$(cat "${rproc}/state" 2>/dev/null)" = running ] && running=1
+	done
+	[ -n "${running}" ] && break
+	sleep 1
+	tries=$((tries + 1))
+done
+
+# Then up to 20s for a USB disk to come back, if there was one.
+tries=0
+while [ -n "${had_usb_disk}" ] && [ "${tries}" -lt 20 ]; do
+	for disk in /sys/block/sd*; do
+		[ -e "${disk}" ] && break 2
+	done
+	sleep 1
+	tries=$((tries + 1))
+done
+
+# Let the devices that came back settle.
 udevadm settle || true
