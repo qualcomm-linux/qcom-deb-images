@@ -58,14 +58,13 @@ actions:
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
-    Glymur-CRD and Glymur-QCB share the same qcom-ptool
-    platform (glymur-crd), soc_id and boot binaries; they differ in CDT
-    and DTB.
+    Glymur-CRD and Glymur-QCB share the same soc_id and boot binaries;
+    they differ in ptool platform, CDT and DTB.
 */}}
 {{- $boards = append $boards (dict
     "name" "glymur-qcb"
     "soc_id" "glymur"
-    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "ptool_platforms" (list "glymur-qcb/nvme" "glymur-qcb/spinor" "glymur-qcb/ufs")
     "boot_binaries_download" (dict
         "description" "Glymur boot binaries"
         "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
