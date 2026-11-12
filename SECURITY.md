@@ -48,22 +48,26 @@ their own vulnerability data source in place of the Debian Security Tracker.
 | Role | Responsible for |
 | ---- | --------------- |
 | Researchers, users, downstream integrators | Responsible disclosure (above). May propose assessments or fixes as pull requests. Can run the same workflow on their own images, see [Using the data downstream](#using-the-data-downstream). |
-| Image maintainers of `qcom-deb-images` | Run the SBOM and vulnerability scan in the image builds and keep the tools current. Author and review the OpenVEX assessments in `security-tracker`. Refresh images when fixes land. Report issues to Debian and upstream. Escalate to Product Security. |
+| Image maintainers of `qcom-deb-images` | Run the SBOM generation and the compliance scan of the image builds and keep the tools current. Author and review the OpenVEX assessments & OSV advisories in `security-tracker`. Refresh images when fixes land. Report issues to Debian and upstream. Escalate to Product Security. |
 | Package maintainers of the `pkg-*` repositories behind the QLI APT repository, including the kernel package | Apply fixes for vulnerabilities in downstream packages (from the [QLI apt overlay repository](https://deb.debusine.qualcomm.com/qualcomm/qli/)) and release the fix. Name the CVE or tracking ID (e.g. `QLI-2026-XXXX`, in absence of a CVE) in the `debian/changelog` entry. Give exploitability input for their packages. |
-| The Qualcomm Product Security team | Receive and coordinate undisclosed reports with the reporter. Make the final exploitability decisions. Decide on disclosure and publish security advisories. |
+| The Qualcomm Product Security team | Receive and coordinate undisclosed reports with the reporter. Make the final exploitability decisions. Decide on disclosure and publish security advisories. Author and update the OSV advisories in `security-tracker` once a vulnerability is disclosed. |
 | Other Qualcomm teams | Follow Qualcomm's internal vulnerability management process, using only the public data described [below](#public-data-and-the-boundary-to-qualcomm-internal-processes). |
-| Debian Security Team, upstream projects | Fix and announce vulnerabilities in the packages we consume. The Debian Security Tracker is where Grype gets its data. |
+| Debian Security Team, upstream projects | Fix and announce vulnerabilities in the packages we consume. The Debian Security Tracker is where Grype gets its data for upstream Debian packages. |
+| Linux kernel CNA | Assigns and publishes the CVEs of the Linux kernel, with the releases and commits fixing them, in [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git). |
 
 ## Tools and data formats
 
 | Tool or format | Purpose | Where |
 | -------------- | ------- | ----- |
-| [Syft](https://github.com/anchore/syft) | SBOM of every rootfs, as CycloneDX, SPDX and Syft JSON. Debian packages only (`--select-catalogers debian`). | `debos.yml` on `main` |
-| [Grype](https://github.com/anchore/grype) | Matches the SBOM against the Debian Security Tracker data and applies our OpenVEX assessments. Reports by CVE. Never fails the build: a Debian image can always carry known unfixed CVEs. | `debos.yml` on `main` |
-| `grype-vulnerability-summary.py` | Job summary: counts by severity, Critical and High individually, untriaged and suppressed findings. | `scripts/` on `main` |
+| [Syft](https://github.com/anchore/syft) | SBOM of every image, as CycloneDX, SPDX and Syft JSON. Debian packages only (`--select-catalogers debian`). | `debos.yml` on `main` |
+| `syft-apt-origins.py` | The APT archive (vendor, URI, suite, component) each package of an image comes from, which the SBOMs don't record, and the image's APT sources. | `scripts/compliance/` on `main` |
+| [Grype](https://github.com/anchore/grype) | Matches the image SBOMs against the Debian Security Tracker data, our OSV advisories and the kernel CVEs, and applies our OpenVEX assessments. Reports by CVE. Never fails the build: a Debian image can always carry known unfixed CVEs. | `sbom-compliance-scan.yml` on `main` |
+| `grype-vulnerability-summary.py` | Job summary: counts by severity, Critical findings individually, untriaged, triaged and suppressed findings. | `scripts/compliance/` on `main` |
 | [OpenVEX](https://github.com/openvex/spec) | Our exploitability assessments, one document per Debian source package. Read as is by Grype, `vexctl`, etc. | `vex/` in `security-tracker` |
-| `vex-check.py` | Validates the documents against the pinned OpenVEX schema and our rules, and checks their coverage of an image SBOM. | `scripts/` in `security-tracker` |
-| [OSV](https://ossf.github.io/osv-schema/) **(planned)** | Catalog of vulnerabilities the Debian Security Tracker does not know about, such as those in QLI overlay packages. Tracked in [#788](https://github.com/qualcomm-linux/qcom-deb-images/issues/788). | `osv/` in `security-tracker` |
+| [OSV](https://ossf.github.io/osv-schema/) | Our advisories for vulnerabilities the Debian Security Tracker does not know about, such as those in QLI overlay packages, one record per vulnerability. | `advisories/` in `security-tracker` |
+| `vex-check.py` | Validates the OpenVEX documents and OSV advisories against the pinned upstream schemas and our rules, and checks coverage of an image SBOM. | `scripts/` in `security-tracker` |
+| `grype-db-add-advisories.py` | Adds the OSV advisories and the kernel CVEs to the Grype vulnerability database of the scan, as provider `qli`. | `scripts/compliance/` on `main` |
+| `kernel-cves.py`, `kernel-compiled-sources.py` | Assess non-Debian kernels of an image against the kernel CNA's CVE records: the CVEs affecting its upstream version, those whose fix changes no file compiled into it (from the debug info of its `-dbg` package) and those fixed in an upstream release. | `scripts/compliance/` on `main` |
 | Provenance tool **(planned)** | Maps a binary package version to its packaging tag, upstream release and cherry-picked commits. See [qli-ci#107](https://github.com/qualcomm-linux/qli-ci/issues/107). | `qli-ci` |
 | GitHub issues, pull requests and Actions | Discussion, review and the automation around all of the above. Dependabot keeps Syft and Grype up to date. | `github.com/qualcomm-linux/qcom-deb-images` and `github.com/qualcomm-linux/pkg-*` |
 
@@ -72,24 +76,38 @@ their own vulnerability data source in place of the Debian Security Tracker.
 ### 1. Detect
 
 Every image build, including the scheduled ones (see
-[docs/workflows.md](https://github.com/qualcomm-linux/qcom-deb-images/blob/main/docs/workflows.md)),
-generates an SBOM with Syft and scans it with Grype using a Debian vulnerability
-database. The reports are uploaded with the image and the summary appears in
-the Actions job summary. A new CVE shows up in the first build after the
-refreshed database contains it. Triggered and scheduled production builds
-deploy their Grype findings to a `latest/` directory in Qualcomm's artifact
-storage, to be consumed by other vulnerability management tools **(planned,
-[#786](https://github.com/qualcomm-linux/qcom-deb-images/pull/786))**. That
-folder might have sub-folders for holding the latest data of the different
-image variants, such as `weston-multimedia` or `gnome`.
+[docs/workflows.md](https://github.com/qualcomm-linux/qcom-deb-images/blob/main/docs/workflows.md#sbom-compliance-scan)),
+generates an SBOM with Syft and records the APT archive of each package. The
+`sbom-compliance-scan.yml` workflow then scans the SBOMs of all the images
+with Grype, using a Debian vulnerability database extended with our OSV
+advisories and the kernel CVEs, see below. The SBOMs are packed into a
+`<prefix>-sbom.tar.gz` archive and the reports into a `<prefix>-vulns.tar.gz`
+archive per image, both published next to the images, and the summary appears
+in the Actions job summary. A new CVE shows up in the first build after the
+refreshed database contains it. An earlier run can be rescanned manually, for
+example after updating the assessments.
+
+The image builds of the `main` branch also publish the SBOMs and reports of
+each image as its latest compliance data, at a static location in Qualcomm's
+artifact storage: `latest/<channel>/<prefix>/`, where `<channel>` is
+`debian-qli` for the QLI images and `debian-baseline` for the vanilla Debian
+images, and `<prefix>` is the image (e.g. `trixie` or `trixie-xfce-debug`),
+for other vulnerability management tools to consume it.
+
+The Debian Security Tracker only covers Debian's own kernel. The CVEs of the
+non-Debian kernels, such as `linux-qcom-next`, come from the Linux kernel CNA's
+records in [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git),
+which the scan matches against the upstream version of each image's kernel, see
+[Kernel CVEs](https://github.com/qualcomm-linux/qcom-deb-images/blob/main/docs/workflows.md#kernel-cves).
 
 Findings also arrive from reporters, from the upstream Debian project and the
 independent upstream projects, and from Qualcomm's own deep code scanning of
 downstream packages in the [QLI apt overlay repository](https://deb.debusine.qualcomm.com/qualcomm/qli/),
 some of which Debian does not track. Findings in the downstream packages are
-handled by Product Security first and can be published into the OSV data in
-`security-tracker` once a potential embargo is lifted **(planned,
-[#788](https://github.com/qualcomm-linux/qcom-deb-images/issues/788))**.
+handled by Product Security first and can be published as OSV advisories in
+`security-tracker` once a potential embargo is lifted, see
+[advisories/README.md](advisories/README.md). Grype then reports them like
+the Debian Security Tracker's findings.
 
 ### 2. Triage
 
@@ -104,6 +122,13 @@ that they do not affect us.
 | Applies, fix or mitigation pending | `affected` with an `action_statement` | The finding stays open and the summary shows the action. |
 | Fixed in a version we ship | `fixed`, pinned to the fixed versions | For example a QLI package newer than Debian's. |
 | Pending analysis | no statement | Counted as untriaged. |
+
+The scan triages the kernel CVEs automatically, in a VEX document of each image
+that is part of its reports (`rootfs-kernel.openvex.json`): a CVE whose fix
+changes no file compiled into the kernel is `not_affected`
+(`vulnerable_code_not_present`), and one fixed in an upstream release, is
+`affected`, with the releases named in its `action_statement`. Others stay
+untriaged.
 
 Image maintainers escalate to Product Security: anything affected at Critical
 or High, anything that may be exploited in the wild, any issue in QLI code and
@@ -121,29 +146,35 @@ are welcome as pull requests and count as proposals until confirmed.
 ### 3. Record
 
 Assessments are pull requests against `security-tracker`, one file per Debian
-source package, `vex/<source>.openvex.json`. CI validates every document and
-checks the whole database for conflicts before it can merge. See
-[vex/README.md](vex/README.md) for the rules and a minimal example. Eventually,
-a scheduled job will export triaged vulnerability data from Qualcomm's internal
-tooling to OpenVEX and propose it as pull requests **(planned)**.
+source package, `vex/<source>.openvex.json`. Advisories for vulnerabilities the
+Debian Security Tracker does not know about are pull requests too, one file per
+vulnerability, `advisories/<id>.osv.json`, named after its CVE
+(`QLI-CVE-2026-12345`) or a tracking ID (`QLI-2026-12345`) until a CVE is
+assigned. CI validates every document and checks the whole database for
+conflicts before it can merge. See [vex/README.md](vex/README.md) and
+[advisories/README.md](advisories/README.md) for the rules and examples.
+Eventually, a scheduled job will export triaged vulnerability data from
+Qualcomm's internal tooling to OpenVEX and propose it as pull requests
+**(planned)**.
 
 Reviewers keep the text of statements free of anything Qualcomm internal, see
-[below](#public-data-and-the-boundary-to-qualcomm-internal-tracking).
+[below](#public-data-and-the-boundary-to-qualcomm-internal-processes).
 
 ### 4. Fix
 
 | Origin | Responsible team | How the fix reaches the images |
 | ------ | ---------------- | ------------------------------ |
 | Debian archive | Debian Security | With a package update. The next build picks it up and Grype stops reporting it. If Debian will not fix a vulnerability that affects us, package maintainers backport the fix in a QLI package or image maintainers mitigate it. QLI maintainers might also send fixes upstream to support the Debian Security team and upstream maintainers. |
-| Downstream QLI packages (`pkg-*`, including `linux-image-qcom-next`) | Package maintainers | A patched package is released to the QLI APT repository and picked up by the next build. If applicable, the patch is also sent upstream. |
+| Downstream QLI packages (`pkg-*`) | Package maintainers | A patched package is released to the QLI APT repository and picked up by the next build. Its OSV advisory gets a `fixed` event with that version. If applicable, the patch is also sent upstream. |
+| Non-Debian kernels (e.g. `linux-qcom-next`) | Package maintainers | A kernel package based on an upstream release that fixes the CVE, released to the QLI APT repository. The scan only knows the fixes of upstream releases, so a fix backported otherwise needs a VEX statement in `security-tracker`. |
 | Image recipes and overlay files in this repository | Image maintainers | A change to `qcom-deb-images`. Overlay files are not packages, so they are not in the SBOM. |
 
 ### 5. Verify and close
 
 The next scheduled build shows the finding gone, or suppressed with its reason.
 Assessments pinned to a package version stop matching when that package
-changes, so a new version needs a new assessment; the coverage check in the
-image build warns about outdated pins and uncovered binaries. A finding is
+changes, so a new version needs a new assessment; the coverage check of the
+compliance scan warns about outdated pins and uncovered binaries. A finding is
 closed when a build confirms it.
 
 ### 6. Communicate
@@ -151,8 +182,9 @@ closed when a build confirms it.
 | Information | Communicated by | To | Through |
 | ----------- | --------------- | -- | ------- |
 | Acknowledgement and coordination of a private report, disclosure timing | Product Security | Reporter | Email, private channel |
-| Vulnerability status of each build: open, untriaged, suppressed | CI, operated by the image maintainers | QLI maintainers, Product Security | Actions job summary and build artifacts, consumed by Qualcomm's internal vulnerability management **(planned)** |
+| Vulnerability status of each build: open, untriaged, triaged, suppressed | CI, operated by the image maintainers | QLI maintainers, Product Security | Actions job summary and the latest compliance data (e.g. `<prefix>-vulns.tar.gz`), consumed by Qualcomm's internal vulnerability management **(planned)** |
 | Exploitability assessments with their justification | Image maintainers | Public | OpenVEX in `security-tracker` |
+| Disclosed vulnerabilities in packages Debian does not track, with their fixed versions | Product Security | Public | OSV advisories in `security-tracker` |
 | Security advisories: affected products, fixed versions, remediation **(planned)** | Product Security | Public | QLI security advisories via Qualcomm Security Bulletin **(planned)** |
 | Fixes in upstream Debian packages | Debian Security Team | Public | Debian security advisories (DSA), Debian Security Tracker |
 | Fixes in downstream packages (from the [QLI apt overlay repository](https://deb.debusine.qualcomm.com/qualcomm/qli/)) | Package maintainers | Public | Release tags, the QLI APT repository, `debian/changelog` |
@@ -166,9 +198,11 @@ it.
 
 | Data | Where | Identified by |
 | ---- | ----- | ------------- |
-| SBOM of each image | Build artifacts of the image build | Package URLs (`pkg:deb/debian/<binary>@<version>`), build ID `<run id>-<attempt>`, file prefix `<suite>[-<variant>][-<profile>]` |
-| Vulnerability report of each image | Build artifacts and job summary | CVE ID or tracking ID (such as `QLI-2026-XXXX`) |
+| SBOM and APT origins of each image | `<prefix>-sbom.tar.gz` next to the images, and `latest/<channel>/<prefix>/` | Package URLs (`pkg:deb/debian/<binary>@<version>`), APT archive (vendor, URI, suite, component), build ID `<run id>-<attempt>`, file prefix `<suite>[-<variant>][-<profile>]` |
+| Vulnerability report and kernel CVE assessment of each image | `<prefix>-vulns.tar.gz` next to the images, `latest/<channel>/<prefix>/` and the job summary | CVE ID or tracking ID (such as `QLI-2026-XXXX`) |
+| Build and scan of the latest compliance data | `manifest.json` in `latest/<channel>/<prefix>/` | Build ID, workflow run URLs, Grype and database versions, SHA-256 of each file |
 | Exploitability assessments | `vex/<source>.openvex.json` in `security-tracker` | CVE ID/tracking ID and binary package, under the product `pkg:generic/qualcomm-linux-debian-rootfs` |
+| Advisories for packages that the upstream Debian project does not track | `advisories/<id>.osv.json` in `security-tracker` | `QLI-<CVE>` or tracking ID, Debian source package and versions |
 | QLI package releases and provenance **(planned)** | Release tags in the `pkg-*` repositories, [qli-ci#107](https://github.com/qualcomm-linux/qli-ci/issues/107) | Binary package name, version and architecture |
 | Advisories **(planned)** | Qualcomm Security Bulletin (e.g. https://qualcomm.com/company/product-security/bulletins) | Advisory ID, CVE ID |
 
@@ -176,11 +210,11 @@ it.
 ```
   public (GitHub)                                   Qualcomm-internal
   ---------------                                   -----------------
-  image build outputs (SBOM, Grype)  -->
-  security-tracker (OpenVEX, OSV)    -->-- read --> vulnerability management
-  pkg-* releases (scan & provenance) -->            (triage)
-                                                       |
-  security-tracker (OpenVEX, OSV)  <---- sync/PR --+---+
+  image compliance data (SBOM, Grype) -->
+  security-tracker (OpenVEX, OSV)     -->-- read --> vulnerability management
+  pkg-* releases (scan & provenance)  -->            (triage)
+                                                        |
+  security-tracker (OpenVEX, OSV)  <---- sync/PR ---+---+
 ```
 
 Internal systems consume public data, for example from a workflow event, a
@@ -224,9 +258,10 @@ up in an image build.
 
 ## Using the data downstream
 
-To apply our assessments to an image of your own, generate the SBOM with the
-same source name, since statements are matched on it, and give Grype each
-document:
+To apply our advisories and assessments to an image of your own, generate the
+SBOM with the same source name, since statements are matched on it, add the
+advisories to Grype's vulnerability database and give Grype each document
+(needs `python3-distro-info`):
 
 ```sh
 syft scan rootfs --select-catalogers debian \
@@ -235,10 +270,26 @@ syft scan rootfs --select-catalogers debian \
 
 git clone --depth 1 --branch security-tracker \
     https://github.com/qualcomm-linux/qcom-deb-images.git t
+git clone --depth 1 https://github.com/qualcomm-linux/qcom-deb-images.git m
 shopt -s globstar nullglob
+
+# add the advisories to a copy of the database, then install that copy
+grype db update
+db="$(grype db status -o json |
+    python3 -c 'import json, sys; print(json.load(sys.stdin)["path"])')"
+cp "$db" qli-vulnerability.db
+m/scripts/compliance/grype-db-add-advisories.py qli-vulnerability.db \
+    t/advisories/**/*.osv.json
+grype db import qli-vulnerability.db
+
 vex=(); for f in t/vex/**/*.openvex.json; do vex+=(--vex "$f"); done
-grype --by-cve "${vex[@]}" sbom:rootfs-sbom.syft.json
+GRYPE_DB_AUTO_UPDATE=false grype --config m/.github/grype.yaml --by-cve \
+    "${vex[@]}" sbom:rootfs-sbom.syft.json
 ```
+
+`GRYPE_DB_AUTO_UPDATE=false` keeps Grype from replacing the extended database
+with a newer upstream one. The kernel CVE assessment of a non-Debian kernel
+takes more steps, see `.github/workflows/sbom-compliance-scan.yml` on `main`.
 
 **Note:** The following command lists the packages of your image that the
 assessments do not cover or no longer match:
@@ -246,18 +297,13 @@ assessments do not cover or no longer match:
 
 ## Known gaps
 
-- Only Debian packages in the rootfs tarball are scanned. Packages installed
-  later in the image recipe are missed, and so are files that no package owns,
-  such as overlay files and the boot binaries used for flashing.
-  [#706](https://github.com/qualcomm-linux/qcom-deb-images/issues/706)
-- Kernel CVEs dominate the vulnerability findings. Filtering them against the
-  shipped kernel `.config` could help with that **(planned)**.
-  [#705](https://github.com/qualcomm-linux/qcom-deb-images/issues/705).
-- SBOMs and vulnerability reports are uploaded as private artifacts, like the
-  images. Only the source files in `security-tracker` are public.
+- Only Debian packages are scanned. Files that no package owns, such as
+  overlay files, and the boot binaries used for flashing, which are not part
+  of the disk image, are missed.
+- SBOMs and the latest compliance data are uploaded as private artifacts, like
+  the images. Only the source files in `security-tracker` are public.
 - Vulnerabilities in packages that exist only in the QLI repository are
-  invisible to Grype, as Debian does not track them. Until public OSV
-  data exist **(planned)**, they are tracked internally by Product Security
-  only. [#788](https://github.com/qualcomm-linux/qcom-deb-images/issues/788)
+  invisible to Grype unless an OSV advisory in `security-tracker` records them.
+  Undisclosed ones are tracked internally by Product Security only.
 - Public security advisories and an automated sync between `security-tracker`
   and Qualcomm's internal tooling do not exist yet **(planned)**.
