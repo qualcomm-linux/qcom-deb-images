@@ -39,15 +39,15 @@ jobs:
             profile: default
             kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
-            variant: xfce
+            variant: gnome
             profile: default
             kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
-            variant: xfce
+            variant: gnome
             profile: performance
             kernelpackages: 'linux-image-qcom-7.3,linux-headers-qcom-7.3'
           - suite: trixie
-            variant: xfce
+            variant: gnome
             profile: debug
             kernelpackages: 'linux-image-qcom-7.3-debug,linux-headers-qcom-7.3-debug'
     uses: $/.github/workflows/debos.yml
@@ -90,7 +90,7 @@ jobs:
     with:
       url: ${{ needs.build.outputs.artifacts_url }}
       suite: trixie
-      variant: xfce
+      variant: gnome
       # the boards tested come from .github/lava-boards.yml
       kernel: qcom-7.3
 
