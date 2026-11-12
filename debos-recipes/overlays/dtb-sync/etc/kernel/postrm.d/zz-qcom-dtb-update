@@ -1,0 +1,8 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Regenerate the dtb_a/dtb_b partitions with the device trees of the newest
+# remaining kernel, after a kernel is removed; see qcom-dtb-update.
+
+exec /usr/sbin/qcom-dtb-update
