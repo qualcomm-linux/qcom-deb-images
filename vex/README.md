@@ -2,9 +2,9 @@
 
 One [OpenVEX](https://github.com/openvex/spec) document per Debian *source*
 package, named `<source>.openvex.json`, recording whether a vulnerability
-reported against the Qualcomm Linux Debian images applies to them. Each build
-passes these documents to Grype, which moves suppressed findings to
-`ignoredMatches`.
+reported against the Qualcomm Linux Debian images applies to them. The
+compliance scan of each image build passes these documents to Grype, which
+moves suppressed findings to `ignoredMatches`.
 
 Rules, enforced by `scripts/vex-check.py` (run in CI on every pull request
 targeting `security-tracker`).
@@ -85,11 +85,12 @@ let the checker use schemas supplied separately.
 The `security-tracker` CI rejects invalid assessments before image builds can
 consume them. Coverage warnings from `--sbom` (missing binaries or outdated
 pins) remain non-fatal. The `qcom-deb-images:main` CI runs this checker with
-`--coverage-only` using its SBOM; this skips static validation and needs
-neither the schema nor `jsonschema`.
+`--coverage-only` using the SBOM of each image; this skips static validation
+and needs neither the schema nor `jsonschema`.
 
 Grype does all the matching, configured by `.github/grype.yaml` using the CI on
 `qcom-deb-images:main`. It only reports the `affected` or `under_investigation`
 statement behind an open finding when that statement re-adds an ignored one, so
-the build runs a second scan with `.github/grype-triage.yaml`, which ignores
-everything; the summary takes the triage status of open findings from it.
+the compliance scan runs a second time with `.github/grype-triage.yaml`, which
+ignores everything; the summary takes the triage status of open findings from
+it.
