@@ -30,13 +30,23 @@ work offline.
 
 ## Consumption by image builds
 
-The debos workflow fetches `vex/` from this branch's HEAD and passes the
-documents to Grype. Pull requests targeting `security-tracker` validate the
-data before merging, so image builds trust the branch's data. Schema fetching
-and static validation stay on this branch.
+The `qcom-deb-images` builds generate an SBOM of every image and scan them,
+once per workflow run, in the `sbom-compliance-scan.yml` workflow; see
+[docs/workflows.md](https://github.com/qualcomm-linux/qcom-deb-images/blob/main/docs/workflows.md#sbom-compliance-scan).
+It fetches `vex/` and `advisories/` from this security-tracker. Pull requests
+targeting `security-tracker` validate the data before merging, so the scan
+trusts the tracker's data. Schema fetching and static validation stay on this
+branch.
 
-The image workflow also fetches `scripts/vex-check.py` and `scripts/vexlib.py`
-and runs coverage checks against the generated SBOM:
+The scan adds the advisories to Grype's vulnerability database before
+scanning, so their findings are part of the regular Grype reports, and passes
+the documents in `vex/` to Grype; see
+[advisories/README.md](advisories/README.md) and [vex/README.md](vex/README.md).
+For images with a non-Debian kernel, it also passes the VEX document of the
+kernel CVE assessment it generates for that image, which is not stored here.
+
+The scan also fetches `scripts/vex-check.py` and `scripts/vexlib.py` and runs
+coverage checks against the SBOM of each image:
 
 ```sh
 scripts/vex-check.py --coverage-only --sbom /path/to/rootfs-sbom.syft.json vex/*.openvex.json
@@ -45,9 +55,6 @@ scripts/vex-check.py --coverage-only --sbom /path/to/rootfs-sbom.syft.json vex/*
 They report missing binaries and outdated version pins for that particular
 image. Coverage-only mode trusts the documents and needs only Python's
 standard library, without the schema or `jsonschema`. Warnings appear in the
-image build's job log and summary without failing the build. Omit
-`--coverage-only` to run static validation along with coverage checks locally.
-
-The image workflow also fetches `advisories/` and adds the advisories to
-Grype's vulnerability database before scanning, so their findings are part of
-the regular Grype reports; see [advisories/README.md](advisories/README.md).
+scan's job log and summary, and in the image's `<prefix>-vulns.tar.gz`
+reports, without failing the build. Omit `--coverage-only` to run static
+validation along with coverage checks locally.
