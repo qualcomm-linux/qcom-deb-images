@@ -1,0 +1,67 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# No PREREQ, not even "blacklist": scripts are ordered with tsort, which
+# emits scripts without prereqs in name order and only then those that
+# depend on others, so a prereq would place this after init-top/udev.
+# By name this sorts after init-top/blacklist and before init-top/udev.
+PREREQ=""
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+# get pre-requisites
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# Load qcom_q6v5_pas early on Qualcomm sc8280xp and x1e80100.
+#
+# On these SoCs the ADSP also runs the Type-C port manager. When the
+# driver probes it restarts the ADSP with the full firmware, which
+# resets the Type-C ports and re-enumerates every USB device behind
+# them. If that happens after a USB root device has been mounted, the
+# root filesystem loses its backing device. So load it here, before
+# udev starts (see PREREQ above) and before the root device is
+# mounted.
+#
+# This carries the following initramfs-tools merge request; drop it
+# once initramfs-tools in Debian includes that change:
+# https://salsa.debian.org/kernel-team/initramfs-tools/-/merge_requests/204
+
+[ "${DPKG_ARCH?}" = arm64 ] || exit 0
+
+# Platform devices exist in sysfs before udev runs. Use only shell
+# builtins so that this also works in images without busybox.
+#
+# init exports MODPROBE_OPTIONS=-qb, so the blacklist below would also
+# block this load by name. Load the module before writing it. A user
+# blacklist (blacklist=qcom_q6v5_pas on the kernel command line, written
+# by init-top/blacklist) still applies.
+for modalias in /sys/bus/platform/devices/*.remoteproc/modalias; do
+	[ -e "${modalias}" ] || continue
+	read -r alias < "${modalias}"
+	case "${alias}" in
+	*qcom,sc8280xp-adsp-pas*|*qcom,x1e80100-adsp-pas*)
+		/sbin/modprobe qcom_q6v5_pas || true
+		break
+		;;
+	esac
+done
+
+# Stop udev from autoloading the driver in the initramfs. It boots
+# every PAS remote processor as soon as it probes and if the firmware
+# for this machine is not in the initramfs the boot fails and is never
+# retried after switch_root, leaving the DSPs down. This also protects
+# other Qualcomm platforms that do not need the driver early.
+#
+# Write to the initramfs /etc rather than /run/modprobe.d, because
+# init moves /run into the real root, where the blacklist must not
+# apply.
+echo "blacklist qcom_q6v5_pas" >> /etc/modprobe.d/initramfs.conf
