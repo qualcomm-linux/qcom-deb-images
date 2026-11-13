@@ -27,7 +27,13 @@ DTB_TYPE="${6:-combineddtb}"
 # the multidtb dtb type
 SOC="${7:-}"
 
-PARTITIONS_CONF="${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf"
+# PLATFORM is "<board>/<storage-id>"; boards migrated to the single
+# platforms/boards/<board>.yaml format no longer ship a per-storage
+# partitions.conf, so detect that file and switch generation modes.
+BOARD="${PLATFORM%%/*}"
+STORAGE_ID="${PLATFORM#*/}"
+BOARD_YAML="${QCOM_PTOOL}/platforms/boards/${BOARD}.yaml"
+echo "BOARD_YAML=${BOARD_YAML}"
 
 case "$DISK_TYPE" in
   emmc|nvme)
@@ -87,10 +93,26 @@ partition_map="${partition_map},rootfs=${rootfs}"
 # without a pip install
 export PYTHONPATH="${QCOM_PTOOL}${PYTHONPATH:+:${PYTHONPATH}}"
 
-# generate ptool-partitions.xml from partitions.conf
-python3 -m qcom_ptool.gen_partition -i "${PARTITIONS_CONF}" \
-    -o ptool-partitions.xml \
-    -m "${partition_map}"
+# generate ptool-partitions.xml: use platforms/boards/<board>.yaml via
+# --board mode when it exists, otherwise fall back to the legacy
+# per-storage partitions.conf
+if [ -e "$BOARD_YAML" ]; then
+    # --board mode has no per-storage selection; it always writes every
+    # storage the board declares to its own <outdir>/<storage-id>/ dir, so
+    # generate into a scratch dir and copy out just the one this call needs
+    board_gen="$(mktemp -d)"
+    trap 'rm -rf "${board_gen}"' EXIT
+    python3 -m qcom_ptool.gen_partition \
+        --board "${BOARD_YAML}" \
+        -C "${board_gen}" \
+        -m "${partition_map}"
+    cp "${board_gen}/${STORAGE_ID}/partitions.xml" ptool-partitions.xml
+else
+    python3 -m qcom_ptool.gen_partition \
+        -i "${QCOM_PTOOL}/platforms/${PLATFORM}/partitions.conf" \
+        -o ptool-partitions.xml \
+        -m "${partition_map}"
+fi
 
 # generate contents.xml from ptool-partitions.xml and contents.xml.in
 CONTENTS="${QCOM_PTOOL}/platforms/${PLATFORM}/contents.xml.in"
