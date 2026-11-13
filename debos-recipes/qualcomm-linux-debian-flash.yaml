@@ -260,6 +260,28 @@ actions:
     "dtb_bin_type" "multidtb"
 )}}
 {{- $boards = append $boards (dict
+    "name" "eliza-cqs-evk-emmc"
+    "soc_id" "elizacqs"
+    "ptool_platforms" (list "eliza-evk/emmc")
+    "boot_binaries_download" (dict
+        "description" "Eliza boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/CQ7790_bootbinaries.1.0/cq7790_bootbinaries.1.0-test-device-public/00014/eliza_bootbinaries_00014.zip"
+        "name" "eliza-cqs_boot-binaries"
+        "filename" "eliza-cqs_boot-binaries.zip"
+        "sha256sum" "0bfe4c7eb19b0ea0cf1651332f6a0ad75bb0e787f112999c85cbf86cc0c0d885"
+    )
+    "cdt_download" (dict
+        "description" "Eliza EVK CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/CQ7790/cdt/cq7790-evk_v1.zip"
+        "name" "eliza-cqs-evk-emmc_cdt"
+        "filename" "eliza-cqs-evk-emmc_cdt.zip"
+        "sha256sum" "c2d1fb4b5a913ad5adc691b3c94b34c6d09cd35aafbf58fe48e0ce94e884d5f4"
+    )
+    "cdt_filename" "cq7790-evk_v1/cdt_eliza_evk_0.7.0.bin"
+    "dtb" "qcom/eliza-cqs-evk-emmc.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- $boards = append $boards (dict
     "name" "sm8750-mtp"
     "soc_id" "sm8750"
     "ptool_platforms" (list "sm8750-mtp/ufs")
