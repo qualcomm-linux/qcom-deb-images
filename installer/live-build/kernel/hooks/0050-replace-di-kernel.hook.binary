@@ -29,6 +29,7 @@ set -euo pipefail
 # its initrds; --initrd-overlay and --firmware add extra files to them.
 "$INSTALLER_DIR/live-build/kernel/lib/replace-di-kernel.sh" \
     --preseed ../config/installer-preseed.cfg \
+    --module-rules "$INSTALLER_DIR/live-build/kernel/initrd-modules.rules" \
     --initrd-overlay ../initrd-overlay \
     --firmware ../firmware \
     "$KERNEL_DIR" \
