@@ -10,7 +10,9 @@
 #
 # d-i starts udev in /sbin/init, before these startup scripts run, so the
 # driver is blacklisted in modprobe.d/qcom-adsp.conf to keep udev from
-# autoloading it, and is loaded here by name.
+# autoloading it, and is loaded here by name. The blacklist applies on every
+# platform, so load it everywhere: it also drives the other remoteprocs,
+# such as Glymur's SoCCP, which hosts pmic_glink and so the Type-C ports.
 #
 # Unlike in the initramfs, udev has already found the install media by now,
 # and it drops off with the reset. remoteproc boots the ADSP asynchronously,
@@ -20,8 +22,11 @@
 # Platforms where the ADSP gates the Type-C bus.
 adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
 
-grep -q -E "${adsp_compatibles}" \
-	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null || exit 0
+if ! grep -q -E "${adsp_compatibles}" \
+	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null; then
+	modprobe qcom_q6v5_pas || true
+	exit 0
+fi
 
 # Whether a USB disk (which may be the install media) is there to come back.
 had_usb_disk=
