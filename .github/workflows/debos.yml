@@ -204,6 +204,9 @@ jobs:
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       # TODO: FYI; these run without scratch space
+      # TODO: if debos/fakemachine is killed, it hangs and does not cancel the
+      #       job, maybne that's fixed in newer fakemachine/debos?
+      #       OR perhaps we should always run with some scratchspasce ?
       - name: Build UFS image with debos
         timeout-minutes: 30
         run: |
