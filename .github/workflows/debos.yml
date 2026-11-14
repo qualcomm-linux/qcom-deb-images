@@ -165,6 +165,7 @@ jobs:
           )
 
       - name: Build rootfs with debos
+        timeout-minutes: 30
         run: |
           set -ux
           kernel_packages="$KERNEL_PACKAGES"
@@ -201,16 +202,19 @@ jobs:
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS image with debos
+        timeout-minutes: 30
         run: |
           set -ux
           make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build SD card image with debos
+        timeout-minutes: 30
         run: |
           set -ux
           make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
+        timeout-minutes: 30
         run: |
           set -ux
           make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
