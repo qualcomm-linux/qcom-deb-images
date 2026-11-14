@@ -187,7 +187,12 @@ jobs:
               ;;
           esac
 
+          # TODO: use make target && cleanup the stray quotes
+          # TODO: set extra_debos_opts for --print-recipe; don't repeat ourselves
+          # TODO: pass buildid into all calls too
           debos \
+              --fakemachine-backend kvm \
+              --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
               -t extract_dbg_vmlinux:true \
@@ -197,30 +202,25 @@ jobs:
               --print-recipe \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
+      # TODO: FYI; these run without scratch space
       - name: Build UFS image with debos
         run: |
           set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build SD card image with debos
         run: |
           set -ux
-          # use qemu backend explicitly; see the UFS image step above
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       # only generate the SBOM for the UFS image; the SD card image only
       # differs in sector size, so its contents are the same
+      # TODO: run this inside the recipe instead now we have fancy KVM
       - name: Generate SBOMs with Syft (from the UFS image)
         env:
           SYFT: ${{ steps.syft.outputs.cmd }}
@@ -342,6 +342,11 @@ jobs:
         with:
           name: build_url
           path: build_url
+
+      # TODO: run this inside the fancy nested-KVM
+      # TODO: do this earlier in the recipe (separate PR)
+      # TODO: this also calls the non-qemu tests; move them elsewhere (separate PR)
+      # TODO: we can probably use test target; and remove --ignore=rootfs probably... (separate PR)
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |
