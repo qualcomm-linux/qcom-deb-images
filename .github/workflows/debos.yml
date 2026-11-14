@@ -115,7 +115,6 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
       # python3-apt and python3-debian are needed by
       #   scripts/compliance/syft-apt-origins.py and python3-apt by the tests of
       #   scripts/compliance/kernel-cves.py
@@ -130,6 +129,13 @@ jobs:
       - name: Install Syft
         id: syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      # the image recipe runs syft inside the fakemachine, which shares /usr
+      # with the host, so install it in the PATH under /usr
+      - name: Install Syft in /usr/local/bin
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: install -v -m 755 "$SYFT" /usr/local/bin/syft
 
       - name: Setup local APT repo
         run: |
@@ -212,7 +218,9 @@ jobs:
         timeout-minutes: 30
         run: |
           set -ux
-          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # only generate the SBOMs for the UFS image; the SD card image only
+          # differs in sector size, so its contents are the same
+          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="-t sbom:true --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build SD card image with debos
         timeout-minutes: 30
@@ -225,59 +233,6 @@ jobs:
         run: |
           set -ux
           make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
-
-      # only generate the SBOM for the UFS image; the SD card image only
-      # differs in sector size, so its contents are the same
-      # TODO: run this inside the recipe instead now we have fancy KVM
-      - name: Generate SBOMs with Syft (from the UFS image)
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
-        run: |
-          set -ux
-
-          # running syft inside the fakemachine is too slow with the qemu
-          # backend, so extract the partition images to a temporary directory.
-          # mounting the image would require a loop device.
-          # the ESP is not scanned by syft; but extract it anyway so the scanned
-          # tree matches the image.
-          mkdir -v rootfs
-          debugfs_err="$(debugfs -R "rdump / rootfs" disk-ufs.img2 2>&1 >/dev/null)"
-          echo "$debugfs_err" >&2
-          # debugfs exits 0 even when the command fails, so fail on anything
-          # other than its version banner on stderr
-          if echo "$debugfs_err" | grep -qv '^debugfs [0-9]'; then
-              exit 1
-          fi
-          mkdir -pv rootfs/boot/efi
-          mcopy -s -p -m -i disk-ufs.img1 '::/*' rootfs/boot/efi/
-
-          # check the extraction worked
-          test -s rootfs/var/lib/dpkg/status
-
-          # run syft to generate the sbom
-          "$SYFT" --version
-          SYFT_FORMAT_PRETTY=true "$SYFT" \
-              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
-              -o spdx-json=rootfs-sbom.spdx.json \
-              -o syft-json=rootfs-sbom.syft.json \
-              -o syft-text=rootfs-sbom.syft.txt \
-              -o syft-table \
-              --parallelism "$(nproc)" \
-              --select-catalogers debian \
-              --source-name qualcomm-linux-debian-rootfs \
-              --source-version "${BUILD_ID}" \
-              -v \
-              scan rootfs
-
-          # list the APT archives of each package, which dpkg doesn't record
-          # and hence aren't in the SBOMs, from the APT lists of the rootfs;
-          # fail rather than ship a broken list, which consumers rely on
-          scripts/compliance/syft-apt-origins.py rootfs-sbom.syft.json rootfs \
-              >syft-apt-origins.json.tmp || exit 1
-          mv syft-apt-origins.json.tmp rootfs-sbom.syft-apt-origins.json
-
-          # remove the temporary rootfs
-          rm -rf rootfs
 
       - name: Generate license summary from Syft report
         run: |
