@@ -193,6 +193,7 @@ jobs:
           # TODO: pass buildid into all calls too
           debos \
               --fakemachine-backend kvm \
+              --cpus "$(nproc)" \
               --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
@@ -211,19 +212,19 @@ jobs:
         timeout-minutes: 30
         run: |
           set -ux
-          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build SD card image with debos
         timeout-minutes: 30
         run: |
           set -ux
-          make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         timeout-minutes: 30
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       # only generate the SBOM for the UFS image; the SD card image only
       # differs in sector size, so its contents are the same
