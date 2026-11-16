@@ -99,10 +99,18 @@ PYTEST_OPTS ?=
 .PHONY: test
 test: test-qemu test-unit
 
-# boot disk-ufs.img in QEMU and test it
+# boot the disk images in QEMU and test them; test-ufs and test-sdcard only
+# test one image each
 .PHONY: test-qemu
-test-qemu: disk-ufs.img
-	py.test-3 $(PYTEST_OPTS) ci/qemu_test.py
+test-qemu: test-ufs test-sdcard
+
+.PHONY: test-ufs
+test-ufs: disk-ufs.img
+	py.test-3 $(PYTEST_OPTS) -k ufs ci/qemu_test.py
+
+.PHONY: test-sdcard
+test-sdcard: disk-sdcard.img
+	py.test-3 $(PYTEST_OPTS) -k sdcard ci/qemu_test.py
 
 # unit tests of the scripts; these don't need an image
 .PHONY: test-unit
