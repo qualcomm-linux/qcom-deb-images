@@ -40,6 +40,7 @@ qcom-next:
     - qcs8300-ride
     - qcs9100-ride-r3
     - qrb2210-rb1
+    - sm8750-mtp
 
 qcom-7.3:
   # the nightly qcom-7.3 build tests one board; see linux-qcom-7.3.yml
