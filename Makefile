@@ -7,11 +7,13 @@
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
 # The rootfs recipe builds the root filesystem in the scratch directory, so the
-# scratch space has to be larger than the biggest rootfs we build; the image
-# recipe unpacks rootfs.tar straight into the mounted image, so it needs little
-# scratch space.
+# rootfs build gets a scratch disk larger than the biggest rootfs we build
+# (ROOTFS_FAKEMACHINE_OPTS). The image recipe unpacks rootfs.tar straight into
+# the mounted image, so the other builds need little scratch space and use
+# fakemachine's memory-backed default.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND) --scratchsize 12GiB
+FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
+ROOTFS_FAKEMACHINE_OPTS ?= --scratchsize 12GiB
 
 EXTRA_DEBOS_OPTS ?=
 DEBOS_OPTS := $(FAKEMACHINE_OPTS) $(EXTRA_DEBOS_OPTS)
@@ -36,7 +38,7 @@ ifeq ($(USE_CONTAINER),yes)
 	KVM_DEVICE := $(if $(wildcard /dev/kvm),--device /dev/kvm --group-add $(shell stat -c %g /dev/kvm))
 	# Working directory as seen from inside the container
 	DEBOS_WORKDIR := /recipes
-	DEBOS_CMD := docker run --rm --interactive --tty \
+	DEBOS_CMD = docker run --rm --interactive --tty \
 		$(KVM_DEVICE) \
 		--user $(shell id -u) --workdir $(DEBOS_WORKDIR) \
 		--mount "type=bind,source=$(CURDIR),destination=$(DEBOS_WORKDIR)" \
@@ -46,7 +48,7 @@ ifeq ($(USE_CONTAINER),yes)
 else
 	# Working directory for native debos
 	DEBOS_WORKDIR := $(CURDIR)
-	DEBOS_CMD := debos $(DEBOS_OPTS)
+	DEBOS_CMD = debos $(DEBOS_OPTS)
 endif
 
 # Use http_proxy from the environment, or apt's http_proxy if set, to speed up
@@ -57,6 +59,9 @@ export http_proxy
 .PHONY: all
 all: disk-ufs.img disk-sdcard.img
 
+# put the rootfs defaults before EXTRA_DEBOS_OPTS, so that the caller can
+# override them (debos uses the last value of an option)
+rootfs.tar dtbs.tar.gz: DEBOS_OPTS = $(FAKEMACHINE_OPTS) $(ROOTFS_FAKEMACHINE_OPTS) $(EXTRA_DEBOS_OPTS)
 rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
 	$(DEBOS_CMD) $<
 
