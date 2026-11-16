@@ -61,14 +61,16 @@ on:
 permissions: {}
 
 env:
-  # image build id; used for SBOM generation
-  BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
   # options common to all of the debos builds; the Makefile picks these up from
   # the environment, and the steps append their own options to them
+  #
+  # the build id is recorded in the rootfs and used by the SBOMs and the flash
+  # recipe
   EXTRA_DEBOS_OPTS: >-
     --print-recipe
+    -t buildid:${{ github.run_id }}-${{ github.run_attempt }}
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
     -t variant:${{ inputs.variant || 'console' }}
@@ -206,7 +208,6 @@ jobs:
               --memory 16GiB \
               --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t "buildid:${BUILD_ID}" \
               -t extract_dbg_vmlinux:true \
               -t kernelpackages:"$kernel_packages" \
               -t "overlays:$OVERLAYS" \
@@ -231,7 +232,7 @@ jobs:
         timeout-minutes: 30
         run: |
           set -ux
-          make flash EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID}"
+          make flash EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t u_boot_rb1:rb1-boot.img"
 
       - name: Generate license summary from Syft report
         run: |
@@ -272,7 +273,7 @@ jobs:
         id: upload_artifacts_s3
         with:
           path: debos-artifacts
-          # these should be the defaults; or ought to reuse BUILD_ID
+          # these should be the defaults; or ought to reuse the build id
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
