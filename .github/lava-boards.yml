@@ -35,6 +35,7 @@ qcom-next:
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
+    - qcs9100-ride-r3
     - qrb2210-rb1
 
 qcom-7.3:
