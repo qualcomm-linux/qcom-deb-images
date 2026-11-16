@@ -216,6 +216,24 @@ jobs:
           # differs in sector size, so its contents are the same
           make disk-ufs.img EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t sbom:true"
 
+      # run the QEMU tests as soon as the UFS image is built, so that a
+      # failure shows early; keep going on failure so the other images are
+      # still built and the artifacts uploaded for debugging, and fail the job
+      # at the end instead
+      - name: Invoke test runner
+        id: qemu_tests
+        if: ${{ !inputs.skip_qemu_tests }}
+        continue-on-error: true
+        run: |
+           # only run the QEMU tests here; the unit tests of the scripts run
+           # in script-tests.yml
+           # -o disk-ufs.img tells make to never rebuild the image tested
+           # --verbose enables verbose output which shows each test's full name
+           #   and full result which makes CI failures much easier to diagnose
+           # --capture=no so pytest doesn't swallow stdout and only prints it
+           #   after a job fails. Instead, stream the log live.
+           make -o disk-ufs.img test PYTEST_OPTS="--verbose --capture=no"
+
       - name: Build SD card image with debos
         timeout-minutes: 30
         run: |
@@ -300,14 +318,10 @@ jobs:
           name: build_url
           path: build_url
 
-      - name: Invoke test runner
-        if: ${{ !inputs.skip_qemu_tests }}
+      # fail the job if the QEMU tests failed, now that the artifacts are
+      # uploaded
+      - name: Check the QEMU test results
+        if: ${{ steps.qemu_tests.outcome == 'failure' }}
         run: |
-           # only run the QEMU tests here; the unit tests of the scripts run
-           # in script-tests.yml
-           # -o disk-ufs.img tells make to never rebuild the image tested
-           # --verbose enables verbose output which shows each test's full name
-           #   and full result which makes CI failures much easier to diagnose
-           # --capture=no so pytest doesn't swallow stdout and only prints it
-           #   after a job fails. Instead, stream the log live.
-           make -o disk-ufs.img test PYTEST_OPTS="--verbose --capture=no"
+          echo "ERROR: the QEMU tests failed; see the \"Invoke test runner\" step" >&2
+          exit 1
