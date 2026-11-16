@@ -65,7 +65,10 @@ env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  DEBOS_EXTRA_ARGS: >-
+  # options common to all of the debos builds; the Makefile picks these up from
+  # the environment, and the steps append their own options to them
+  EXTRA_DEBOS_OPTS: >-
+    --print-recipe
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
     -t variant:${{ inputs.variant || 'console' }}
@@ -205,8 +208,7 @@ jobs:
               -t extract_dbg_vmlinux:true \
               -t kernelpackages:"$kernel_packages" \
               -t "overlays:$OVERLAYS" \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
+              ${EXTRA_DEBOS_OPTS} \
               debos-recipes/qualcomm-linux-debian-rootfs.yaml
 
       - name: Build UFS image with debos
@@ -215,19 +217,19 @@ jobs:
           set -ux
           # only generate the SBOMs for the UFS image; the SD card image only
           # differs in sector size, so its contents are the same
-          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="-t sbom:true --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t sbom:true"
 
       - name: Build SD card image with debos
         timeout-minutes: 30
         run: |
           set -ux
-          make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img
 
       - name: Build flashable files with debos
         timeout-minutes: 30
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm --cpus $(nproc)" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID}"
 
       - name: Generate license summary from Syft report
         run: |
