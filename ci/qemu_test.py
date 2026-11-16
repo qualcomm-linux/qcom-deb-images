@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -11,6 +12,16 @@ import tempfile
 
 import pexpect
 import pytest
+
+
+def accel_args():
+    """QEMU arguments to use KVM on an arm64 host where /dev/kvm is usable,
+    such as the arm64-metal CI runners, and to emulate the oldest supported
+    CPU otherwise"""
+    if (platform.machine() == "aarch64"
+            and os.access("/dev/kvm", os.R_OK | os.W_OK)):
+        return ["-accel", "kvm", "-cpu", "host"]
+    return ["-cpu", "cortex-a57"]
 
 
 @pytest.fixture
@@ -35,9 +46,7 @@ def vm():
         )
         child = pexpect.spawn(
             "qemu-system-aarch64",
-            [
-                "-cpu",
-                "cortex-a57",
+            accel_args() + [
                 "-smp",
                 "2",
                 "-m",
