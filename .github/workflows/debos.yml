@@ -189,6 +189,7 @@ jobs:
           # resources as the Makefile
           debos \
               --memory 1GiB \
+              --fakemachine-backend kvm \
               --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
@@ -202,24 +203,17 @@ jobs:
       - name: Build UFS image with debos
         run: |
           set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-ufs.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build SD card image with debos
         run: |
           set -ux
-          # use qemu backend explicitly; see the UFS image step above
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
 
       - name: Build flashable files with debos
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
+          make flash FAKEMACHINE_OPTS="--fakemachine-backend kvm" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
 
       # only generate the SBOM for the UFS image; the SD card image only
       # differs in sector size, so its contents are the same
@@ -344,6 +338,7 @@ jobs:
         with:
           name: build_url
           path: build_url
+
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |
