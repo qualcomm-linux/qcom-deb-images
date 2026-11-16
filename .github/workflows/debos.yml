@@ -195,22 +195,18 @@ jobs:
               ;;
           esac
 
-          # on runners with /dev/kvm, debos picks the kvm backend, whose
-          # defaults keep the scratch area in memory; installing the
-          # rootfs then gets the fakemachine killed, so use the same
-          # resources as the Makefile
-          debos \
-              --memory 1GiB \
-              --fakemachine-backend kvm \
-              --cpus "$(nproc)" \
-              --memory 16GiB \
-              --scratchsize 12GiB \
-              -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t extract_dbg_vmlinux:true \
-              -t kernelpackages:"$kernel_packages" \
-              -t "overlays:$OVERLAYS" \
-              ${EXTRA_DEBOS_OPTS} \
-              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+          # make passes the options through the shell again, so the option
+          # values must not contain spaces
+          debos_opts="${EXTRA_DEBOS_OPTS}"
+          debos_opts="${debos_opts} -t aptlocalrepo:${PWD}/local-apt-repo"
+          debos_opts="${debos_opts} -t extract_dbg_vmlinux:true"
+          debos_opts="${debos_opts} -t kernelpackages:${kernel_packages}"
+          debos_opts="${debos_opts} -t overlays:${OVERLAYS}"
+          # give the rootfs build 16GiB of memory, so the DKMS modules of the
+          # multimedia variant build with several parallel jobs
+          make rootfs.tar \
+              ROOTFS_FAKEMACHINE_OPTS="--scratchsize 12GiB --memory 16GiB" \
+              EXTRA_DEBOS_OPTS="${debos_opts}"
 
       - name: Build UFS image with debos
         timeout-minutes: 30
