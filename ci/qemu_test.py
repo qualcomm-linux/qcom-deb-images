@@ -267,7 +267,7 @@ def login(vm):
     vm.expect_exact(PROMPT)
 
 
-def run(vm, command):
+def run(vm, command, timeout=-1):
     """Run *command* in the VM's shell and return its exit status
 
     The serial console echoes back everything that is sent to it, so anything
@@ -275,9 +275,13 @@ def run(vm, command):
     output. Rather than matching the output, ask the shell for the exit status
     of the command afterwards: the literal "rc=$?" of the echoed line can never
     match the "rc=<digits>" the shell prints.
+
+    *timeout* is how long to wait for the command to finish, in seconds; the
+    default of -1 is the spawn's own timeout, which is plenty for anything but
+    a command walking every installed package.
     """
     vm.send(f"{command}\r\n")
-    vm.expect_exact(PROMPT)
+    vm.expect_exact(PROMPT, timeout=timeout)
     vm.send('echo "rc=$?"\r\n')
     vm.expect(r"rc=(\d+)")
     status = int(vm.match.group(1))
@@ -463,3 +467,84 @@ def test_snapshot(vm):
                 r"/etc/apt/sources.list.d/")
     assert run(vm, disabled) == 1, \
         "APT sources are still disabled in the image"
+
+
+# Source package name kbuild's bindeb-pkg target gives the linux-image-* and
+# linux-headers-* debs it builds, as scripts/build-linux-deb.py does not set
+# KDEB_SOURCENAME. Those are the kernel debs debos.yml takes from EFS, which
+# come from a local APT repository rather than a dated archive, so they are
+# not covered by the snapshot (see docs/snapshot.md) and their changelog is
+# dated whenever the kernel was built.
+KBUILD_SOURCE = "linux-upstream"
+
+# Shell loop run by test_snapshot_package_dates(): for every installed package
+# but the kbuild ones, the date of the newest entry of its Debian changelog,
+# i.e. the date on the first " -- Maintainer <email>  <date>" trailer line.
+# Package names go to /tmp/dated.txt and the dates, in the same order, to
+# /tmp/raw-dates.txt, so that a single date(1) can convert all of them; one
+# per package would cost minutes under emulation. Non-native packages keep
+# their Debian changelog in changelog.Debian.gz, native ones in changelog.gz;
+# a changelog.gz which is an upstream one has no such trailer and is skipped.
+CHANGELOG_DATES = (
+    "while read -r p s; do "
+    f'[ "$s" = {KBUILD_SOURCE} ] && continue; '
+    'for f in /usr/share/doc/"$p"/changelog.Debian.gz '
+    '/usr/share/doc/"$p"/changelog.gz; do '
+    '[ -e "$f" ] || continue; '
+    "d=$(zcat \"$f\" | sed -n '/^ -- /{s/^.*>  //p;q}'); "
+    '[ -n "$d" ] && { echo "$p" >&3; echo "$d"; }; '
+    "break; "
+    "done; "
+    "done </tmp/packages.txt >/tmp/raw-dates.txt 3>/tmp/dated.txt"
+)
+
+
+@pytest.mark.skipif(not EXPECTED_SNAPSHOT,
+                    reason="EXPECTED_SNAPSHOT is unset, so the image was not "
+                           "built from a snapshot")
+def test_snapshot_package_dates(vm):
+    """No installed package is newer than the snapshot the image was built from
+
+    test_snapshot() checks that the build was configured for the snapshot; this
+    checks that what it installed actually came from it. A source the build
+    could not pin (docs/snapshot.md warns about those) or an install which ran
+    before the snapshot sources were enabled would bring in packages from the
+    live archives, and the image would record a snapshot it does not match.
+
+    A package's newest changelog entry is written before it is uploaded, and
+    an upload is published after it, so a package whose newest entry is dated
+    after the snapshot cannot have been in that snapshot. The converse does not
+    hold -- a package uploaded long after its changelog was written passes --
+    so this catches packages from the live archives that are newer than the
+    snapshot, not every package that did not come from it.
+    """
+    assert run(vm, "dpkg-query -W -f '${Package} ${source:Package}\\n' "
+                   ">/tmp/packages.txt") == 0, \
+        "could not list the installed packages"
+
+    # walks every installed package under emulation; this takes a while
+    run(vm, CHANGELOG_DATES, timeout=600)
+
+    # without this, an image whose changelogs had all gone missing (or a loop
+    # which never matched a trailer) would check nothing and pass
+    assert run(vm, "test -s /tmp/dated.txt") == 0, \
+        "no installed package has a dated Debian changelog to check"
+
+    # nonzero for any date date(1) cannot parse, which would otherwise leave
+    # the two lists out of step
+    assert run(vm, "date -u -f /tmp/raw-dates.txt +%Y%m%dT%H%M%SZ "
+                   ">/tmp/dates.txt") == 0, \
+        "could not parse the date of every package's newest changelog entry"
+
+    assert run(vm, "paste -d ' ' /tmp/dated.txt /tmp/dates.txt "
+                   ">/tmp/package-dates.txt") == 0, \
+        "could not pair the installed packages with their changelog dates"
+
+    # both sides are YYYYMMDDTHHMMSSZ in UTC, so they compare as strings. awk
+    # prints each offending package, with its date, to the console log
+    newer = ("awk -v snapshot='" + EXPECTED_SNAPSHOT + "' "
+             "'$2 > snapshot { print; found = 1 } END { exit found }' "
+             "/tmp/package-dates.txt")
+    assert run(vm, newer) == 0, \
+        f"packages newer than the snapshot {EXPECTED_SNAPSHOT} are " \
+        "installed; see the list printed above"

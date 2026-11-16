@@ -95,6 +95,18 @@ leaves behind, and by no source being left `Enabled: no`. Rewriting the live
 sources in place, rather than deriving `snapshot_*` files from them, would
 therefore not slip past either.
 
+Those checks show that the build was *configured* for the snapshot; a further
+one checks that what it installed actually came from it. For a snapshot image
+it fails if any installed package's newest Debian changelog entry is dated
+after the snapshot timestamp: a package is uploaded after its changelog is
+written and published after that, so such a package cannot have been in the
+snapshot and must have come from a live archive. It does not catch a package
+from a live archive whose changelog happens to predate the snapshot. The
+kernel debs that CI takes from EFS (source package `linux-upstream`, as
+`bindeb-pkg` names it) are skipped, as they come from a local APT repository
+and are not covered by the snapshot (see
+[Design notes and caveats](#design-notes-and-caveats)).
+
 These are part of the generic suite that `make test` runs, not a separate one:
 they hold for every image, because an image built *without* the option must not
 carry any trace of a snapshot either. What tells them which kind of image they
