@@ -190,11 +190,11 @@ jobs:
 
           # the kvm backend's defaults keep the scratch area in memory;
           # installing the rootfs then gets the fakemachine killed, so
-          # use the same resources as the Makefile
+          # give it a scratch disk
           debos \
               --fakemachine-backend kvm \
               --cpus "$(nproc)" \
-              --memory 1GiB \
+              --memory 16GiB \
               --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
