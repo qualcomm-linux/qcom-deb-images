@@ -12,6 +12,7 @@ qcom-next:
   boot:
     - eliza-cqs-evk-emmc
     - glymur-crd
+    - hamoa-iot-evk
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs9100-ride-r3
