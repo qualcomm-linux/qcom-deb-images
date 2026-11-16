@@ -123,7 +123,7 @@ jobs:
       #   scripts/compliance/grype-db-add-advisories.py and
       #   scripts/compliance/kernel-cves.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml python3-yaml python3-jsonschema device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
