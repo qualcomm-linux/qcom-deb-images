@@ -303,15 +303,11 @@ jobs:
       - name: Invoke test runner
         if: ${{ !inputs.skip_qemu_tests }}
         run: |
-           # This is currently a clone of Makefile's "test" target to avoid any
-           # unexpected interactions with triggering depending build targets.
-           # The plan is to move this entire workflow to use make targets
-           # instead but all at once. See #74 and #159.
-
-           # Only run the QEMU test on the image here; the unit tests of the
-           # scripts run in test-unit.yml
+           # only run the QEMU tests here; the unit tests of the scripts run
+           # in test-unit.yml
+           # -o disk-ufs.img tells make to never rebuild the image tested
            # --verbose enables verbose output which shows each test's full name
            #   and full result which makes CI failures much easier to diagnose
            # --capture=no so pytest doesn't swallow stdout and only prints it
            #   after a job fails. Instead, stream the log live.
-           py.test-3 --verbose --capture=no ci/qemu_test.py
+           make -o disk-ufs.img test PYTEST_OPTS="--verbose --capture=no"
