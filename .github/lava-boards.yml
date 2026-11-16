@@ -13,6 +13,7 @@ qcom-next:
     - glymur-crd
     - qcs615-ride
     - qcs6490-rb3gen2
+    - qcs9100-ride-r3
     - qrb2210-rb1
 
 qcom-7.3:
