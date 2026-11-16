@@ -220,8 +220,8 @@ jobs:
       # failure shows early; keep going on failure so the other images are
       # still built and the artifacts uploaded for debugging, and fail the job
       # at the end instead
-      - name: Invoke test runner
-        id: qemu_tests
+      - name: Test UFS image in QEMU
+        id: qemu_tests_ufs
         if: ${{ !inputs.skip_qemu_tests }}
         continue-on-error: true
         run: |
@@ -232,13 +232,21 @@ jobs:
            #   and full result which makes CI failures much easier to diagnose
            # --capture=no so pytest doesn't swallow stdout and only prints it
            #   after a job fails. Instead, stream the log live.
-           make -o disk-ufs.img test PYTEST_OPTS="--verbose --capture=no"
+           make -o disk-ufs.img test-ufs PYTEST_OPTS="--verbose --capture=no"
 
       - name: Build SD card image with debos
         timeout-minutes: 30
         run: |
           set -ux
           make disk-sdcard.img
+
+      # same as for the UFS image above
+      - name: Test SD card image in QEMU
+        id: qemu_tests_sdcard
+        if: ${{ !inputs.skip_qemu_tests }}
+        continue-on-error: true
+        run: |
+           make -o disk-sdcard.img test-sdcard PYTEST_OPTS="--verbose --capture=no"
 
       - name: Build flashable files with debos
         timeout-minutes: 30
@@ -321,7 +329,15 @@ jobs:
       # fail the job if the QEMU tests failed, now that the artifacts are
       # uploaded
       - name: Check the QEMU test results
-        if: ${{ steps.qemu_tests.outcome == 'failure' }}
+        if: ${{ steps.qemu_tests_ufs.outcome == 'failure' || steps.qemu_tests_sdcard.outcome == 'failure' }}
+        env:
+          ufs_outcome: ${{ steps.qemu_tests_ufs.outcome }}
+          sdcard_outcome: ${{ steps.qemu_tests_sdcard.outcome }}
         run: |
-          echo "ERROR: the QEMU tests failed; see the \"Invoke test runner\" step" >&2
+          if [ "$ufs_outcome" = failure ]; then
+              echo "ERROR: the QEMU tests of the UFS image failed; see the \"Test UFS image in QEMU\" step" >&2
+          fi
+          if [ "$sdcard_outcome" = failure ]; then
+              echo "ERROR: the QEMU tests of the SD card image failed; see the \"Test SD card image in QEMU\" step" >&2
+          fi
           exit 1
