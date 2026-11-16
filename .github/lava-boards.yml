@@ -31,6 +31,7 @@ qcom-next:
   #
   # shikra-iqs-evk is left out: it reached no login prompt on any boot
   boot:
+    - eliza-cqs-evk-emmc
     - glymur-crd
     - qcs615-ride
     - qcs6490-rb3gen2
