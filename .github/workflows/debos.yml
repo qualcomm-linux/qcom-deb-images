@@ -192,6 +192,7 @@ jobs:
               --memory 1GiB \
               --fakemachine-backend kvm \
               --cpus "$(nproc)" \
+              --memory 16GiB \
               --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
