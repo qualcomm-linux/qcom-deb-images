@@ -34,6 +34,7 @@ qcom-next:
     - eliza-cqs-evk-emmc
     - glymur-crd
     - hamoa-iot-evk
+    - purwa-iot-evk
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
