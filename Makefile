@@ -10,9 +10,10 @@
 # rootfs build gets a scratch disk larger than the biggest rootfs we build
 # (ROOTFS_FAKEMACHINE_OPTS). The image recipe unpacks rootfs.tar straight into
 # the mounted image, so the other builds need little scratch space and use
-# fakemachine's memory-backed default.
+# fakemachine's memory-backed default. debos starts the fakemachine with 2 CPUs
+# by default, so give it all of the host's CPUs instead.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
+FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND) --cpus $(shell nproc)
 ROOTFS_FAKEMACHINE_OPTS ?= --scratchsize 12GiB
 
 EXTRA_DEBOS_OPTS ?=
