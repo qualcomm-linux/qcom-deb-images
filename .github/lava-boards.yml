@@ -10,6 +10,7 @@
 
 qcom-next:
   boot:
+    - eliza-cqs-evk-emmc
     - glymur-crd
     - qcs615-ride
     - qcs6490-rb3gen2
