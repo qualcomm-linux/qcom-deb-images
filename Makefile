@@ -7,11 +7,13 @@
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
 # The rootfs recipe builds the root filesystem in the scratch directory, so the
-# scratch space has to be larger than the biggest rootfs we build; the image
-# recipe unpacks rootfs.tar straight into the mounted image, so it needs little
-# scratch space.
+# rootfs build gets a scratch disk larger than the biggest rootfs we build
+# (ROOTFS_FAKEMACHINE_OPTS). The image recipe unpacks rootfs.tar straight into
+# the mounted image, so the other builds need little scratch space and use
+# fakemachine's memory-backed default.
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND) --scratchsize 12GiB
+FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
+ROOTFS_FAKEMACHINE_OPTS ?= --scratchsize 12GiB
 
 EXTRA_DEBOS_OPTS ?=
 DEBOS_OPTS := $(FAKEMACHINE_OPTS) $(EXTRA_DEBOS_OPTS)
@@ -58,7 +60,7 @@ export http_proxy
 all: disk-ufs.img disk-sdcard.img
 
 rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
-	$(DEBOS_CMD) $<
+	$(DEBOS_CMD) $(ROOTFS_FAKEMACHINE_OPTS) $<
 
 DISK_UFS_IMAGES := disk-ufs.img \
 	disk-ufs.img1 \
