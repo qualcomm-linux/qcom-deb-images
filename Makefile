@@ -12,7 +12,14 @@
 # the mounted image, so the other builds need little scratch space and use
 # fakemachine's memory-backed default. debos starts the fakemachine with 2 CPUs
 # by default, so give it all of the host's CPUs instead.
+# In GitHub Actions, the debos builds run on the arm64-metal runners, which have
+# /dev/kvm, so always use the kvm backend there: a runner without it then fails
+# loudly rather than silently falling back to emulation.
+ifdef GITHUB_ACTIONS
+FAKEMACHINE_BACKEND = kvm
+else
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
+endif
 FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND) --cpus $(shell nproc)
 ROOTFS_FAKEMACHINE_OPTS ?= --scratchsize 12GiB
 
