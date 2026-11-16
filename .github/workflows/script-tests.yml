@@ -1,0 +1,42 @@
+name: Unit tests of scripts
+
+on:
+  # run on pull requests to the main branch
+  pull_request:
+    branches: [main]
+  # run on pushes to the main branch
+  push:
+    branches: [main]
+
+# grant nothing by default; every job below declares the scopes it needs
+permissions: {}
+
+# cancel in progress builds for this workflow triggered by the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: Install and run pytest on the unit tests of the scripts
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      # python3-apt and python3-debian are needed by the tests of
+      #   scripts/compliance/syft-apt-origins.py and python3-apt by the tests of
+      #   scripts/compliance/kernel-cves.py
+      # python3-distro-info is needed by the tests of
+      #   scripts/compliance/grype-db-add-advisories.py and
+      #   scripts/compliance/kernel-cves.py
+      - name: Install pytest and dependencies
+        run: sudo apt -y install --update make python3-apt python3-debian python3-distro-info python3-pytest
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # --verbose shows each test's full name and result, which makes
+      # failures easier to diagnose
+      - name: Run the unit tests
+        run: make test-scripts PYTEST_OPTS=--verbose
