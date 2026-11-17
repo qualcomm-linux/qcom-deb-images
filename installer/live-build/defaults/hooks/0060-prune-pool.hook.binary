@@ -56,12 +56,10 @@ for f in pool/*/l/linux/*.deb pool/*/l/linux-signed-*/*.deb; do
     REMOVED+=("$f")
 done
 
-# shim and mokutil: lb installer adds them regardless of --uefi-secure-boot,
-# but the image isn't signed, so the ISO boots Debian's signed GRUB directly
-# and the target pins shim out (99disable-shim in the initrd overlay).
-for f in pool/*/s/shim*/*.deb pool/*/m/mokutil/*.deb; do
-    REMOVED+=("$f")
-done
+# shim and mokutil stay: lb installer adds them regardless of
+# --uefi-secure-boot, and grub-installer looks for shim-signed in the pool,
+# even though the ISO boots Debian's signed GRUB directly and the target
+# pins shim out (99disable-shim in the initrd overlay).
 
 # The speech synthesis udebs (espeakup, ~10 MB with its voices): the boot
 # menu has no speech synthesis entry (see 0110-grub-menu.hook.binary).

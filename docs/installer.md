@@ -192,8 +192,8 @@ base-installer installs the custom kernel and pkgsel the firmware,
 The image doesn't use shim, as there is a potential issue with it: on arm64,
 `live-build/bootloader/hooks/0099-grub-efi-install.hook.binary` installs
 Debian's signed GRUB directly as `EFI/boot/bootaa64.efi`, `build-installer.sh` passes
-`--uefi-secure-boot disable`, and `0060-prune-pool.hook.binary` drops shim
-and `mokutil` from the pool.
+`--uefi-secure-boot disable`. shim and `mokutil` stay in the pool, as
+grub-installer looks for `shim-signed` there.
 
 ## Boot menu
 
