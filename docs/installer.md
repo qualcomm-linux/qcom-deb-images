@@ -282,15 +282,8 @@ Packaging these files would make it unnecessary.
 The wrapped kernels are unsigned, so booting them likely needs Secure Boot
 disabled.
 
-shim is kept off the installed system too, for the same potential issue as
-on the image. grub-installer always tries to install `shim-signed` and has
-no preseed to skip it, so
-`live-build/bootloader/initrd/usr/lib/post-base-installer.d/99qli-no-shim`
-pins `shim-signed` and `shim-helpers-arm64-signed` to -1 in the target
-before GRUB is installed, in `/etc/apt/preferences.d/qli-no-shim.pref`. That
-install then fails, which grub-installer ignores, and the system boots
-Debian's signed GRUB directly. The pin stays, so upgrades don't install shim
-either.
+The installed system boots via shim, as on a stock Debian install:
+grub-installer installs `shim-signed` from the pool along with GRUB.
 
 ## ThinkPad T14s Gen 6
 

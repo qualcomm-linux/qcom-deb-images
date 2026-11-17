@@ -249,8 +249,6 @@ overlay bootloader/hooks/0099-grub-efi-install.hook.binary \
     config/hooks/normal/0099-grub-efi-install.hook.binary
 overlay bootloader/hooks/0110-grub-menu.hook.binary \
     config/hooks/normal/0110-grub-menu.hook.binary
-overlay bootloader/initrd/usr/lib/post-base-installer.d/99disable-shim \
-    initrd-overlay/usr/lib/post-base-installer.d/99disable-shim
 
 # The ADSP reset, in the installer and on the target.
 overlay qcom-adsp/qcom-adsp.postinst.sh \
