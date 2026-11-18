@@ -138,6 +138,32 @@ actions:
     "dtb_bin_type" "multidtb"
 )}}
 {{- /*
+    Mahua QCB shares Mahua CRD's qcom-ptool platform and boot binaries;
+    they differ in CDT and DTB.
+*/}}
+{{- $boards = append $boards (dict
+    "name" "mahua-qcb"
+    "soc_id" "mahua"
+    "ptool_platforms" (list "glymur-crd/nvme" "glymur-crd/spinor")
+    "boot_binaries_download" (dict
+        "description" "Mahua boot binaries"
+        "url" "https://softwarecenter.qualcomm.com/nexus/generic/product/chip/tech-package/Glymur_bootbinaries.1.0/glymur_bootbinaries.1.0-test-device-public/00093/Glymur_bootbinaries.zip"
+        "name" "mahua_boot-binaries"
+        "filename" "mahua_boot-binaries.zip"
+        "sha256sum" "2477f98d66023a4cd59e7b8cca53dae1c8d2383979534e66348183f40b29d775"
+    )
+    "cdt_download" (dict
+        "description" "Mahua QCB CDT"
+        "url" "https://artifacts.codelinaro.org/artifactory/codelinaro-le/Qualcomm_Linux/SC8440XP/cdt/sc8440xp-qcb.zip"
+        "name" "mahua-qcb_cdt"
+        "filename" "mahua-qcb_cdt.zip"
+        "sha256sum" "4dbcdcc557b6760fea7f816aef6029a72ccae0694503746aa8a1f68d0af80ccb"
+    )
+    "cdt_filename" "QCB/MAHUA_QCB_0.1.0.bin"
+    "dtb" "qcom/mahua-qcb.dtb"
+    "dtb_bin_type" "multidtb"
+)}}
+{{- /*
     IQ-X7181 and IQ-X5121 EVKs (hamoa / purwa SoCs) share the same qcom-ptool
     platform (iq-x7181-evk), boot binaries and CDT; they differ only in soc_id
     and DTB.
