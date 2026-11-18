@@ -17,3 +17,5 @@ updates:
     # Dependabot can't update, so bump it by hand (see #655)
     ignore:
       - dependency-name: "qualcomm-linux/lava-test-plans"
+    commit-message:
+      prefix: "deps"
