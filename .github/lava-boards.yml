@@ -40,7 +40,6 @@ linux-next:
 
 debian:
   boot:
-    - lemans-evk
     - qcs615-ride
     - qcs6490-rb3gen2
 
