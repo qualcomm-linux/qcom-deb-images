@@ -57,6 +57,13 @@ on:
         required: false
         type: string
         default: ''
+      premerge:
+        description: >
+          Run the pre-merge tests on the boards that booted. Set it to false
+          to run the boot test only.
+        required: false
+        type: boolean
+        default: true
     outputs:
       summary_id:
         description: ID of the test summary artifact
@@ -151,6 +158,7 @@ jobs:
       known_failures_file: ${{ needs.select-boards.outputs.known_failures_file }}
       pr_number: ${{ inputs.pr_number }}
       pr_url: ${{ inputs.pr_url }}
+      premerge: ${{ inputs.premerge }}
 
   prepare-test-results:
     name: Prepare test results (${{ inputs.kernel }} ${{ inputs.suite }})
