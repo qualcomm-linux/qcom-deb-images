@@ -7,8 +7,17 @@
 #   qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35226840721-1/
 #   linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35100000000-1/
 #
-# Leave it with no entry, as committed, and the qcom-next images are built and
-# tested as they are on main.
+# Leave it with no entry and the qcom-next images are built and tested as they
+# are on main.
+#
+# The builds below are the latest of each daily workflow whose debos jobs all
+# succeeded, as of 2026-11-20. Several of those runs are still red: it is their
+# LAVA half that failed, not the images these URLs point at.
+qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44615698834-1/
+arduino     https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44650552042-1/
+linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44678662967-1/
+debian      https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44692446790-1/
+mainline    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44493220277-1/
 #
 # A URL is the artifact prefix of a previous run, which holds the images of
 # every suite. Take it from the "Downloads URL" line of that run's debos job, or
