@@ -31,11 +31,18 @@ qcom-next:
   #
   # shikra-iqs-evk is left out: it reached no login prompt on any boot
   boot:
+    - eliza-cqs-evk-emmc
     - glymur-crd
+    - hamoa-iot-evk
+    - kaanapali-mtp
+    - mahua-crd
+    - purwa-iot-evk
     - qcs615-ride
     - qcs6490-rb3gen2
     - qcs8300-ride
+    - qcs9100-ride-r3
     - qrb2210-rb1
+    - sm8750-mtp
 
 qcom-7.3:
   # the nightly qcom-7.3 build tests one board; see linux-qcom-7.3.yml
