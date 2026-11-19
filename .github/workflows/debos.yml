@@ -187,7 +187,13 @@ jobs:
               ;;
           esac
 
+          # on runners with /dev/kvm, debos picks the kvm backend, whose
+          # defaults keep the scratch area in memory; installing the
+          # rootfs then gets the fakemachine killed, so use the same
+          # resources as the Makefile
           debos \
+              --memory 1GiB \
+              --scratchsize 12GiB \
               -t aptlocalrepo:${PWD}/local-apt-repo \
               -t "buildid:${BUILD_ID}" \
               -t extract_dbg_vmlinux:true \
