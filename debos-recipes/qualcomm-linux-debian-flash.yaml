@@ -485,7 +485,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-rb1"
     "soc_id" "qcm2290"
-    "ptool_platforms" (list "qrb2210-rb1/emmc")
+    "ptool_platforms" (list "qrb2210-rb1-abl/emmc")
     "boot_binaries_download" (dict
         "description" "RB1 rescue image"
         "url" "https://artifacts.codelinaro.org/artifactory/clo-549-96boards-backup/96boards/rb1/linaro/rescue/23.12/rb1-bootloader-emmc-linux-47528.zip"
@@ -500,7 +500,7 @@ actions:
 {{- $boards = append $boards (dict
     "name" "qrb2210-arduino-imola"
     "soc_id" "qcm2290"
-    "ptool_platforms" (list "qrb2210-unoq/emmc")
+    "ptool_platforms" (list "qrb2210-unoq-abl/emmc")
     "boot_binaries_download" (dict
         "description" "UNO Q boot binaries"
         "url" "https://downloads.arduino.cc/debian-im/unoq-bootloader-emmc-linux-251020.zip"
