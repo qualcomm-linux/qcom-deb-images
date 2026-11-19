@@ -876,6 +876,14 @@ actions:
           -cvzf "$ARTIFACTDIR/dtbs.tar.gz" \
           .
 
+  # mmdebstrap leaves an "# UNCONFIGURED FSTAB FOR BASE SYSTEM" placeholder;
+  # the image recipe generates the real /etc/fstab for the partition layout
+  # it creates, so don't ship the placeholder in the rootfs
+  - action: run
+    description: Remove placeholder fstab
+    chroot: false
+    command: rm -fv "$ROOTDIR/etc/fstab"
+
   - action: pack
     description: Create root filesystem tarball
     file: rootfs.tar

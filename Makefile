@@ -6,14 +6,25 @@
 
 # To build large images, the debos resource defaults are not sufficient. These
 # provide defaults that work for us as universally as we can manage.
-# The image recipe unpacks rootfs.tar into the scratch directory before copying
-# it into the filesystem image, so the scratch space has to be larger than the
-# biggest imagesize we build.
+# The rootfs recipe builds the root filesystem in the scratch directory, so the
+# rootfs build gets a scratch disk larger than the biggest rootfs we build
+# (ROOTFS_FAKEMACHINE_OPTS). The image recipe unpacks rootfs.tar straight into
+# the mounted image, so the other builds need little scratch space and use
+# fakemachine's memory-backed default. debos starts the fakemachine with 2 CPUs
+# by default, so give it all of the host's CPUs instead.
+# In GitHub Actions, the debos builds run on the arm64-metal runners, which have
+# /dev/kvm, so always use the kvm backend there: a runner without it then fails
+# loudly rather than silently falling back to emulation.
+ifdef GITHUB_ACTIONS
+FAKEMACHINE_BACKEND = kvm
+else
 FAKEMACHINE_BACKEND = $(shell [ -c /dev/kvm ] && echo kvm || echo qemu)
-FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND)
+endif
+FAKEMACHINE_OPTS ?= --fakemachine-backend $(FAKEMACHINE_BACKEND) --cpus $(shell nproc)
+ROOTFS_FAKEMACHINE_OPTS ?= --scratchsize 12GiB
 
 EXTRA_DEBOS_OPTS ?=
-DEBOS_OPTS := $(FAKEMACHINE_OPTS) --memory 1GiB --scratchsize 12GiB $(EXTRA_DEBOS_OPTS)
+DEBOS_OPTS := $(FAKEMACHINE_OPTS) $(EXTRA_DEBOS_OPTS)
 
 # Container support: auto-detect if debos is available, otherwise use container
 USE_CONTAINER ?= auto
@@ -57,7 +68,7 @@ export http_proxy
 all: disk-ufs.img disk-sdcard.img
 
 rootfs.tar dtbs.tar.gz: debos-recipes/qualcomm-linux-debian-rootfs.yaml
-	$(DEBOS_CMD) $<
+	$(DEBOS_CMD) $(ROOTFS_FAKEMACHINE_OPTS) $<
 
 DISK_UFS_IMAGES := disk-ufs.img \
 	disk-ufs.img1 \
@@ -77,10 +88,27 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
+# PYTEST_OPTS can be used to pass extra options to pytest, e.g.:
+#     make PYTEST_OPTS=--verbose test
+PYTEST_OPTS ?=
+
+# boot the disk images in QEMU and test them; test-ufs and test-sdcard only
+# test one image each
 .PHONY: test
-test: disk-ufs.img
-	# rootfs/ is a build artifact, so should not be scanned for tests
-	py.test-3 --ignore=rootfs
+test: test-ufs test-sdcard
+
+.PHONY: test-ufs
+test-ufs: disk-ufs.img
+	py.test-3 $(PYTEST_OPTS) -k ufs ci/qemu_test.py
+
+.PHONY: test-sdcard
+test-sdcard: disk-sdcard.img
+	py.test-3 $(PYTEST_OPTS) -k sdcard ci/qemu_test.py
+
+# unit tests of the scripts; these don't need an image
+.PHONY: test-scripts
+test-scripts:
+	py.test-3 $(PYTEST_OPTS) --ignore=ci/qemu_test.py ci/
 
 .PHONY: clean
 clean:

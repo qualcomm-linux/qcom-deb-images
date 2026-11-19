@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -13,10 +14,30 @@ import pexpect
 import pytest
 
 
-@pytest.fixture
-def vm():
+def accel_args():
+    """QEMU arguments to use KVM on an arm64 host where /dev/kvm is usable,
+    such as the arm64-metal CI runners, and to emulate the oldest supported
+    CPU otherwise"""
+    if (platform.machine() == "aarch64"
+            and os.access("/dev/kvm", os.R_OK | os.W_OK)):
+        return ["-accel", "kvm", "-cpu", "host"]
+    return ["-cpu", "cortex-a57"]
+
+
+# The disk images to boot, with the sector size of the storage they are made
+# for; the test ids, e.g. test_password_reset_required[sdcard], allow running
+# the tests of a single image with "pytest -k sdcard"
+DISK_IMAGES = {
+    "ufs": ("disk-ufs.img", 4096),
+    "sdcard": ("disk-sdcard.img", 512),
+}
+
+
+@pytest.fixture(params=DISK_IMAGES.keys())
+def vm(request):
     """A pexpect.spawn object attached to the serial console of a VM freshly
-    booting with a CoW base of disk-ufs.img"""
+    booting with a CoW base of each of the disk images"""
+    image, sector_size = DISK_IMAGES[request.param]
     with tempfile.TemporaryDirectory() as tmpdir:
         qcow_path = os.path.join(tmpdir, "disk1.qcow")
         subprocess.run(
@@ -24,7 +45,7 @@ def vm():
                 "qemu-img",
                 "create",
                 "-b",
-                os.path.join(os.getcwd(), "disk-ufs.img"),
+                os.path.join(os.getcwd(), image),
                 "-f",
                 "qcow",
                 "-F",
@@ -35,9 +56,7 @@ def vm():
         )
         child = pexpect.spawn(
             "qemu-system-aarch64",
-            [
-                "-cpu",
-                "cortex-a57",
+            accel_args() + [
                 "-smp",
                 "2",
                 "-m",
@@ -49,7 +68,9 @@ def vm():
                 "-device",
                 "virtio-scsi-pci,id=scsi1",
                 "-device",
-                "scsi-hd,bus=scsi1.0,drive=disk1,physical_block_size=4096,logical_block_size=4096",
+                f"scsi-hd,bus=scsi1.0,drive=disk1,"
+                f"physical_block_size={sector_size},"
+                f"logical_block_size={sector_size}",
                 "-nographic",
                 "-bios",
                 "/usr/share/AAVMF/AAVMF_CODE.fd",

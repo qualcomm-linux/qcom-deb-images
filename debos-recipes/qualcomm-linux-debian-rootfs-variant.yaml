@@ -225,9 +225,11 @@ actions:
       - gcc
       - dkms
 
-  # CI does not use fakemachine. Limit DKMS build parallelism when
-  # running under fakemachine, where the default 1GB memory can be exhausted
-  # by multiple compiler jobs running in parallel.
+  # Limit DKMS build parallelism when running under fakemachine, where the
+  # default memory can be exhausted by multiple compiler jobs running in
+  # parallel. Allow one job per 2GiB of the VM's memory, capped at its CPU
+  # count, so builds given more memory (e.g. with --memory) still build in
+  # parallel.
   # $IN_FAKE_MACHINE is only set when not running in chroot.
   - action: run
     description: Configure DKMS for low-memory fakemachine builds
@@ -235,8 +237,12 @@ actions:
     command: |
       set -eux
       if [ "${IN_FAKE_MACHINE:-}" = "yes" ]; then
+        mem_kib="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)"
+        jobs="$((mem_kib / (2 * 1024 * 1024)))"
+        [ "${jobs}" -ge 1 ] || jobs=1
+        [ "${jobs}" -le "$(nproc)" ] || jobs="$(nproc)"
         mkdir -p "${ROOTDIR}/etc/dkms/framework.conf.d"
-        echo "parallel_jobs=1" > "${ROOTDIR}/etc/dkms/framework.conf.d/fakemachine.conf"
+        echo "parallel_jobs=${jobs}" > "${ROOTDIR}/etc/dkms/framework.conf.d/fakemachine.conf"
       fi
 
   - action: apt

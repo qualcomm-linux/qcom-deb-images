@@ -61,11 +61,16 @@ on:
 permissions: {}
 
 env:
-  # image build id; used for SBOM generation
-  BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
   KERNEL_PACKAGES: ${{ inputs.kernelpackages }}
   OVERLAYS: ${{ inputs.overlays }}
-  DEBOS_EXTRA_ARGS: >-
+  # options common to all of the debos builds; the Makefile picks these up from
+  # the environment, and the steps append their own options to them
+  #
+  # the build id is recorded in the rootfs and used by the SBOMs and the flash
+  # recipe
+  EXTRA_DEBOS_OPTS: >-
+    --print-recipe
+    -t buildid:${{ github.run_id }}-${{ github.run_attempt }}
     -t suite:${{ inputs.suite }}
     -t profile:${{ inputs.profile }}
     -t variant:${{ inputs.variant || 'console' }}
@@ -90,9 +95,9 @@ jobs:
       contents: read # actions/checkout
     outputs:
       url: ${{ steps.upload_artifacts_s3.outputs.url }}
-    runs-on: [self-hosted, qcom-u2404, arm64]
+    runs-on: [self-hosted, qcom-u2404, arm64-metal]
     container:
-      image: public.ecr.aws/debian/debian:trixie
+      image: public.ecr.aws/debian/debian:${{ inputs.suite }}
       volumes:
         - /efsx/qli/qcom-deb-images:/efs
       options: --privileged
@@ -115,21 +120,23 @@ jobs:
 
       # mtools is needed for the flash recipe
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
-      # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
       # python3-apt and python3-debian are needed by
-      #   scripts/compliance/syft-apt-origins.py and python3-apt by the tests of
-      #   scripts/compliance/kernel-cves.py
-      # python3-distro-info is needed by the tests of
-      #   scripts/compliance/grype-db-add-advisories.py and
-      #   scripts/compliance/kernel-cves.py
+      #   scripts/compliance/syft-apt-origins.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml python3-yaml python3-jsonschema device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml python3-yaml python3-jsonschema device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian systemd-resolved
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
       - name: Install Syft
         id: syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      # the image recipe runs syft inside the fakemachine, which shares /usr
+      # with the host, so install it in the PATH under /usr
+      - name: Install Syft in /usr/local/bin
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: install -v -m 755 "$SYFT" /usr/local/bin/syft
 
       - name: Setup local APT repo
         run: |
@@ -169,6 +176,7 @@ jobs:
           )
 
       - name: Build rootfs with debos
+        timeout-minutes: 30
         run: |
           set -ux
           kernel_packages="$KERNEL_PACKAGES"
@@ -187,95 +195,64 @@ jobs:
               ;;
           esac
 
-          # on runners with /dev/kvm, debos picks the kvm backend, whose
-          # defaults keep the scratch area in memory; installing the
-          # rootfs then gets the fakemachine killed, so use the same
-          # resources as the Makefile
-          debos \
-              --memory 1GiB \
-              --scratchsize 12GiB \
-              -t aptlocalrepo:${PWD}/local-apt-repo \
-              -t "buildid:${BUILD_ID}" \
-              -t extract_dbg_vmlinux:true \
-              -t kernelpackages:"$kernel_packages" \
-              -t "overlays:$OVERLAYS" \
-              ${DEBOS_EXTRA_ARGS} \
-              --print-recipe \
-              debos-recipes/qualcomm-linux-debian-rootfs.yaml
+          # make passes the options through the shell again, so the option
+          # values must not contain spaces
+          debos_opts="${EXTRA_DEBOS_OPTS}"
+          debos_opts="${debos_opts} -t aptlocalrepo:${PWD}/local-apt-repo"
+          debos_opts="${debos_opts} -t extract_dbg_vmlinux:true"
+          debos_opts="${debos_opts} -t kernelpackages:${kernel_packages}"
+          debos_opts="${debos_opts} -t overlays:${OVERLAYS}"
+          # give the rootfs build 16GiB of memory, so the DKMS modules of the
+          # multimedia variant build with several parallel jobs
+          make rootfs.tar \
+              ROOTFS_FAKEMACHINE_OPTS="--scratchsize 12GiB --memory 16GiB" \
+              EXTRA_DEBOS_OPTS="${debos_opts}"
 
       - name: Build UFS image with debos
+        timeout-minutes: 30
         run: |
           set -ux
-          # debos tries KVM and UML as backends, and falls back to
-          # building directly on the host, but that requires loop
-          # devices; use qemu backend explicitly even if it's slower;
-          # qemu backend also requires to set scratchsize, otherwise the
-          # whole build is done from memory and the out of memory killer
-          # gets triggered
-          make disk-ufs.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          # only generate the SBOMs for the UFS image; the SD card image only
+          # differs in sector size, so its contents are the same
+          make disk-ufs.img EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t sbom:true"
+
+      # run the QEMU tests as soon as the UFS image is built, so that a
+      # failure shows early; keep going on failure so the other images are
+      # still built and the artifacts uploaded for debugging, and fail the job
+      # at the end instead
+      - name: Test UFS image in QEMU
+        id: qemu_tests_ufs
+        if: ${{ !inputs.skip_qemu_tests }}
+        continue-on-error: true
+        run: |
+           # only run the QEMU tests here; the unit tests of the scripts run
+           # in script-tests.yml
+           # -o disk-ufs.img tells make to never rebuild the image tested
+           # --verbose enables verbose output which shows each test's full name
+           #   and full result which makes CI failures much easier to diagnose
+           # --capture=no so pytest doesn't swallow stdout and only prints it
+           #   after a job fails. Instead, stream the log live.
+           make -o disk-ufs.img test-ufs PYTEST_OPTS="--verbose --capture=no"
 
       - name: Build SD card image with debos
+        timeout-minutes: 30
         run: |
           set -ux
-          # use qemu backend explicitly; see the UFS image step above
-          make disk-sdcard.img FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="--print-recipe ${DEBOS_EXTRA_ARGS}"
+          make disk-sdcard.img
+
+      # same as for the UFS image above
+      - name: Test SD card image in QEMU
+        id: qemu_tests_sdcard
+        if: ${{ !inputs.skip_qemu_tests }}
+        continue-on-error: true
+        run: |
+           make -o disk-sdcard.img test-sdcard PYTEST_OPTS="--verbose --capture=no"
 
       - name: Build flashable files with debos
+        timeout-minutes: 30
         run: |
           set -ux
-          make flash FAKEMACHINE_OPTS="-b qemu" EXTRA_DEBOS_OPTS="-t u_boot_rb1:rb1-boot.img -t buildid:${BUILD_ID} --print-recipe ${DEBOS_EXTRA_ARGS}"
-
-      # only generate the SBOM for the UFS image; the SD card image only
-      # differs in sector size, so its contents are the same
-      - name: Generate SBOMs with Syft (from the UFS image)
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
-        run: |
-          set -ux
-
-          # running syft inside the fakemachine is too slow with the qemu
-          # backend, so extract the partition images to a temporary directory.
-          # mounting the image would require a loop device.
-          # the ESP is not scanned by syft; but extract it anyway so the scanned
-          # tree matches the image.
-          mkdir -v rootfs
-          debugfs_err="$(debugfs -R "rdump / rootfs" disk-ufs.img2 2>&1 >/dev/null)"
-          echo "$debugfs_err" >&2
-          # debugfs exits 0 even when the command fails, so fail on anything
-          # other than its version banner on stderr
-          if echo "$debugfs_err" | grep -qv '^debugfs [0-9]'; then
-              exit 1
-          fi
-          mkdir -pv rootfs/boot/efi
-          mcopy -s -p -m -i disk-ufs.img1 '::/*' rootfs/boot/efi/
-
-          # check the extraction worked
-          test -s rootfs/var/lib/dpkg/status
-
-          # run syft to generate the sbom
-          "$SYFT" --version
-          SYFT_FORMAT_PRETTY=true "$SYFT" \
-              -o cyclonedx-json=rootfs-sbom.cyclonedx.json \
-              -o spdx-json=rootfs-sbom.spdx.json \
-              -o syft-json=rootfs-sbom.syft.json \
-              -o syft-text=rootfs-sbom.syft.txt \
-              -o syft-table \
-              --parallelism "$(nproc)" \
-              --select-catalogers debian \
-              --source-name qualcomm-linux-debian-rootfs \
-              --source-version "${BUILD_ID}" \
-              -v \
-              scan rootfs
-
-          # list the APT archives of each package, which dpkg doesn't record
-          # and hence aren't in the SBOMs, from the APT lists of the rootfs;
-          # fail rather than ship a broken list, which consumers rely on
-          scripts/compliance/syft-apt-origins.py rootfs-sbom.syft.json rootfs \
-              >syft-apt-origins.json.tmp || exit 1
-          mv syft-apt-origins.json.tmp rootfs-sbom.syft-apt-origins.json
-
-          # remove the temporary rootfs
-          rm -rf rootfs
+          make flash EXTRA_DEBOS_OPTS="${EXTRA_DEBOS_OPTS} -t u_boot_rb1:rb1-boot.img"
 
       - name: Generate license summary from Syft report
         run: |
@@ -316,7 +293,7 @@ jobs:
         id: upload_artifacts_s3
         with:
           path: debos-artifacts
-          # these should be the defaults; or ought to reuse BUILD_ID
+          # these should be the defaults; or ought to reuse the build id
           s3_bucket: qcom-prd-gh-artifacts
           destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
@@ -348,17 +325,19 @@ jobs:
         with:
           name: build_url
           path: build_url
-      - name: Invoke test runner
-        if: ${{ !inputs.skip_qemu_tests }}
-        run: |
-           # This is currently a clone of Makefile's "test" target to avoid any
-           # unexpected interactions with triggering depending build targets.
-           # The plan is to move this entire workflow to use make targets
-           # instead but all at once. See #74 and #159.
 
-           # rootfs/ is a build artifact, so should not be scanned for tests
-           # --verbose enables verbose output which shows each test's full name
-           #   and full result which makes CI failures much easier to diagnose
-           # --capture=no so pytest doesn't swallow stdout and only prints it
-           #   after a job fails. Instead, stream the log live.
-           py.test-3 --verbose --capture=no --ignore=rootfs
+      # fail the job if the QEMU tests failed, now that the artifacts are
+      # uploaded
+      - name: Check the QEMU test results
+        if: ${{ steps.qemu_tests_ufs.outcome == 'failure' || steps.qemu_tests_sdcard.outcome == 'failure' }}
+        env:
+          ufs_outcome: ${{ steps.qemu_tests_ufs.outcome }}
+          sdcard_outcome: ${{ steps.qemu_tests_sdcard.outcome }}
+        run: |
+          if [ "$ufs_outcome" = failure ]; then
+              echo "ERROR: the QEMU tests of the UFS image failed; see the \"Test UFS image in QEMU\" step" >&2
+          fi
+          if [ "$sdcard_outcome" = failure ]; then
+              echo "ERROR: the QEMU tests of the SD card image failed; see the \"Test SD card image in QEMU\" step" >&2
+          fi
+          exit 1
