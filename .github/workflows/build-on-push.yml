@@ -2,7 +2,11 @@ name: Build on push to branch
 
 on:
   push:
-    branches: [main]
+    # wip/obbardc/ci-testing is where CI changes are tried before they go to
+    # main. Nothing else runs there: the daily builds and the workflow_run
+    # chains are all bound to main, so without this the branch builds and tests
+    # nothing. Never merge this to main.
+    branches: [main, wip/obbardc/ci-testing]
 
 # grant nothing by default; every job below declares the scopes it needs
 permissions: {}
