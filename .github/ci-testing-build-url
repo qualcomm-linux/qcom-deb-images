@@ -19,12 +19,16 @@
 #
 # The builds below are the latest of each daily workflow whose debos jobs all
 # succeeded, as of 2026-11-20. Several of those runs are still red: it is their
-# LAVA half that failed, not the images these URLs point at.
+# LAVA half that failed, not the images these URLs point at. qcom-7.3 and
+# qcom-laptops are tested on the one suite and variant their daily workflows
+# test.
 qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44615698834-1/
 arduino     https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44650552042-1/
 linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44678662967-1/
 debian      https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44692446790-1/
 mainline    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44493220277-1/
+qcom-7.3    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44633958439-1/ trixie xfce
+qcom-laptops https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/44665286904-1/ forky gnome
 #
 # A URL is the artifact prefix of a previous run, which holds the images of
 # every suite. Take it from the "Downloads URL" line of that run's debos job, or
