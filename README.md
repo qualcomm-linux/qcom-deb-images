@@ -169,7 +169,8 @@ A few options are provided in the debos recipes; for the root filesystem recipe:
   10 second warning) and mapped onto the equivalent `variant` value. Setting
   any of these together with `variant`, or combining them in a way that
   doesn't correspond to a supported variant (e.g. two desktops at once, or
-  `multimedia` without `westonsession`), fails at render time.
+  `multimedia` without `westonsession` or `gnomedesktop`), fails at render
+  time.
 - `overlays`: a `,`-separated list of rootfs overlays to add from
   `debos-recipes/overlays/`. See the *Supported overlays* section below.
 - `kernelpackages`: a `,`-separated list of kernel packages to install from
@@ -200,7 +201,7 @@ For the image recipe:
 - `imagetype`: either `ufs` (the default) or `sdcard`; UFS images are named
   disk-ufs.img and use 4096-byte sectors and SD card images are named
   disk-sdcard.img and use 512-byte sectors
-- `imagesize`: set the output disk image size; default: `8GiB`
+- `imagesize`: set the output disk image size; default: `10GiB`
 - `profile`: select the intended runtime configuration of the image; defaults to
   `default`; recorded in `/etc/buildinfo` as `PROFILE=<profile>` when it is not
   `default`. See the *Supported profiles* section below.
@@ -343,6 +344,8 @@ build on any other name:
 - `console`: the default; no graphical environment is installed.
 - `xfce`: an Xfce desktop environment.
 - `gnome`: a GNOME desktop environment.
+- `gnome-multimedia`: `gnome` plus the Qualcomm accelerated multimedia stack,
+  as in `weston-multimedia`.
 - `weston`: a Weston (Wayland) session, using greetd/agreety to log in and
   start Weston.
 - `weston-multimedia`: `weston` plus the Qualcomm accelerated multimedia
@@ -359,7 +362,7 @@ publishes its artifacts without a variant suffix, e.g.
 variant name, e.g. `trixie-weston-multimedia-disk-ufs.img.gz`. The Xfce image,
 previously published without a suffix, is now `trixie-xfce-disk-ufs.img.gz`.
 
-`build.yml` builds the `minimal`, `console`, `xfce`, `gnome` and
+`build.yml` builds the `minimal`, `console`, `gnome`, `gnome-multimedia` and
 `weston-multimedia` variants (`minimal` for `trixie` and `forky` only), but
 for now only `console` is LAVA-tested, to avoid multiplying the LAVA jobs the
 workflow submits.
