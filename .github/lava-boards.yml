@@ -44,4 +44,3 @@ mainline:
   boot:
     - glymur-crd
     - qcs6490-rb3gen2
-    - qrb2210-rb1
