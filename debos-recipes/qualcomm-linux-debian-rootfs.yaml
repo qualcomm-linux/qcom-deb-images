@@ -427,6 +427,18 @@ actions:
       - wpasupplicant
 
   - action: run
+    description: Use the upstream-signed regulatory database
+    chroot: true
+    command: |
+      set -eux
+      # wireless-regdb defaults to a copy signed by Debian, which only Debian
+      # kernels trust; the other kernel flavours reject it and WiFi falls
+      # back to the world regulatory domain. The upstream copy is trusted by
+      # every kernel, see /usr/share/doc/wireless-regdb/README.Debian
+      update-alternatives --set regulatory.db \
+          /lib/firmware/regulatory.db-upstream
+
+  - action: run
     description: Set hostname to "debian"
     chroot: true
     command: |
