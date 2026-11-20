@@ -1,11 +1,18 @@
 # TEMPORARY, together with the ci-testing entry in build-on-push.yml.
 #
-# One "<kernel> <url>" per line. Each named kernel is tested against the build
-# at that URL, for every suite, and nothing is rebuilt. The kernel has to be one
-# of the keys of .github/lava-boards.yml, which is what decides the boards:
+# One "<kernel> <url> [<suites>] [<variant>]" per line. Each named kernel is
+# tested against the build at that URL and nothing is rebuilt. The kernel has to
+# be one of the keys of .github/lava-boards.yml, which is what decides the
+# boards:
 #
 #   qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35226840721-1/
 #   linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35100000000-1/
+#   qcom-7.3    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/35300000000-1/ trixie xfce
+#
+# <suites> is a comma-separated list of the suites to test, trixie and forky
+# when left out; name it for a build that has images for only some of them.
+# <variant> is the image variant to test (e.g. xfce), the console images when
+# left out; giving one means giving <suites> as well.
 #
 # Leave it with no entry and the qcom-next images are built and tested as they
 # are on main.
