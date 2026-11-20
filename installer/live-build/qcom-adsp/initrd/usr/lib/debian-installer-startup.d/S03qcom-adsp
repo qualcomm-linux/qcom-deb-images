@@ -1,0 +1,64 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# d-i equivalent of the qcom-adsp initramfs-tools init-top script (see
+# debos-recipes/overlays/qcom-adsp/etc/initramfs-tools/): reset the ADSP early,
+# on Qualcomm laptops where it hosts the Type-C Port Manager. The reset
+# re-enumerates every device on the Type-C bus, so do it before the
+# installer looks for its install media.
+#
+# d-i starts udev in /sbin/init, before these startup scripts run, so the
+# driver is blacklisted in modprobe.d/qcom-adsp.conf to keep udev from
+# autoloading it, and is loaded here by name. The blacklist applies on every
+# platform, so load it everywhere: it also drives the other remoteprocs,
+# such as Glymur's SoCCP, which hosts pmic_glink and so the Type-C ports.
+#
+# Unlike in the initramfs, udev has already found the install media by now,
+# and it drops off with the reset. remoteproc boots the ADSP asynchronously,
+# so udevadm settle alone returns before the ADSP is up and the Type-C ports
+# come back, and cdrom-detect would then find no media. Wait for both.
+
+# Platforms where the ADSP gates the Type-C bus.
+adsp_compatibles='qcom,sc8280xp-adsp-pas|qcom,x1e80100-adsp-pas'
+
+if ! grep -q -E "${adsp_compatibles}" \
+	/sys/bus/platform/devices/*.remoteproc/modalias 2>/dev/null; then
+	modprobe qcom_q6v5_pas || true
+	exit 0
+fi
+
+# Whether a USB disk (which may be the install media) is there to come back.
+had_usb_disk=
+for disk in /sys/block/sd*; do
+	[ -e "${disk}" ] && had_usb_disk=1
+done
+
+modprobe qcom_q6v5_pas || true
+
+# Wait up to 30s for the ADSP to boot.
+tries=0
+while [ "${tries}" -lt 30 ]; do
+	running=
+	for rproc in /sys/class/remoteproc/remoteproc*; do
+		grep -q -E "${adsp_compatibles}" "${rproc}/device/modalias" \
+			2>/dev/null || continue
+		[ "$(cat "${rproc}/state" 2>/dev/null)" = running ] && running=1
+	done
+	[ -n "${running}" ] && break
+	sleep 1
+	tries=$((tries + 1))
+done
+
+# Then up to 20s for a USB disk to come back, if there was one.
+tries=0
+while [ -n "${had_usb_disk}" ] && [ "${tries}" -lt 20 ]; do
+	for disk in /sys/block/sd*; do
+		[ -e "${disk}" ] && break 2
+	done
+	sleep 1
+	tries=$((tries + 1))
+done
+
+# Let the devices that came back settle.
+udevadm settle || true

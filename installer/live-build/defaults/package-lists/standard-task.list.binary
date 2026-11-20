@@ -1,0 +1,5 @@
+# tasksel's "standard system utilities" task (every package of Priority:
+# standard) for the ISO's pool, so pkgsel installs all of it offline (see
+# installer-pool.list.binary). A separate list as lb runs "!" lines even
+# inside an #if that doesn't match.
+! grep-aptavail -n -s Package -F Priority -X standard

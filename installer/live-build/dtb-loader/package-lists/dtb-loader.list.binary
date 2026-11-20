@@ -1,0 +1,12 @@
+# The target builds a Stubble image per kernel, as the laptops' firmware
+# provides no DTB: see dtb-loader.postinst.sh. Its kernel hook prefers
+# systemd-boot-efi's systemd-stub to Stubble's own stub, so install that
+# too. live-build adds their dependencies to the pool, and build-installer.sh
+# reads this list for pkgsel to install them on the target. On trixie, stubble is only in trixie-backports (lb
+# config --backports true in build-installer.sh). The 0100-dtb-loader binary hook
+# also takes the AArch64 stubs from them.
+#
+#if DEBIAN_INSTALLER cdrom
+stubble
+systemd-boot-efi
+#endif

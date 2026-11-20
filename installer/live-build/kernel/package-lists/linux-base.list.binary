@@ -1,0 +1,8 @@
+# base-installer installs the kernel from the pool before apt-setup adds
+# backports on the target, so the pool needs anything newer the kernel
+# depends on. On trixie that's linux-base from trixie-backports (lb config
+# --backports true in build-installer.sh), which archives/linux-base.pref.chroot pins.
+#
+#if DEBIAN_INSTALLER cdrom
+linux-base
+#endif

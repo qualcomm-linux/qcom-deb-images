@@ -1,0 +1,72 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+PREREQ=""
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+# get pre-requisites
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# On Qualcomm sc8280xp and x1e80100 the ADSP also runs the Type-C port
+# manager, so qcom_q6v5_pas must be loaded from the initramfs before
+# the root device is mounted (see scripts/init-top/qcom-adsp).
+#
+# This carries the following initramfs-tools merge request; drop it
+# once initramfs-tools in Debian includes that change:
+# https://salsa.debian.org/kernel-team/initramfs-tools/-/merge_requests/204
+
+case "${DPKG_ARCH}" in
+arm64)
+	;;
+*)
+	exit 0
+	;;
+esac
+
+# Harmless: hook-functions is installed by initramfs-tools on the target,
+# so shellcheck cannot follow it from the repository.
+# TODO: drop this suppression before upstreaming.
+# shellcheck source=/dev/null
+. /usr/share/initramfs-tools/hook-functions
+
+# MODULES=dep is not handled here because this integration always uses
+# MODULES=most. The upstream merge request handles other MODULES
+# settings and integrates this logic into the package scripts/functions.
+# This hook extracts that functionality into a standalone script to
+# avoid modifying initramfs-tools internals.
+
+# If the driver is built-in this does nothing, but continue: a built-in
+# driver probes while the initramfs is still root and needs the firmware.
+manual_add_modules qcom_q6v5_pas
+
+# The driver has no MODULE_FIRMWARE: the images are signed per model
+# and named by the device tree firmware-name property, e.g.
+# qcom/x1e80100/LENOVO/21N1/qcadsp8380.mbn. Include the ADSP and CDSP
+# images for every model of the affected SoCs, whether or not the
+# initramfs is built on the target machine, so that generic and
+# removable images also work.
+for firmware in /lib/firmware/qcom/sc8280xp/*/*/* \
+		/lib/firmware/qcom/x1e80100/*/*/*; do
+	case "${firmware##*/}" in
+	qcadsp*.mbn*|qccdsp*.mbn*|adsp_dtbs.elf*|cdsp_dtbs.elf*)
+		;;
+	*)
+		continue
+		;;
+	esac
+	# add_firmware takes the uncompressed name relative to
+	# /lib/firmware and looks for compressed variants itself
+	firmware="${firmware#/lib/firmware/}"
+	firmware="${firmware%.zst}"
+	add_firmware "${firmware%.xz}"
+done
