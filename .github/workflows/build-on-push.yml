@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           ENTRIES='[]'
           if [ -f "${PINNED_BUILD_FILE}" ]; then
-              while read -r KERNEL URL _; do
+              while read -r KERNEL URL PIN_SUITES VARIANT _; do
                   [ -n "${KERNEL}" ] || continue
                   if [ -z "${URL}" ]; then
                       echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} has no URL"
@@ -56,7 +56,19 @@ jobs:
                       echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} is not a kernel in .github/lava-boards.yml"
                       exit 1
                   fi
-                  ENTRIES=$(echo "${ENTRIES}" | jq -c --arg k "${KERNEL}" --arg u "${URL}" '. + [$ARGS.named]')
+                  # the suites the build has images for, every suite unless
+                  # the line names some: not every daily workflow builds both
+                  ENTRY_SUITES="${SUITES}"
+                  if [ -n "${PIN_SUITES}" ]; then
+                      ENTRY_SUITES=$(printf '%s' "${PIN_SUITES}" | jq -Rc 'split(",")')
+                      if ! echo "${ENTRY_SUITES}" | jq -e --argjson known "${SUITES}" \
+                          'length > 0 and all(.[]; IN($known[]))' >/dev/null; then
+                          echo "::error::${PINNED_BUILD_FILE}: ${KERNEL} names unknown suites '${PIN_SUITES}', expected some of $(echo "${SUITES}" | jq -r 'join(",")')"
+                          exit 1
+                      fi
+                  fi
+                  ENTRIES=$(echo "${ENTRIES}" | jq -c --arg k "${KERNEL}" --arg u "${URL}" \
+                      --argjson s "${ENTRY_SUITES}" --arg v "${VARIANT}" '. + [$ARGS.named]')
               done < <(sed 's/#.*//' "${PINNED_BUILD_FILE}")
           fi
 
@@ -71,9 +83,11 @@ jobs:
               echo "rebuild=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # one leg per kernel and suite
+          # one leg per kernel and suite; an entry with no suites of its own
+          # (the unpinned build) gets them all, and no variant is console
           MATRIX=$(echo "${ENTRIES}" | jq -c --argjson suites "${SUITES}" \
-              '{include: [.[] as $e | $suites[] as $s | {kernel: $e.k, url: $e.u, suite: $s}]}')
+              '{include: [.[] as $e | ($e.s // $suites)[] as $s |
+                  {kernel: $e.k, url: $e.u, suite: $s, variant: ($e.v // "")}]}')
           echo "${MATRIX}" | jq
           echo "test_matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
@@ -123,6 +137,8 @@ jobs:
       # the pinned build if there is one, the build we just made otherwise
       url: ${{ matrix.url || needs.build.outputs.artifacts_url }}
       suite: ${{ matrix.suite }}
+      # a pin that names no variant is tested on the console images
+      variant: ${{ matrix.variant || 'console' }}
       # the boards tested come from .github/lava-boards.yml
       kernel: ${{ matrix.kernel }}
 
