@@ -488,8 +488,18 @@ actions:
       - libspa-0.2-libcamera
       # audio
       - pipewire
+      # OP-TEE normal world daemon; serves secure storage and other RPCs
+      # for OP-TEE TAs such as the firmware TPM (fTPM) in the open boot
+      # stack. NB: Debian's tee-supplicant.service starts unconditionally
+      # and fails on boards without OP-TEE; this is already fixed in
+      # optee_client upstream with a udev rule starting a
+      # tee-supplicant@.service instance on /dev/teepriv* devices, see
+      # https://bugs.debian.org/1149302
+      - tee-supplicant
       # power management, notably throttling
       - thermald
+      # TPM 2.0 utilities, e.g. to test the fTPM
+      - tpm2-tools
 
   - action: apt
     description: Install qcom-linux-testkit dependencies
