@@ -7,6 +7,7 @@
 # $kernelpackage (singular) is deprecated, superseded by $kernelpackages
 {{- $kernelpackages := or .kernelpackages .kernelpackage "linux-image-qcom-next,linux-headers-qcom-next" }}
 {{- $overlays := or .overlays "none" }}
+{{- $workarounds := or .workarounds "none" }}
 {{- $qliaptrepo := or .qliaptrepo "true" }}
 {{- $buildid := or .buildid "" }}
 {{- $snapshot := or .snapshot "" }}
@@ -181,6 +182,9 @@ actions:
       echo "VARIANT_ID={{$variant}}" >>/etc/buildinfo
 {{- if $snapshot }}
       echo "SNAPSHOT={{$snapshot}}" >>/etc/buildinfo
+{{- end }}
+{{- if ne $workarounds "none" }}
+      echo "WORKAROUNDS={{$workarounds}}" >>/etc/buildinfo
 {{- end }}
 
   # after debootstrap, only a basic etc/apt/sources.list is created; add more
@@ -646,23 +650,6 @@ actions:
 {{- end }}
 {{- end }}
 
-{{- range $overlay := split "," $overlays }}
-{{- if eq $overlay "dtb-loader" }}
-  # The kernel-install hook installed by the dtb-loader overlay needs these at
-  # image build time, when the systemd-boot postinst runs "kernel-install add",
-  # and on the running system, so that a kernel upgrade re-wraps the new kernel
-  # instead of quietly installing one with no device tree.
-  - action: apt
-    description: Install DTB loader generation
-    recommends: true
-    packages:
-      # provides stubblify, the hardware ID database and the finddtbs script
-      - stubble
-      # provides the systemd-stub used as DTB loader
-      - systemd-boot-efi
-{{- end }}
-{{- end }}
-
   # this is currently needed on boards such as RB1 which are using Android
   # bootloader to check the boot count of the boot_a/boot_b partitions
   - action: apt
@@ -796,19 +783,18 @@ actions:
       rm -rf "$workdir"
 {{- end }}
 
-  # systemd recommends systemd-tpm, but it isn't used; on Snapdragon
-  # Windows-on-ARM laptops, the firmware advertises a TPM2 in the EFI
-  # variables but no device is exposed for it ("TPM2 Support: firmware
-  # only, driver unavailable" in bootctl status), so its units wait for a
-  # long timeout on boot; see #717
-  - action: run
-    description: Purge systemd-tpm if installed
-    chroot: true
-    command: |
-      set -eux
-      if dpkg-query -W -f='${Status}' systemd-tpm 2>/dev/null | grep -q "ok installed"; then
-          apt-get -y purge systemd-tpm
-      fi
+  # temporary workarounds, applied once all packages are installed so they
+  # can override package and configuration state; see docs/workarounds.md
+{{- if ne $workarounds "none" }}
+{{- range $workaround := split "," $workarounds }}
+  - action: recipe
+    description: Apply workaround {{$workaround}}
+    recipe: workarounds/{{$workaround}}/recipe.yaml
+    variables:
+      suite: {{ $suite }}
+      variant: {{ $variant }}
+{{- end }}
+{{- end }}
 
   # All packages are installed by this point, so re-enable initramfs
   # generation (see "Disable initramfs generation until all packages are
