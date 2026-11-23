@@ -52,3 +52,11 @@ qrb2210-rb1:
   - test: fastrpc_test_adsp
     comment: "fails on linux-next, https://github.com/qualcomm-linux/qcom-deb-images/issues/696"
     kernels: [linux-next]
+
+"*":
+  # every kernel flavour but debian rejects the Debian-signed regulatory.db
+  # that wireless-regdb selects, and WiFi_Firmware_Driver fails on the
+  # cfg80211 error that logs; remove once the PR below is merged
+  - test: WiFi_Firmware_Driver
+    comment: "cfg80211 rejects the Debian-signed regulatory.db, fixed by https://github.com/qualcomm-linux/qcom-deb-images/pull/863"
+    kernels: [arduino, linux-next, mainline, qcom-7.3, qcom-laptops, qcom-next]
