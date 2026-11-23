@@ -116,7 +116,7 @@ jobs:
 
       - name: Render boot jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@6836288a04dbfaa1124182ed5b9c4d23bce7814b # master
+        uses: qualcomm-linux/lava-test-plans@cef206e39494dbcd4638f63d9318222dd6f2ad54 # master
         with:
           machines: ${{ inputs.devices }}
           build_url: ${{ inputs.url }}
@@ -272,7 +272,7 @@ jobs:
 
       - name: Render pre-merge jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@6836288a04dbfaa1124182ed5b9c4d23bce7814b # master
+        uses: qualcomm-linux/lava-test-plans@cef206e39494dbcd4638f63d9318222dd6f2ad54 # master
         with:
           machines: ${{ needs.boot-job-result.outputs.booted_devices }}
           build_url: ${{ inputs.url }}
