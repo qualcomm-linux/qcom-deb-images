@@ -785,6 +785,8 @@ actions:
                   -or -name '*.melf' \
                   -or -name '*.fv' \
                   -or -name '*.mbn' \
+                  -or -name '*.xz' \
+                  -or -name '*.lzma' \
                   -or -name 'qsahara_device_programmer.xml' \
               \) \
               -exec cp --preserve=mode,timestamps -v '{}' "${flash_dir}" \;
