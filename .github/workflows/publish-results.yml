@@ -147,9 +147,10 @@ jobs:
               *) conclusion=failure; title="❌ Tests failed" ;;
           esac
           mkdir -p summaries
-          # a check run's text is limited to 65535 characters
+          # a check run's text is limited to 65535 characters; -j as -r
+          # would add a newline after the cut and take it over the limit
           find summaries -type f -exec cat {} + |
-              jq -Rrs '.[0:65535]' > summary.md
+              jq -Rjs '.[0:65535]' > summary.md
           echo "conclusion=${conclusion}" >> "$GITHUB_OUTPUT"
           # built with jq so quotes and newlines are escaped
           output=$(jq -c -n \
