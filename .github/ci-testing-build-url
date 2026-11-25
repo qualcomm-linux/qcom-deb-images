@@ -21,13 +21,14 @@
 # succeeded, as of 2026-11-25. Several of those runs are still red: it is their
 # LAVA half that failed, not the images these URLs point at. qcom-7.3 and
 # qcom-laptops are tested on the one suite and variant their daily workflows
-# test.
-qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45487999967-1/
+# test. qcom-next and qcom-7.3 are instead manual builds of main at 5b2242d1
+# from later on 2026-11-25.
+qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45696790977-1/
 arduino     https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45522671017-1/
 linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45551096901-1/
 debian      https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45565481435-1/
 mainline    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45582155669-1/
-qcom-7.3    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45506277815-1/ trixie xfce
+qcom-7.3    https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45696710458-1/ trixie xfce
 qcom-laptops https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45537532191-1/ forky gnome
 #
 # A URL is the artifact prefix of a previous run, which holds the images of
