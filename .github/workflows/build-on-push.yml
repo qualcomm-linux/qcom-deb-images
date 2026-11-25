@@ -84,10 +84,13 @@ jobs:
           fi
 
           # one leg per kernel and suite; an entry with no suites of its own
-          # (the unpinned build) gets them all, and no variant is console
+          # (the unpinned build) gets them all, and no variant is console.
+          # build is the <run id>-<attempt> the URL ends in, to name the leg
+          # by rather than the whole URL
           MATRIX=$(echo "${ENTRIES}" | jq -c --argjson suites "${SUITES}" \
               '{include: [.[] as $e | ($e.s // $suites)[] as $s |
-                  {kernel: $e.k, url: $e.u, suite: $s, variant: ($e.v // "")}]}')
+                  {kernel: $e.k, url: $e.u, suite: $s, variant: ($e.v // ""),
+                   build: ($e.u | rtrimstr("/") | split("/") | last // "")}]}')
           echo "${MATRIX}" | jq
           echo "test_matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
@@ -115,7 +118,12 @@ jobs:
       contents: read
 
   test:
-    # one run per kernel and suite, from the matrix the resolver built
+    # one run per kernel and suite, from the matrix the resolver built. Name it
+    # explicitly: the default lists every matrix value, the URL among them
+    name: >-
+      ${{ matrix.kernel }}, ${{ matrix.suite
+      }}${{ matrix.variant && format(', {0}', matrix.variant) || ''
+      }}${{ matrix.build && format(', build {0}', matrix.build) || '' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-url.outputs.test_matrix) }}
