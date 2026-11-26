@@ -117,13 +117,9 @@ jobs:
       # file, device-tree-compiler and u-boot-tools are needed by qcom-dtb-metadata
       # e2fsprogs (debugfs) is needed to extract the root filesystem for the SBOM
       # python3-apt and python3-debian are needed by
-      #   scripts/compliance/syft-apt-origins.py and python3-apt by the tests of
-      #   scripts/compliance/kernel-cves.py
-      # python3-distro-info is needed by the tests of
-      #   scripts/compliance/grype-db-add-advisories.py and
-      #   scripts/compliance/kernel-cves.py
+      #   scripts/compliance/syft-apt-origins.py
       - name: Install debos and dependencies of the recipes and local tests
-        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml python3-yaml python3-jsonschema device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian python3-distro-info
+        run: apt -y install debian-archive-keyring debos file make mmdebstrap mtools python3-pexpect python3-pytest qemu-efi-aarch64 qemu-system-arm xmlstarlet python3-defusedxml python3-yaml python3-jsonschema device-tree-compiler u-boot-tools pigz e2fsprogs python3-apt python3-debian
 
       # Use the "download-syft" sub-action to install Syft and keep it
       # updated via Dependabot.
@@ -356,9 +352,10 @@ jobs:
            # The plan is to move this entire workflow to use make targets
            # instead but all at once. See #74 and #159.
 
-           # rootfs/ is a build artifact, so should not be scanned for tests
+           # Only run the QEMU test on the image here; the unit tests of the
+           # scripts run in test-unit.yml
            # --verbose enables verbose output which shows each test's full name
            #   and full result which makes CI failures much easier to diagnose
            # --capture=no so pytest doesn't swallow stdout and only prints it
            #   after a job fails. Instead, stream the log live.
-           py.test-3 --verbose --capture=no --ignore=rootfs
+           py.test-3 --verbose --capture=no ci/qemu_test.py

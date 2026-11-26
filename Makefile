@@ -77,10 +77,23 @@ $(DISK_SDCARD_IMAGES): debos-recipes/qualcomm-linux-debian-image.yaml rootfs.tar
 flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 	$(DEBOS_CMD) $<
 
+# PYTEST_OPTS can be used to pass extra options to pytest, e.g.:
+#     make PYTEST_OPTS=--verbose test
+PYTEST_OPTS ?=
+
+# run all the tests
 .PHONY: test
-test: disk-ufs.img
-	# rootfs/ is a build artifact, so should not be scanned for tests
-	py.test-3 --ignore=rootfs
+test: test-qemu test-unit
+
+# boot disk-ufs.img in QEMU and test it
+.PHONY: test-qemu
+test-qemu: disk-ufs.img
+	py.test-3 $(PYTEST_OPTS) ci/qemu_test.py
+
+# unit tests of the scripts; these don't need an image
+.PHONY: test-unit
+test-unit:
+	py.test-3 $(PYTEST_OPTS) --ignore=ci/qemu_test.py ci/
 
 .PHONY: clean
 clean:
