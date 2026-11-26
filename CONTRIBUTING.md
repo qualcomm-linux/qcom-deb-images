@@ -80,7 +80,7 @@ gh workflow run linux-arduino.yml --ref "$BRANCH"
 gh workflow run linux-next.yml --ref "$BRANCH"
 gh workflow run linux-qcom-next.yml --ref "$BRANCH"
 gh workflow run linux-mainline.yml --ref "$BRANCH"
-gh workflow run u-boot.yml --ref "$BRANCH"
+gh workflow run build-u-boot-rb1.yml --ref "$BRANCH"
 
 # list the workflows ran on this branch
 gh run list --branch "$BRANCH"
@@ -95,6 +95,7 @@ A few things to keep in mind:
 - The workflow file must already exist with a `workflow_dispatch:` trigger on `main`, but the version that runs is the one on the branch you select.
   Changes to an existing workflow can be tested before they are merged but a brand new workflow cannot be run until it lands on `main`.
 - Changes to a `schedule:`, `push:` or `workflow_run:` trigger itself cannot be tested this way, as GitHub always reads those from `main`.
+- `build-u-boot-rb1.yml` builds and boot tests U-Boot from any branch, but only publishes it as `u-boot-rb1-latest` from `main`, so a branch run doesn't change the U-Boot of other image builds.
 - These builds use the self-hosted runners and the LAVA boards, which are shared and limited. A full run takes a while; avoid queueing more of them than you need.
 
 ## Commit messages
