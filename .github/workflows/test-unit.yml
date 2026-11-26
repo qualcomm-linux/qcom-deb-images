@@ -27,7 +27,10 @@ jobs:
           - trixie
           - forky
     container:
-      image: public.ecr.aws/debian/debian:${{ matrix.suite }}
+      # use Docker Hub rather than ECR Public: GitHub-hosted runners are
+      # outside AWS, where anonymous ECR Public pulls hit "Data limit
+      # exceeded", and they are exempt from Docker Hub pull rate limits
+      image: debian:${{ matrix.suite }}
     permissions:
       contents: read # actions/checkout
     steps:
