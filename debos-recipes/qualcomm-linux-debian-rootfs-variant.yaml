@@ -10,7 +10,7 @@
 
 # The supported variants, documented in the "Supported variants" section of
 # README.md
-{{- $allowed_variants := list "minimal" "console" "xfce" "gnome" "weston" "weston-multimedia" }}
+{{- $allowed_variants := list "minimal" "console" "xfce" "gnome" "gnome-multimedia" "weston" "weston-multimedia" }}
 {{- if not (has $variant $allowed_variants) }}
 {{- fail (printf "unknown variant %q" $variant) }}
 {{- end }}
@@ -67,7 +67,7 @@ actions:
       - synaptic
 {{- end }}
 
-{{- if eq $variant "gnome" }}
+{{- if has $variant (list "gnome" "gnome-multimedia") }}
 # The following list of package is a manual selection from the gnome-core
 # metapackage with some pruning; some apps were replaced after trixie, so these
 # differ between trixie and later suites. The list for suites after trixie is an
@@ -153,7 +153,7 @@ actions:
 {{- end }}
 {{- end }}
 
-{{- if has $variant (list "xfce" "gnome") }}
+{{- if has $variant (list "xfce" "gnome" "gnome-multimedia") }}
   - action: apt
     description: Install common desktop packages
     recommends: false
@@ -216,7 +216,7 @@ actions:
     source: overlays/weston-session
 {{- end }}
 
-{{- if eq $variant "weston-multimedia" }}
+{{- if has $variant (list "gnome-multimedia" "weston-multimedia") }}
 # Install the accelerated multimedia stack: out-of-tree kernel drivers and
 # closed source user-space from the Qualcomm Linux APT repository.
   - action: apt
