@@ -9,11 +9,14 @@ sound/*
 drivers/media/*
 
 # Display: only the Qualcomm GPU/display driver and the panels and bridges
-# its boards use.
+# its boards use, plus virtio-gpu and simpledrm so d-i shows on the screen
+# in QEMU.
 drivers/gpu/*
 !drivers/gpu/drm/msm/*
 !drivers/gpu/drm/panel/*
 !drivers/gpu/drm/bridge/*
+!drivers/gpu/drm/virtio/*
+!drivers/gpu/drm/tiny/simpledrm.ko*
 
 # Wifi: the installer installs from its own pool, and its initrds have no
 # wifi firmware.
