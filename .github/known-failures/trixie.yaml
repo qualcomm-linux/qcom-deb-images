@@ -7,6 +7,11 @@
 # The failures below were all observed in run 35371401209 and are collected in
 # https://github.com/qualcomm-linux/qcom-deb-images/issues/645.
 
+purwa-iot-evk:
+  - test: RTC_Validation
+    comment: "the dmesg scan matches the DRM warning of https://github.com/qualcomm-linux/kernel/issues/1583, https://github.com/qualcomm-linux/qcom-linux-testkit/issues/721"
+    kernels: [qcom-next]
+
 qcs615-ride:
   - test: EFI_Variable_Validation
     comment: "fails with the stock Debian kernel, https://github.com/qualcomm-linux/qcom-deb-images/issues/645"
