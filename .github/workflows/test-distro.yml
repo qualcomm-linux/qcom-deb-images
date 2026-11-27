@@ -134,6 +134,7 @@ jobs:
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
             DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
+            AUTOLOGIN_OVERLAY_URL=https://raw.githubusercontent.com/qualcomm-linux/lava-test-plans/${{ env.LAVA_TEST_PLANS_REF }}/lava_test_plans/projects/qcom-deb-images/files/serial-getty-autologin.conf
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
@@ -290,6 +291,7 @@ jobs:
             AUTH_HEADER_NAME=QLIAuthorization
             AUTH_HEADER_TOKEN=Q_QLI_S3_TOKEN
             DEBIAN_RELEASE=${{ inputs.suite }}${{ inputs.variant != 'console' && format('-{0}', inputs.variant) || '' }}
+            AUTOLOGIN_OVERLAY_URL=https://raw.githubusercontent.com/qualcomm-linux/lava-test-plans/${{ env.LAVA_TEST_PLANS_REF }}/lava_test_plans/projects/qcom-deb-images/files/serial-getty-autologin.conf
             [EXTRA_METADATA]
             build-type = "${{ steps.meta.outputs.build_type }}"
             build-run-id = "${{ inputs.build_id }}"
