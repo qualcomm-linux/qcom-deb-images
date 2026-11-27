@@ -12,7 +12,6 @@ qcom-next:
   boot:
     - eliza-cqs-evk-emmc
     - glymur-crd
-    - hamoa-iot-evk
     - kaanapali-mtp
     - mahua-crd
     - purwa-iot-evk
