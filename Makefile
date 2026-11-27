@@ -81,6 +81,30 @@ flash: debos-recipes/qualcomm-linux-debian-flash.yaml dtbs.tar.gz
 #     make PYTEST_OPTS=--verbose test
 PYTEST_OPTS ?=
 
+# The installer boots the kernel from KERNEL_DEB, a linux-image .deb, and
+# installs SUITE, e.g.:
+#     make installer KERNEL_DEB=linux-image-custom.deb SUITE=forky
+# INSTALLER_OPTS are passed to the installer build script, e.g.:
+#     make installer KERNEL_DEB=... INSTALLER_OPTS="--kernel-name qcom-next"
+# live-build has to run as root, so the installer targets use sudo unless make
+# already runs as root.
+KERNEL_DEB ?=
+SUITE ?= trixie
+INSTALLER_OPTS ?=
+INSTALLER_SUDO := $(if $(filter 0,$(shell id -u)),,sudo)
+
+.PHONY: installer
+installer:
+	@if [ -z "$(KERNEL_DEB)" ]; then \
+		echo "Set KERNEL_DEB to the kernel's linux-image .deb" >&2; \
+		exit 1; \
+	fi
+	$(INSTALLER_SUDO) installer/build-installer.sh --suite $(SUITE) $(INSTALLER_OPTS) $(KERNEL_DEB)
+
+.PHONY: clean-installer
+clean-installer:
+	$(INSTALLER_SUDO) rm -rf installer/build
+
 # run all the tests
 .PHONY: test
 test: test-qemu test-unit
