@@ -79,12 +79,20 @@ esac
 # |--------|--------------|-------------------|-----------------|
 # | ESP    | efi          | efi.bin           | disk-media.img1 |
 # | rootfs | rootfs       | rootfs.img        | disk-media.img2 |
-# | DTBs   | dtb_a, dtb_b | dtb.bin           | dtb.bin         |
+# | DTBs   | dtb_a, dtb_b,| dtb.bin           | dtb.bin         |
+# |        | dtb,         |                   |                 |
+# |        | dtb_BACKUP   |                   |                 |
 # | CDTs   | cdt          | unset / per board | from download   |
 # |--------|--------------|-------------------|-----------------|
+#
+# Most layouts name their DTB partitions dtb_a/dtb_b; iq-x7181-evk/spinor
+# uses dtb/dtb_BACKUP since
+# https://github.com/qualcomm-linux/qcom-ptool/pull/122
 partition_map="cdt=$(basename "${CDT_FILENAME}")"
 partition_map="${partition_map},dtb_a=${dtb}"
 partition_map="${partition_map},dtb_b=${dtb}"
+partition_map="${partition_map},dtb=${dtb}"
+partition_map="${partition_map},dtb_BACKUP=${dtb}"
 partition_map="${partition_map},efi=${esp}"
 partition_map="${partition_map},rootfs=${rootfs}"
 
