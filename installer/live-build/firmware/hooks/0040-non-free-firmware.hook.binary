@@ -1,0 +1,87 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb binary's binary_package-lists has
+# added the packages of package-lists/*.list.binary to the pool.
+#
+# binary_package-lists files every package whose Section contains
+# "non-free" (so the firmware packages of firmware.list.binary, which are
+# in non-free-firmware) under pool/non-free/ and dists/*/non-free/, but
+# the Release it writes only lists the parent archive areas' components
+# ("main non-free-firmware"). apt on the target skips a component Release
+# doesn't list, so pkgsel couldn't install them. Moves them to the
+# non-free-firmware component, then regenerates its Packages indices and
+# each dists/*/Release. (0060-prune-pool.hook.binary only does so when it
+# removes something.)
+set -euo pipefail
+
+[ -d pool/non-free ] || exit 0
+
+if ! command -v apt-ftparchive >/dev/null 2>&1; then
+    echo "0040-non-free-firmware: apt-ftparchive not found (install apt-utils)" >&2
+    exit 1
+fi
+
+shopt -s nullglob
+
+echo "Moving pool/non-free/ to pool/non-free-firmware/"
+for src_dir in pool/non-free/*/*/; do
+    src_dir="${src_dir%/}"
+    dest_dir="pool/non-free-firmware/${src_dir#pool/non-free/}"
+    mkdir -p "$dest_dir"
+    mv "$src_dir"/* "$dest_dir/"
+done
+rm -rf pool/non-free
+
+for dist_dir in dists/*/; do
+    dist_dir="${dist_dir%/}"
+    release="$dist_dir/Release"
+
+    [ -d "$dist_dir/non-free" ] || continue
+    # e.g. a stable -> trixie symlink
+    [ -L "$dist_dir" ] && continue
+
+    for index_dir in "$dist_dir"/non-free/binary-*; do
+        index_dir="$dist_dir/non-free-firmware/${index_dir##*/}"
+        mkdir -p "$index_dir"
+
+        echo "Regenerating $index_dir/Packages"
+        apt-ftparchive packages pool/non-free-firmware > "$index_dir/Packages"
+        if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+            touch -d "@$SOURCE_DATE_EPOCH" "$index_dir/Packages"
+        fi
+        gzip -9 -n -c "$index_dir/Packages" > "$index_dir/Packages.gz"
+    done
+    rm -rf "$dist_dir/non-free"
+
+    [ -f "$release" ] || continue
+
+    # Keep binary_package-lists' header fields, and write the new Release
+    # outside the dist so it doesn't hash itself.
+    field() {
+        sed -n "s/^$1: //p" "$release"
+    }
+
+    echo "Regenerating $release"
+    new_release=$(mktemp)
+    apt-ftparchive \
+        -o APT::FTPArchive::Release::Origin="$(field Origin)" \
+        -o APT::FTPArchive::Release::Label="$(field Label)" \
+        -o APT::FTPArchive::Release::Suite="$(field Suite)" \
+        -o APT::FTPArchive::Release::Version="$(field Version)" \
+        -o APT::FTPArchive::Release::Codename="$(field Codename)" \
+        -o APT::FTPArchive::Release::Date="$(field Date)" \
+        -o APT::FTPArchive::Release::Architectures="$(field Architectures)" \
+        -o APT::FTPArchive::Release::Components="$(field Components)" \
+        -o APT::FTPArchive::Release::Description="$(field Description)" \
+        release "$dist_dir" > "$new_release"
+    rm -f "$release"
+    mv "$new_release" "$release"
+    chmod 0644 "$release"
+    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+        touch -d "@$SOURCE_DATE_EPOCH" "$release"
+    fi
+done
