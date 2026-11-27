@@ -1,6 +1,8 @@
 # Builds the installer images:
 #  - on trixie and forky for the qcom-next kernel
 #  - on trixie for the qcom-7.3 kernel
+#
+# See docs/installer.md.
 
 name: Build installer images
 

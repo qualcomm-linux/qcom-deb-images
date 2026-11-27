@@ -477,6 +477,20 @@ never pull a Qualcomm Linux package on upgrade. Expect reduced hardware support
 compared to the default image, as the Debian kernel does not carry the
 Qualcomm platform patches which `linux-image-qcom-next` does.
 
+## Build an installer image
+
+A customised, standalone installer image can be built with `live-build`, for
+now for the Glymur CRD only. It boots a kernel from the Qualcomm Linux APT
+repository, or from a kernel `.deb` you provide. The simplest way is to build
+it in a forky container, which only needs podman or docker:
+
+```bash
+installer/build-installer-container.sh --suite forky --kernel qcom-next
+```
+
+See [docs/installer.md](docs/installer.md) for more information about the
+installer.
+
 ## Development
 
 Want to join in the development? Changes welcome! See [CONTRIBUTING.md file](CONTRIBUTING.md) for step by step instructions.
