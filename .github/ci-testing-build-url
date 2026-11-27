@@ -21,9 +21,10 @@
 # succeeded, as of 2026-11-25. Several of those runs are still red: it is their
 # LAVA half that failed, not the images these URLs point at. qcom-7.3 and
 # qcom-laptops are tested on the one suite and variant their daily workflows
-# test. qcom-next and qcom-7.3 are instead manual builds of main at 5b2242d1
-# from later on 2026-11-25.
-qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45696790977-1/
+# test. qcom-7.3 is instead a manual build of main at 5b2242d1 from later on
+# 2026-11-25, and qcom-next the push build of main at b5955257 on 2026-11-27,
+# the first with the iq-x7181-evk spinor dtb partitions mapped.
+qcom-next   https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45989101207-1/
 arduino     https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45522671017-1/
 linux-next  https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45551096901-1/
 debian      https://qli-prod-artifacts.qualcomm.com/qcom-prd-gh-artifacts/qualcomm-linux/qcom-deb-images/45565481435-1/
