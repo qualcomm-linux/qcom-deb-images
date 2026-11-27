@@ -20,6 +20,10 @@ os-prober
 #  - tasksel, popularity-contest, installation-report: pkgsel
 #  - task-ssh-server: tasksel only offers a task whose Key: package is
 #    available, so without it "SSH server" is missing offline
+#  - sudo: user-setup, to give the first user sudo when the root account is
+#    disabled (no-root-login.cfg). It's Priority: optional, so it isn't in
+#    the standard task, and offline installs otherwise end up with root
+#    locked and no sudo
 #  - the packages of tasksel's "standard system utilities" task (every
 #    Priority: standard package): see standard-task.list.binary
 #
@@ -30,3 +34,4 @@ tasksel
 popularity-contest
 installation-report
 task-ssh-server
+sudo

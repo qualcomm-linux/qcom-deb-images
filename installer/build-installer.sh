@@ -208,9 +208,17 @@ overlay dtb-loader/dtb-loader.postinst.sh \
 # which can't mknod in a container.)
 PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
+    "$INSTALLER_DIR/live-build/defaults/preseed/network-mirror.cfg" \
+    "$INSTALLER_DIR/live-build/defaults/preseed/no-root-login.cfg" \
+    "$INSTALLER_DIR/live-build/defaults/preseed/no-swap-prompt.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
     "$INSTALLER_DIR/live-build/postinst/preseed/postinst.cfg" \
     > "$PRESEED"
+
+# Only stable suites have backports.
+if [ "$SUITE" = "trixie" ]; then
+    cat "$INSTALLER_DIR/live-build/defaults/preseed/backports.cfg" >> "$PRESEED"
+fi
 
 # The postinst.d parts install files no package ships from the dtb-loader
 # rootfs overlay, so ship it on the image as /qli/overlays/dtb-loader/, laid
@@ -220,6 +228,20 @@ cp -a "$INSTALLER_DIR/../debos-recipes/overlays/dtb-loader/." \
     "$BUILD_DIR/config/includes.binary/qli/overlays/dtb-loader/"
 
 stage "Prepare installer"
+
+# live-build's udeb_exclude (copied from debian-cd) drops
+# apt-mirror-setup, which asks "use a network mirror?", so the installer
+# never sets up a mirror and tasksel only sees the ISO's pool. lb installer
+# only builds its exclude list when ./exclude doesn't exist yet (and removes
+# it afterwards), and config/debian-installer/udeb_exclude can only add to
+# it. So pre-seed the same list without apt-mirror-setup.
+LB_UDEB_DATA="/usr/share/live/build/data/debian-cd/$SUITE"
+if [ -d "$LB_UDEB_DATA" ]; then
+    cat "$LB_UDEB_DATA/udeb_exclude" \
+        "$LB_UDEB_DATA/exclude-udebs" \
+        "$LB_UDEB_DATA/exclude-udebs-$ARCH" 2>/dev/null |
+        grep -v -e '^#' -e '^apt-mirror-setup$' > exclude || true
+fi
 
 # Add the custom kernel to the pool, so base-installer installs it on the
 # target instead of the stock one. lb installer copies the debs in
