@@ -122,7 +122,8 @@ MIRROR_ARGS+=(--mirror-chroot-security "$MIRROR_SECURITY"
     --parent-mirror-chroot-security "$MIRROR_SECURITY")
 
 # Only stable suites have backports. On trixie, the pool needs some
-# packages from them: see the package lists of the kernel topic.
+# packages from them: see the package lists of the kernel and dtb-loader
+# topics.
 BACKPORTS_ARGS=()
 if [ "$SUITE" = "trixie" ]; then
     BACKPORTS_ARGS=(--backports true)
@@ -188,6 +189,17 @@ if [ "$SUITE" = "trixie" ]; then
 fi
 overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
 
+# The target's post-install step, which runs the postinst.d parts.
+overlay postinst/postinst.sh config/includes.binary/qli/postinst.sh
+
+# The DTB loader, on the stick and on the target.
+overlay dtb-loader/package-lists/dtb-loader.list.binary \
+    config/package-lists/dtb-loader.list.binary
+overlay dtb-loader/hooks/0100-dtb-loader.hook.binary \
+    config/hooks/normal/0100-dtb-loader.hook.binary
+overlay dtb-loader/dtb-loader.postinst.sh \
+    config/includes.binary/qli/postinst.d/dtb-loader.postinst.sh
+
 # live-build's config/preseed/ only ends up as /install/preseed.cfg on the
 # image, which d-i ignores without a file= boot argument. So
 # replace-di-kernel.sh puts the preseed in the initrd as /preseed.cfg
@@ -197,7 +209,15 @@ overlay defaults/cdrom_udeb_include config/debian-cd/cdrom_udeb_include
 PRESEED="$BUILD_DIR/config/installer-preseed.cfg"
 cat "$INSTALLER_DIR/live-build/defaults/preseed/no-kernel-modules.cfg" \
     "$INSTALLER_DIR/live-build/defaults/preseed/non-free-firmware.cfg" \
+    "$INSTALLER_DIR/live-build/postinst/preseed/postinst.cfg" \
     > "$PRESEED"
+
+# The postinst.d parts install files no package ships from the dtb-loader
+# rootfs overlay, so ship it on the image as /qli/overlays/dtb-loader/, laid
+# out like the target filesystem.
+mkdir -p "$BUILD_DIR/config/includes.binary/qli/overlays/dtb-loader"
+cp -a "$INSTALLER_DIR/../debos-recipes/overlays/dtb-loader/." \
+    "$BUILD_DIR/config/includes.binary/qli/overlays/dtb-loader/"
 
 stage "Prepare installer"
 
@@ -228,6 +248,9 @@ pool_include() {
 # The firmware, which lb binary adds to the pool's non-free-firmware
 # component. lb installer adds none of it (see the lb config call above).
 pool_include firmware.list.binary
+
+# The DTB loader, which lb binary adds to the pool with its dependencies.
+pool_include dtb-loader.list.binary
 
 stage "Build bootstrap and chroot"
 
@@ -273,6 +296,22 @@ EOF
     printf 'INSTALLER_DIR=%q\n' "$INSTALLER_DIR"
     printf 'KERNEL_DIR=%q\n' "$KERNEL_DIR"
 } > "$BUILD_DIR/config/replace-di-kernel.conf"
+
+stage "Extract DTBs"
+
+# All of the kernel's DTBs, not just the ones the ISO ships: the
+# 0100-dtb-loader binary hook bundles only those with a Stubble HWID
+# entry into the Stubble EFI binary. The rest stay in config/.
+mkdir -p "$BUILD_DIR/config/dtbs"
+
+# The kernel package ships them in /usr/lib/linux-image-$KVER/.
+find "$KERNEL_DIR/usr/lib/linux-image-$KVER" -name '*.dtb' -type f \
+    -exec cp -t "$BUILD_DIR/config/dtbs/" {} +
+
+if ! compgen -G "$BUILD_DIR/config/dtbs/*.dtb" >/dev/null; then
+    echo "Kernel package contains no DTBs" >&2
+    exit 1
+fi
 
 # live-build only ships udeb_include lists for amd64, and binary_disk fails
 # for cdrom when ${ARCH}_udeb_include is missing. It leaves an existing
