@@ -1,0 +1,9 @@
+# Calamares, to install the live system to disk, with Debian's settings
+# (adapted by 0060-calamares.hook.chroot). Calamares copies the live
+# system to the target, so it also needs what d-i's pkgsel installs there
+# from dtb-loader.list.binary: the Stubble packages, for postinst.sh's
+# dtb-loader step.
+calamares
+calamares-settings-debian
+stubble
+systemd-boot-efi

@@ -6,7 +6,9 @@
 # installed system booting on Qualcomm devices. Everything else comes
 # natively from d-i and the pool; the parts in postinst.d/ only install the
 # files from the ISO's /qli/ that no package ships, then rebuild what
-# depends on them.
+# depends on them. The live system's Calamares runs it too (see
+# live-build/live/calamares/qli-postinst.conf), with the stick's /qli/
+# from the live system's mount as the second argument.
 #
 # The parts are sourced, so they share log(), install_file(),
 # install_overlay_file() and set -e, and need no exec bit. They run in
@@ -14,7 +16,7 @@
 set -e
 
 TARGET=${1:-/target}
-SRC=/cdrom/qli
+SRC=${2:-/cdrom/qli}
 
 log() {
     echo "postinst: $*"

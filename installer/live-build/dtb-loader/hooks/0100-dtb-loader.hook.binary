@@ -12,7 +12,9 @@
 #
 # Wraps the installer kernel (install/vmlinuz) in place in a DTB-loading EFI
 # stub bundling every DTB that has a Stubble HWID entry, selected automatically at
-# boot via HWID matching.
+# boot via HWID matching. Also wraps the live system's kernel, which
+# build-installer.sh puts in live/ (lb doesn't, with --linux-packages none),
+# in the same stub, which live-build's GRUB menu boots.
 #
 # The graphical and text installers only differ in their initrd and args:
 # replace-di-kernel.sh puts the same kernel in install/vmlinuz and
@@ -111,6 +113,14 @@ dtb_loader_wrap() {
 }
 
 dtb_loader_wrap "$BOOT_KERNEL"
+
+# The live system's kernel. build-installer.sh puts it in live/.
+LIVE_KERNELS=(live/vmlinuz-*)
+if [ "${#LIVE_KERNELS[@]}" -ne 1 ] || [ ! -f "${LIVE_KERNELS[0]}" ]; then
+    die "expected exactly one live/vmlinuz-*, found: ${LIVE_KERNELS[*]}"
+fi
+
+dtb_loader_wrap "${LIVE_KERNELS[0]}"
 
 # The graphical installer's entries boot the same wrapped kernel.
 [ ! -f "$GTK_KERNEL" ] || cp -p "$BOOT_KERNEL" "$GTK_KERNEL"

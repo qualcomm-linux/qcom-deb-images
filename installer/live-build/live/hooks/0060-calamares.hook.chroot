@@ -1,0 +1,57 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build chroot-stage hook (config/hooks/normal/*.chroot).
+#
+# Runs inside the live chroot after the package lists and includes.chroot
+# are installed. Adapts calamares-settings-debian's configuration to the
+# image:
+#
+#   - Its sources-media and sources-final helpers hard-code
+#     RELEASE="trixie": set the live system's suite instead, and drop the
+#     backports sources on suites without backports.
+#   - Run the qli-postinst shellprocess job (see
+#     /etc/calamares/modules/qli-postinst.conf) after the initramfs job, so
+#     Calamares installs get the same post-install steps as d-i's.
+#
+# Fails if calamares-settings-debian's files no longer look as expected,
+# rather than silently installing an unbootable system.
+set -euo pipefail
+
+die() {
+    echo "0060-calamares: $*" >&2
+    exit 1
+}
+
+# shellcheck source=/dev/null
+SUITE="$(. /etc/os-release && echo "${VERSION_CODENAME:-}")"
+[ -n "$SUITE" ] || die "no VERSION_CODENAME in /etc/os-release"
+
+HELPERS=/usr/share/calamares/helpers
+SETTINGS=/etc/calamares/settings.conf
+
+for helper in "$HELPERS/calamares-sources-media" \
+    "$HELPERS/calamares-sources-final"; do
+    grep -q '^RELEASE=' "$helper" || die "no RELEASE= in $helper"
+    sed -i "s/^RELEASE=.*/RELEASE=\"$SUITE\"/" "$helper"
+done
+
+# Only stable suites have backports, as in build-installer.sh.
+if [ "$SUITE" != "trixie" ]; then
+    sed -i '/-backports/d' "$HELPERS/calamares-sources-final"
+fi
+
+grep -qx '  - initramfs' "$SETTINGS" || die "no initramfs job in $SETTINGS"
+if grep -q '^instances:' "$SETTINGS"; then
+    die "$SETTINGS already has instances, extend them instead"
+fi
+sed -i 's/^  - initramfs$/&\n  - shellprocess@qli-postinst/' "$SETTINGS"
+cat >> "$SETTINGS" <<EOF
+
+# Added by 0060-calamares.hook.chroot.
+instances:
+- id: qli-postinst
+  module: shellprocess
+  config: qli-postinst.conf
+EOF
