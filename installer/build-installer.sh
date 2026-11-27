@@ -145,6 +145,10 @@ overlay() {
 # Installer defaults: the pool, the udebs and the tasks.
 overlay defaults/hooks/0060-prune-pool.hook.binary \
     config/hooks/normal/0060-prune-pool.hook.binary
+overlay defaults/package-lists/installer-pool.list.binary \
+    config/package-lists/installer-pool.list.binary
+overlay defaults/package-lists/standard-task.list.binary \
+    config/package-lists/standard-task.list.binary
 
 # The custom kernel, in the installer and the pool.
 overlay kernel/package-lists/linux-base.list.binary \
