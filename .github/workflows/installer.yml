@@ -1,0 +1,105 @@
+name: Build installer image
+
+on:
+  workflow_call:
+    inputs:
+      kernel:
+        description: >
+          Kernel the installer boots and installs: qcom-7.3 or qcom-next
+          (from the Qualcomm Linux APT repository)
+        required: true
+        type: string
+      suite:
+        description: Distribution suite (e.g. trixie, forky)
+        type: string
+        default: trixie
+
+    outputs:
+      artifacts_url:
+        description: "URL to retrieve build artifacts"
+        value: ${{ jobs.build-installer.outputs.url }}
+
+# grant nothing by default; every job below declares the scopes it needs. these
+# are also capped by the calling job's permissions: block, so callers have to
+# grant at least as much.
+permissions: {}
+
+jobs:
+  build-installer:
+    name: Build and upload installer image (${{ inputs.kernel }}, ${{ inputs.suite }})
+    permissions:
+      contents: read # actions/checkout
+    outputs:
+      url: ${{ steps.upload_artifacts_s3.outputs.url }}
+    runs-on: [self-hosted, qcom-u2404, arm64]
+    # fail a hung build instead of letting it run to the 6-hour default
+    timeout-minutes: 120
+    # build in forky whatever the target suite; see
+    # installer/setup-build-host.sh
+    container:
+      image: public.ecr.aws/debian/debian:forky
+      options: --privileged
+    env:
+      KERNEL: ${{ inputs.kernel }}
+      SUITE: ${{ inputs.suite }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # live-build from git, its dependencies, stubble and the Qualcomm
+      # Linux APT repository
+      - name: Set up build host
+        run: |
+          set -ux
+          installer/setup-build-host.sh --suite "${SUITE}"
+
+      # bmaptool and pigz: stage the image for publishing below
+      - name: Install publishing tools
+        run: |
+          set -ux
+          apt-get -y install bmaptool pigz
+
+      - name: Download kernel package
+        run: |
+          set -ux
+          installer/download-kernel.sh "${KERNEL}" kernel
+
+      - name: Build installer image
+        run: |
+          set -ux
+          installer/build-installer.sh --suite "${SUITE}" \
+              --kernel-name "${KERNEL}" \
+              kernel/*.deb
+
+      - name: Stage installer artifacts for publishing
+        run: |
+          set -ux
+          dir="installer-artifacts"
+          # every job of a run uploads to the same destination, so name
+          # everything after the kernel and suite
+          name="installer-${KERNEL}-${SUITE}"
+          mkdir -v "${dir}"
+          img=$(ls installer/build/"${SUITE}-${KERNEL}"/*.iso)
+          bmaptool create "${img}" >"${dir}/${name}.iso.bmap"
+          pigz -c "${img}" >"${dir}/${name}.iso.gz"
+          # generate sha256sums for all artifacts
+          (cd "${dir}" && sha256sum * | tee "${name}-sha256sums.txt")
+
+      # upload to a cloud storage space accessible by Axiom
+      - name: Upload private artifacts (S3)
+        uses: qualcomm-linux/upload-private-artifact-action@4940e9327cd7386acdb908b61c714c079b7d754b # aws-v4
+        id: upload_artifacts_s3
+        with:
+          path: installer-artifacts
+          # these should be the defaults
+          s3_bucket: qcom-prd-gh-artifacts
+          destination: ${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.run_id }}-${{ github.run_attempt }}/
+
+      - name: "Print output"
+        env:
+          build_url: ${{ steps.upload_artifacts_s3.outputs.url }}
+        run: |
+          echo "Downloads URL: ${build_url}"
+          echo "## Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "[${build_url}](${build_url})" >> $GITHUB_STEP_SUMMARY
