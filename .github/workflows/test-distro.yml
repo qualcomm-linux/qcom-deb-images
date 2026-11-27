@@ -83,7 +83,7 @@ env:
   # The revision of lava-test-plans the jobs are rendered with. It is pinned on
   # the uses: lines below, which cannot take an expression, so keep this in step
   # with them - it is only recorded in the job metadata.
-  LAVA_TEST_PLANS_REF: a357d0d4836f1091de0d3384bae07cc046af9595
+  LAVA_TEST_PLANS_REF: ec7ad3c2deeff0108b1161e1afa2faed1f0bb061
 
 jobs:
   prepare-boot-jobs:
@@ -116,7 +116,7 @@ jobs:
 
       - name: Render boot jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@a357d0d4836f1091de0d3384bae07cc046af9595 # wip/obbardc/qcom-deb-images-flaky
+        uses: qualcomm-linux/lava-test-plans@ec7ad3c2deeff0108b1161e1afa2faed1f0bb061 # wip/obbardc/qcom-deb-images-flaky
         with:
           machines: ${{ inputs.devices }}
           build_url: ${{ inputs.url }}
@@ -273,7 +273,7 @@ jobs:
 
       - name: Render pre-merge jobs
         id: lava-test-plans
-        uses: qualcomm-linux/lava-test-plans@a357d0d4836f1091de0d3384bae07cc046af9595 # wip/obbardc/qcom-deb-images-flaky
+        uses: qualcomm-linux/lava-test-plans@ec7ad3c2deeff0108b1161e1afa2faed1f0bb061 # wip/obbardc/qcom-deb-images-flaky
         with:
           machines: ${{ needs.boot-job-result.outputs.booted_devices }}
           build_url: ${{ inputs.url }}
