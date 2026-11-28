@@ -14,7 +14,6 @@ qcom-next:
     - glymur-crd
     - kaanapali-mtp
     - mahua-crd
-    - monaco-evk
     - purwa-iot-evk
     - qcs615-ride
     - qcs6490-rb3gen2
