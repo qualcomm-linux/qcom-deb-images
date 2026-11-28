@@ -1,0 +1,5 @@
+# Calamares' bootloader-config step installs grub-efi on the target from
+# the stick's pool. lb installer only adds grub-efi-arm64 and its
+# dependencies, so without the grub-efi metapackage the step falls back
+# to the network and fails offline.
+grub-efi

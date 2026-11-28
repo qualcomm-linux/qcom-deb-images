@@ -1,0 +1,27 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# live-build binary-stage hook (config/hooks/normal/*.binary).
+#
+# Runs non-chrooted, cwd=binary/, after lb binary's binary_package-lists has
+# added the packages of *.list.binary to the pool, and before
+# 0060-prune-pool.hook.binary, the GRUB hooks and 0100-dtb-loader.hook.binary,
+# which wraps the kernel this puts in install/.
+#
+# Replaces the kernel in the installer's initrds with the custom one, which
+# build-installer.sh unpacks to $KERNEL_DIR, using lib/replace-di-kernel.sh.
+#
+# build-installer.sh writes INSTALLER_DIR and KERNEL_DIR to
+# config/replace-di-kernel.conf.
+set -euo pipefail
+
+# shellcheck source=/dev/null
+. ../config/replace-di-kernel.conf
+
+# The rules leave the modules the installer doesn't need out of its initrds.
+"$INSTALLER_DIR/live-build/kernel/lib/replace-di-kernel.sh" \
+    ../config/installer-preseed.cfg \
+    "$INSTALLER_DIR/live-build/kernel/initrd-modules.rules" \
+    "$KERNEL_DIR" \
+    install

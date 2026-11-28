@@ -1,0 +1,3 @@
+# tasksel's GNOME task for the ISO's pool, so it can be installed offline
+# (see defaults/package-lists/installer-pool.list.binary).
+task-gnome-desktop
