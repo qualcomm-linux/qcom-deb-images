@@ -39,6 +39,11 @@ arduino:
     - qrb2210-arduino-imola
 
 linux-next:
+  # monaco-evk is left out until the fixes for its UFS boot failure are
+  # merged upstream:
+  # https://github.com/qualcomm-linux/kernel/issues/758
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1951
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1977
   boot:
     - glymur-crd
     - qcs6490-rb3gen2
@@ -50,6 +55,11 @@ debian:
     - qcs6490-rb3gen2
 
 mainline:
+  # monaco-evk is left out until the fixes for its UFS boot failure are
+  # merged upstream:
+  # https://github.com/qualcomm-linux/kernel/issues/758
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1951
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1977
   boot:
     - glymur-crd
     - qcs6490-rb3gen2
