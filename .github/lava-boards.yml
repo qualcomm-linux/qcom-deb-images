@@ -29,9 +29,13 @@ qcom-laptops:
     - glymur-crd
 
 arduino:
+  # early/hwe/arduino is for the UNO Q and VENTUNO Q boards; monaco-evk is
+  # left out, as the branch lacks the fixes for its UFS boot failure:
+  # https://github.com/qualcomm-linux/kernel/issues/758
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1951
+  # https://github.com/qualcomm-linux/kernel-topics/pull/1977
   boot:
     - monaco-arduino-monza
-    - monaco-evk
     - qrb2210-arduino-imola
 
 linux-next:
